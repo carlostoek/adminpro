@@ -13,6 +13,7 @@ y este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - T8: Channel Service - Gestión completa de canales VIP y Free con verificación de permisos y envío de publicaciones
 - T9: Config Service - Gestión de configuración global del bot, tiempos de espera, reacciones y tarifas
 - T10: Middlewares - Implementación de AdminAuthMiddleware y DatabaseMiddleware para autenticación de administradores e inyección automática de sesiones de base de datos
+- T11: FSM States - Implementación de estados FSM para administradores y usuarios para flujos de configuración y canje de tokens
 
 ## [1.0.0] - 2025-12-11
 
@@ -25,7 +26,7 @@ y este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - T7: Sistema de cola Free con wait_time configurable
 - T7: Invite links de un solo uso (member_limit=1)
 - T7: Gestión de tokens VIP: generación, validación, canje y extensión
-- T7: Gestión de suscriptores VIP: creación, extensión y expiración automática
+- T7: Gestión de suscriptores VIP: creación, extención y expiración automática
 - T7: Gestión de solicitudes Free: creación y procesamiento automático
 - T7: Limpieza automática de datos antiguos
 - T8: ChannelService con métodos para gestión de canales VIP y Free
@@ -41,6 +42,13 @@ y este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - T9: Configuración y gestión de tarifas de suscripción
 - T9: Validación de configuración completa y resumen de estado
 - T9: Métodos para resetear configuración a valores por defecto
+- T11: ChannelSetupStates - Estados para configurar canales VIP y Free con extracción de ID de canal desde reenvío de mensajes
+- T11: WaitTimeSetupStates - Estados para configurar tiempo de espera del canal Free con validación de entrada numérica
+- T11: BroadcastStates - Estados para envío de publicaciones a canales con soporte para diferentes tipos de contenido
+- T11: TokenRedemptionStates - Estados para canje de tokens VIP con validación de formato y vigencia
+- T11: FreeAccessStates - Estados para solicitud de acceso Free con manejo de solicitudes pendientes
+- T11: Implementación de ejemplos de uso de estados FSM en handlers de administración y usuarios
+- T11: Documentación completa de estados FSM con ejemplos de implementación y flujos de usuario
 
 ### Changed
 - Refactorización completa de la arquitectura de servicios para usar el contenedor

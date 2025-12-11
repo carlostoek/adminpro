@@ -173,6 +173,55 @@ async def handler_con_bd(message: Message, session: AsyncSession):
         await message.answer("Usuario no encontrado")
 ```
 
+### FSM States (T11)
+Implementación de Finite State Machine (FSM) para manejar flujos interactivos con múltiples pasos:
+
+- **Admin States:** Estados para flujos de administración como configuración de canales y envío de publicaciones
+- **User States:** Estados para flujos de usuarios como canje de tokens VIP y solicitud de acceso Free
+- **Storage:** MemoryStorage para mantener estados en memoria (ligero para Termux)
+- **Flujos implementados:**
+  - Configuración de canales VIP y Free (extracción de IDs de canales)
+  - Configuración de tiempo de espera del canal Free
+  - Envío de publicaciones a canales (broadcast)
+  - Canje de tokens VIP
+  - Solicitud de acceso Free
+
+**Ejemplo de uso de estados FSM:**
+```python
+from aiogram.fsm.context import FSMContext
+from bot.states.admin import ChannelSetupStates
+
+# Handler que inicia un flujo FSM
+@admin_router.message(Command("setup_vip_channel"))
+async def setup_vip_channel_start(message: Message, state: FSMContext):
+    await message.answer("Por favor, reenvía un mensaje del canal VIP para extraer su ID:")
+    await state.set_state(ChannelSetupStates.waiting_for_vip_channel)
+
+# Handler que procesa el siguiente paso del flujo FSM
+@admin_router.message(ChannelSetupStates.waiting_for_vip_channel, F.forward_from_chat)
+async def process_vip_channel(message: Message, state: FSMContext):
+    channel_id = str(message.forward_from_chat.id)
+
+    # Aquí se procesaría la configuración del canal
+    await message.answer(f"Canal VIP configurado con ID: {channel_id}")
+    await state.clear()  # Limpiar estado al finalizar flujo
+
+# Handler para manejar entradas inválidas durante el flujo FSM
+@admin_router.message(ChannelSetupStates.waiting_for_vip_channel)
+async def invalid_vip_channel(message: Message):
+    await message.answer("Por favor, reenvía un mensaje del canal VIP (no un mensaje normal).")
+```
+
+**Estados Admin disponibles:**
+- `ChannelSetupStates`: Configuración de canales VIP y Free
+- `WaitTimeSetupStates`: Configuración de tiempo de espera del canal Free
+- `BroadcastStates`: Envío de publicaciones a canales
+
+**Estados User disponibles:**
+- `TokenRedemptionStates`: Canje de tokens VIP
+- `FreeAccessStates`: Solicitud de acceso Free
+```
+
 ## 🔧 Desarrollo
 
 Este proyecto está en desarrollo iterativo. Consulta las tareas completadas:
@@ -181,6 +230,7 @@ Este proyecto está en desarrollo iterativo. Consulta las tareas completadas:
 - [x] T8: Channel Service - Gestión completa de canales VIP y Free con verificación de permisos y envío de publicaciones
 - [x] T9: Config Service - Gestión de configuración global del bot, tiempos de espera, reacciones y tarifas
 - [x] T10: Middlewares - Implementación de AdminAuthMiddleware y DatabaseMiddleware para autenticación de administradores e inyección automática de sesiones de base de datos
+- [x] T11: FSM States - Implementación de estados FSM para administradores y usuarios para flujos de configuración y canje de tokens
 - [ ] ONDA 1: MVP Funcional (T1-T17)
 - [ ] ONDA 2: Features Avanzadas (T18-T33)
 - [ ] ONDA 3: Optimización (T34-T44)

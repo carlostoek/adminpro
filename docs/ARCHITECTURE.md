@@ -370,21 +370,302 @@ async def admin_stats_handler(message: Message, session: AsyncSession):
 
 **Storage:** MemoryStorage (ligero para Termux)
 
-**Estados Planeados:**
+**Estados Implementados:**
 
-**AdminStates:**
-- `admin_menu` - Menú principal
-- `selecting_token_type` - Eligiendo tipo de token
-- `entering_token_duration` - Ingresando duración
-- `confirming_token_creation` - Confirmando creación
-- `viewing_token_list` - Visualizando tokens
-- etc.
+#### ChannelSetupStates
+Estados para configurar canales VIP y Free.
 
-**UserStates:**
-- `user_menu` - Menú principal
-- `entering_vip_token` - Ingresando token VIP
-- `requesting_free_access` - Solicitando acceso Free
-- etc.
+**Flujo típico:**
+1. Admin selecciona "Configurar Canal VIP"
+2. Bot entra en estado waiting_for_vip_channel
+3. Admin reenvía mensaje del canal
+4. Bot extrae ID del canal y configura
+5. Bot sale del estado (clear state)
+
+**Extracción de ID:**
+- Usuario reenvía mensaje del canal → Bot extrae forward_from_chat.id
+- ID extraído es negativo y empieza con -100
+- Si no es forward o no es de canal → Error claro
+
+**Estados disponibles:**
+- `waiting_for_vip_channel` - Esperando que admin reenvíe mensaje del canal VIP
+- `waiting_for_free_channel` - Esperando que admin reenvíe mensaje del canal Free
+
+**Ejemplo de uso:**
+```python
+from aiogram.fsm.context import FSMContext
+from bot.states.admin import ChannelSetupStates
+
+@admin_router.message(Command("setup_vip_channel"))
+async def setup_vip_channel_start(message: Message, state: FSMContext):
+    await message.answer("Por favor, reenvía un mensaje del canal VIP para extraer su ID:")
+    await state.set_state(ChannelSetupStates.waiting_for_vip_channel)
+
+@admin_router.message(ChannelSetupStates.waiting_for_vip_channel, F.forward_from_chat)
+async def process_vip_channel(message: Message, state: FSMContext):
+    channel_id = str(message.forward_from_chat.id)
+
+    # Validar que sea un canal y no un grupo
+    if int(channel_id) < 0 and channel_id.startswith('-100'):
+        # Procesar configuración del canal VIP
+        success, msg = await container.channel.setup_vip_channel(channel_id)
+        if success:
+            await message.answer(f"✅ Canal VIP configurado exitosamente: {channel_id}")
+        else:
+            await message.answer(f"❌ Error: {msg}")
+    else:
+        await message.answer("❌ El ID no corresponde a un canal válido. Inténtalo de nuevo:")
+        return  # Mantener estado para reintentar
+
+    await state.clear()  # Salir del estado FSM
+
+@admin_router.message(ChannelSetupStates.waiting_for_vip_channel)
+async def invalid_vip_channel(message: Message):
+    await message.answer("⚠️ Por favor, reenvía un mensaje del canal VIP (no un mensaje normal).")
+```
+
+#### WaitTimeSetupStates
+Estados para configurar tiempo de espera del canal Free.
+
+**Flujo:**
+1. Admin selecciona "Configurar Tiempo de Espera"
+2. Bot entra en estado waiting_for_minutes
+3. Admin envía número de minutos
+4. Bot valida y guarda
+5. Bot sale del estado
+
+**Validación de Minutos:**
+- Usuario envía texto → Bot intenta convertir a int
+- Valor debe ser >= 1
+- Si no es número o es inválido → Error y mantener estado
+
+**Estados disponibles:**
+- `waiting_for_minutes` - Esperando que admin envíe número de minutos
+
+**Ejemplo de uso:**
+```python
+from bot.states.admin import WaitTimeSetupStates
+
+@admin_router.message(Command("set_wait_time"))
+async def set_wait_time_start(message: Message, state: FSMContext):
+    current_time = await container.config.get_wait_time()
+    await message.answer(
+        f"⏰ Tiempo actual de espera: {current_time} minutos\n\n"
+        "Ingresa el nuevo tiempo de espera en minutos (mínimo 1):"
+    )
+    await state.set_state(WaitTimeSetupStates.waiting_for_minutes)
+
+@admin_router.message(WaitTimeSetupStates.waiting_for_minutes)
+async def process_wait_time(message: Message, state: FSMContext):
+    try:
+        minutes = int(message.text.strip())
+        if minutes < 1:
+            await message.answer("❌ El tiempo debe ser al menos 1 minuto. Inténtalo de nuevo:")
+            return  # Mantener estado para reintentar
+
+        await container.config.set_wait_time(minutes)
+        await message.answer(f"✅ Tiempo de espera actualizado a {minutes} minutos.")
+        await state.clear()
+
+    except ValueError:
+        await message.answer("❌ Por favor, ingresa un número válido de minutos:")
+```
+
+#### BroadcastStates
+Estados para envío de publicaciones a canales.
+
+**Flujo:**
+1. Admin selecciona "Enviar a Canal VIP"
+2. Bot entra en estado waiting_for_content
+3. Admin envía mensaje (texto, foto o video)
+4. Bot pide confirmación (opcional)
+5. Bot envía al canal y sale del estado
+
+**Tipos de Contenido:**
+- Soportar: texto, foto, video
+- Estado waiting_for_content acepta cualquiera
+- Estado waiting_for_confirmation es opcional (puede omitirse)
+
+**Estados disponibles:**
+- `waiting_for_content` - Esperando contenido del mensaje a enviar
+- `waiting_for_confirmation` - Esperando confirmación de envío (opcional)
+
+**Ejemplo de uso:**
+```python
+from bot.states.admin import BroadcastStates
+
+@admin_router.message(Command("broadcast_vip"))
+async def broadcast_vip_start(message: Message, state: FSMContext):
+    await message.answer("📤 Por favor, envía el contenido que deseas publicar en el canal VIP:")
+    await state.set_state(BroadcastStates.waiting_for_content)
+
+@admin_router.message(BroadcastStates.waiting_for_content)
+async def process_broadcast_content(message: Message, state: FSMContext):
+    # Almacenar el contenido del mensaje en el estado
+    content_data = {
+        'text': getattr(message, 'text', getattr(message, 'caption', '')),
+        'photo': getattr(message, 'photo', None),
+        'video': getattr(message, 'video', None),
+        'document': getattr(message, 'document', None)
+    }
+
+    # Guardar contenido en el estado para uso posterior
+    await state.update_data(content=content_data)
+
+    # Confirmar antes de enviar
+    await message.answer("📋 ¿Deseas enviar este contenido al canal VIP ahora?\n\n"
+                        "Responde 'Sí' para confirmar o 'No' para cancelar:")
+    await state.set_state(BroadcastStates.waiting_for_confirmation)
+
+@admin_router.message(BroadcastStates.waiting_for_confirmation, F.text.lower() == "sí")
+async def confirm_broadcast(message: Message, state: FSMContext):
+    data = await state.get_data()
+    content = data.get('content', {})
+
+    channel_id = await container.channel.get_vip_channel_id()
+    if not channel_id:
+        await message.answer("❌ Canal VIP no configurado. Configúralo primero.")
+        await state.clear()
+        return
+
+    # Enviar contenido al canal
+    success, result, sent_msg = await container.channel.send_to_channel(
+        channel_id=channel_id,
+        text=content['text'],
+        photo=content.get('photo'),
+        video=content.get('video')
+    )
+
+    if success:
+        await message.answer("✅ Contenido enviado exitosamente al canal VIP.")
+    else:
+        await message.answer(f"❌ Error al enviar contenido: {result}")
+
+    await state.clear()
+
+@admin_router.message(BroadcastStates.waiting_for_confirmation, F.text.lower() == "no")
+async def cancel_broadcast(message: Message, state: FSMContext):
+    await message.answer("❌ Envío cancelado.")
+    await state.clear()
+```
+
+#### TokenRedemptionStates
+Estados para canje de tokens VIP.
+
+**Flujo:**
+1. Usuario envía /start
+2. Bot pregunta por token
+3. Bot entra en estado waiting_for_token
+4. Usuario envía token
+5. Bot valida y canjea
+6. Bot sale del estado
+
+**Validación de Token:**
+- Usuario envía texto → Bot valida formato y existe en BD
+- Token debe estar vigente (no expirado)
+- Token debe no estar ya canjeado
+- Si token es inválido → Error claro y mantener estado
+
+**Estados disponibles:**
+- `waiting_for_token` - Esperando que usuario envíe token
+
+**Ejemplo de uso:**
+```python
+from bot.states.user import TokenRedemptionStates
+
+@user_router.message(Command("vip"))
+async def request_vip_token(message: Message, state: FSMContext):
+    await message.answer("🔐 Ingresa tu token VIP para canjear acceso:")
+    await state.set_state(TokenRedemptionStates.waiting_for_token)
+
+@user_router.message(TokenRedemptionStates.waiting_for_token)
+async def process_vip_token(message: Message, state: FSMContext, session: AsyncSession):
+    token_str = message.text.strip()
+
+    # Validar token
+    is_valid, validation_msg, token_obj = await container.subscription.validate_token(token_str)
+
+    if not is_valid:
+        await message.answer(f"❌ {validation_msg}\n\nIntenta de nuevo:")
+        return  # Mantener estado para reintentar
+
+    # Canjear token
+    success, redeem_msg, subscriber = await container.subscription.redeem_vip_token(
+        token_str=token_str,
+        user_id=message.from_user.id
+    )
+
+    if success:
+        # Crear enlace de invitación
+        invite_link = await container.subscription.create_invite_link(
+            channel_id=await container.channel.get_vip_channel_id(),
+            user_id=message.from_user.id,
+            expire_hours=token_obj.duration_hours
+        )
+
+        await message.answer(
+            f"✅ ¡Acceso VIP concedido!\n\n"
+            f"{redeem_msg}\n"
+            f"Enlace de acceso: {invite_link}"
+        )
+    else:
+        await message.answer(f"❌ Error al canjear token: {redeem_msg}")
+
+    await state.clear()
+```
+
+#### FreeAccessStates
+Estados para solicitud de acceso Free.
+
+**Flujo:**
+1. Usuario solicita acceso Free
+2. Bot crea solicitud
+3. Bot puede usar estado para tracking (opcional)
+
+**Nota:** Este flujo es mayormente automático (background task),
+pero el estado se puede usar para prevenir spam de solicitudes.
+
+**Estados disponibles:**
+- `waiting_for_approval` - Usuario tiene solicitud pendiente
+
+**Ejemplo de uso:**
+```python
+from bot.states.user import FreeAccessStates
+
+@user_router.message(Command("free"))
+async def request_free_access(message: Message, state: FSMContext, session: AsyncSession):
+    user_id = message.from_user.id
+
+    # Verificar si ya tiene solicitud pendiente
+    existing_request = await container.subscription.get_pending_free_request(user_id)
+    if existing_request:
+        remaining_minutes = await container.subscription.get_remaining_wait_time(
+            existing_request,
+            await container.config.get_wait_time()
+        )
+        await message.answer(
+            f"⏳ Ya tienes una solicitud pendiente de acceso Free.\n"
+            f"Tiempo restante: {remaining_minutes} minutos."
+        )
+        return
+
+    # Crear nueva solicitud
+    request = await container.subscription.create_free_request(user_id)
+
+    # Poner usuario en estado de espera
+    await state.set_state(FreeAccessStates.waiting_for_approval)
+
+    # Informar tiempo de espera
+    wait_time = await container.config.get_wait_time()
+    await message.answer(
+        f"✅ Solicitud de acceso Free registrada.\n"
+        f"⏰ Tiempo de espera estimado: {wait_time} minutos.\n\n"
+        f"Serás notificado cuando esté listo."
+    )
+
+    # El proceso de aprobación ocurre en background
+    # No se limpia el estado hasta que se procese la solicitud
+```
 
 ### 7. Services
 
