@@ -14,6 +14,7 @@ y este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - T9: Config Service - Gestión de configuración global del bot, tiempos de espera, reacciones y tarifas
 - T10: Middlewares - Implementación de AdminAuthMiddleware y DatabaseMiddleware para autenticación de administradores e inyección automática de sesiones de base de datos
 - T11: FSM States - Implementación de estados FSM para administradores y usuarios para flujos de configuración y canje de tokens
+- T12: Admin Handler - Handler del comando /admin que muestra el menú principal de administración con navegación, verificación de estado de configuración y teclado inline
 
 ## [1.0.0] - 2025-12-11
 
@@ -49,6 +50,13 @@ y este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - T11: FreeAccessStates - Estados para solicitud de acceso Free con manejo de solicitudes pendientes
 - T11: Implementación de ejemplos de uso de estados FSM en handlers de administración y usuarios
 - T11: Documentación completa de estados FSM con ejemplos de implementación y flujos de usuario
+- T12: Admin Handler - Handler del comando /admin que muestra el menú principal de administración con navegación, verificación de estado de configuración y teclado inline
+- T12: Implementación de navegación del menú principal con estado de configuración
+- T12: Aplicación de middlewares AdminAuthMiddleware y DatabaseMiddleware al router de admin
+- T12: Verificación de estado de configuración del bot en el menú principal
+- T12: Callback handlers para navegación entre menús
+- T12: Teclado inline con opciones de administración
+- T12: Documentación completa del handler admin con ejemplos de uso
 
 ### Changed
 - Refactorización completa de la arquitectura de servicios para usar el contenedor

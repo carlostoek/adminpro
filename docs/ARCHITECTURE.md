@@ -211,6 +211,140 @@ async def command_handler(message: Message, session: AsyncSession) -> None:
         await message.answer("Error procesando comando")
 ```
 
+### 4.1 Admin Handler (T12)
+
+**Responsabilidad:** Handler del comando /admin que muestra el menú principal de administración con navegación, verificación de estado de configuración y teclado inline
+
+**Componentes:**
+- `bot/handlers/admin/main.py` - Handler principal y callbacks de navegación
+
+**Características:**
+- **Navegación del menú principal:** Permite navegar entre diferentes secciones de administración con estado de configuración
+- **Aplicación de middlewares:** Utiliza AdminAuthMiddleware y DatabaseMiddleware para protección y acceso a base de datos
+- **Verificación de estado de configuración:** Muestra estado actual de configuración del bot (completo o incompleto)
+- **Callback handlers:** Implementa manejadores de callback para navegación entre menús
+- **Teclado inline:** Proporciona opciones de administración a través de teclado inline
+
+**Flujo principal:**
+1. Usuario ejecuta `/admin` → Handler verifica permisos y acceso a BD
+2. Bot verifica estado de configuración (canal VIP, canal Free, tiempo de espera)
+3. Bot muestra menú principal con estado actual
+4. Usuario selecciona opción → Bot navega a submenú correspondiente
+5. Usuario selecciona "Volver al Menú Principal" → Bot regresa al menú principal
+
+**Estructura de callbacks:**
+- `admin:main` - Callback para volver al menú principal
+- `admin:config` - Callback para ver configuración detallada
+- `admin:vip` - Callback para gestión de canal VIP (futuro)
+- `admin:free` - Callback para gestión de canal Free (futuro)
+
+**Aplicación de middlewares:**
+```python
+# Aplicar middlewares al router de admin (orden correcto)
+admin_router.message.middleware(DatabaseMiddleware())
+admin_router.message.middleware(AdminAuthMiddleware())
+admin_router.callback_query.middleware(DatabaseMiddleware())
+admin_router.callback_query.middleware(AdminAuthMiddleware())
+```
+
+**Flujo de verificación de estado de configuración:**
+1. Handler llama a `container.config.get_config_status()`
+2. Servicio retorna diccionario con estado de configuración
+3. Handler construye mensaje con estado actual
+4. Bot envía mensaje con información de configuración completa o incompleta
+
+**Navegación entre menús usando callbacks:**
+```python
+# Callback para volver al menú principal
+@admin_router.callback_query(F.data == "admin:main")
+async def callback_admin_main(callback: CallbackQuery, session: AsyncSession):
+    # Crear container de services
+    container = ServiceContainer(session, callback.bot)
+
+    # Verificar estado de configuración
+    config_status = await container.config.get_config_status()
+
+    # Construir texto del menú (mismo que cmd_admin)
+    if config_status["is_configured"]:
+        text = (
+            "🤖 <b>Panel de Administración</b>\n\n"
+            "✅ Bot configurado correctamente\n\n"
+            "Selecciona una opción:"
+        )
+    else:
+        missing_items = ", ".join(config_status["missing"])
+        text = (
+            "🤖 <b>Panel de Administración</b>\n\n"
+            f"⚠️ <b>Configuración incompleta</b>\n"
+            f"Faltante: {missing_items}\n\n"
+            "Selecciona una opción para configurar:"
+        )
+
+    # Editar mensaje existente (no enviar nuevo)
+    await callback.message.edit_text(
+        text=text,
+        reply_markup=admin_main_menu_keyboard(),
+        parse_mode="HTML"
+    )
+
+    # Responder al callback (quitar "loading" del botón)
+    await callback.answer()
+```
+
+**Uso del ServiceContainer en los handlers:**
+```python
+# Crear container de servicios con sesión de BD y bot
+container = ServiceContainer(session, message.bot)
+
+# Acceder a servicios específicos
+config_status = await container.config.get_config_status()
+```
+
+**Interacción con teclados inline:**
+- `admin_main_menu_keyboard()` - Teclado con opciones principales de administración
+- `back_to_main_menu_keyboard()` - Teclado con botón para volver al menú principal
+- `yes_no_keyboard()` - Teclado para confirmaciones (usado en operaciones futuras)
+
+**Ejemplo completo de handler:**
+```python
+@admin_router.message(Command("admin"))
+async def cmd_admin(message: Message, session: AsyncSession):
+    """
+    Handler del comando /admin.
+
+    Muestra el menú principal de administración con estado de configuración.
+    """
+    logger.info(f"📋 Admin panel abierto por user {message.from_user.id}")
+
+    # Crear container de services
+    container = ServiceContainer(session, message.bot)
+
+    # Verificar estado de configuración
+    config_status = await container.config.get_config_status()
+
+    # Construir texto del menú
+    if config_status["is_configured"]:
+        text = (
+            "🤖 <b>Panel de Administración</b>\n\n"
+            "✅ Bot configurado correctamente\n\n"
+            "Selecciona una opción:"
+        )
+    else:
+        missing_items = ", ".join(config_status["missing"])
+        text = (
+            "🤖 <b>Panel de Administración</b>\n\n"
+            f"⚠️ <b>Configuración incompleta</b>\n"
+            f"Faltante: {missing_items}\n\n"
+            "Selecciona una opción para configurar:"
+        )
+
+    await message.answer(
+        text=text,
+        reply_markup=admin_main_menu_keyboard(),
+        parse_mode="HTML"
+    )
+```
+
 ### 5. Middlewares
 
 **Responsabilidad:** Interceptar y procesar updates antes de handlers

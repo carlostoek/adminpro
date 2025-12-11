@@ -222,6 +222,108 @@ async def invalid_vip_channel(message: Message):
 - `FreeAccessStates`: Solicitud de acceso Free
 ```
 
+### Admin Handler (T12)
+Handler del comando /admin que muestra el menú principal de administración con navegación, verificación de estado de configuración y teclado inline:
+
+- **Navegación del menú principal:** Permite navegar entre diferentes secciones de administración con estado de configuración
+- **Aplicación de middlewares:** Utiliza AdminAuthMiddleware y DatabaseMiddleware para protección y acceso a base de datos
+- **Verificación de estado de configuración:** Muestra estado actual de configuración del bot (completo o incompleto)
+- **Callback handlers:** Implementa manejadores de callback para navegación entre menús
+- **Teclado inline:** Proporciona opciones de administración a través de teclado inline
+
+**Ejemplo de uso del handler admin:**
+```python
+from aiogram import Router, F
+from aiogram.filters import Command
+from aiogram.types import Message, CallbackQuery
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.middlewares import AdminAuthMiddleware, DatabaseMiddleware
+from bot.utils.keyboards import admin_main_menu_keyboard, back_to_main_menu_keyboard
+from bot.services.container import ServiceContainer
+
+# Router para handlers de admin
+admin_router = Router(name="admin")
+
+# Aplicar middlewares (orden correcto: Database primero, AdminAuth después)
+admin_router.message.middleware(DatabaseMiddleware())
+admin_router.message.middleware(AdminAuthMiddleware())
+admin_router.callback_query.middleware(DatabaseMiddleware())
+admin_router.callback_query.middleware(AdminAuthMiddleware())
+
+@admin_router.message(Command("admin"))
+async def cmd_admin(message: Message, session: AsyncSession):
+    """
+    Handler del comando /admin.
+
+    Muestra el menú principal de administración con estado de configuración.
+    """
+    # Crear container de services
+    container = ServiceContainer(session, message.bot)
+
+    # Verificar estado de configuración
+    config_status = await container.config.get_config_status()
+
+    # Construir texto del menú
+    if config_status["is_configured"]:
+        text = (
+            "🤖 <b>Panel de Administración</b>\n\n"
+            "✅ Bot configurado correctamente\n\n"
+            "Selecciona una opción:"
+        )
+    else:
+        missing_items = ", ".join(config_status["missing"])
+        text = (
+            "🤖 <b>Panel de Administración</b>\n\n"
+            f"⚠️ <b>Configuración incompleta</b>\n"
+            f"Faltante: {missing_items}\n\n"
+            "Selecciona una opción para configurar:"
+        )
+
+    await message.answer(
+        text=text,
+        reply_markup=admin_main_menu_keyboard(),
+        parse_mode="HTML"
+    )
+
+@admin_router.callback_query(F.data == "admin:main")
+async def callback_admin_main(callback: CallbackQuery, session: AsyncSession):
+    """
+    Handler del callback para volver al menú principal.
+    """
+    # Crear container de services
+    container = ServiceContainer(session, callback.bot)
+
+    # Verificar estado de configuración
+    config_status = await container.config.get_config_status()
+
+    # Construir texto del menú (mismo que cmd_admin)
+    if config_status["is_configured"]:
+        text = (
+            "🤖 <b>Panel de Administración</b>\n\n"
+            "✅ Bot configurado correctamente\n\n"
+            "Selecciona una opción:"
+        )
+    else:
+        missing_items = ", ".join(config_status["missing"])
+        text = (
+            "🤖 <b>Panel de Administración</b>\n\n"
+            f"⚠️ <b>Configuración incompleta</b>\n"
+            f"Faltante: {missing_items}\n\n"
+            "Selecciona una opción para configurar:"
+        )
+
+    # Editar mensaje existente (no enviar nuevo)
+    await callback.message.edit_text(
+        text=text,
+        reply_markup=admin_main_menu_keyboard(),
+        parse_mode="HTML"
+    )
+
+    # Responder al callback (quitar "loading" del botón)
+    await callback.answer()
+```
+
 ## 🔧 Desarrollo
 
 Este proyecto está en desarrollo iterativo. Consulta las tareas completadas:
@@ -231,6 +333,7 @@ Este proyecto está en desarrollo iterativo. Consulta las tareas completadas:
 - [x] T9: Config Service - Gestión de configuración global del bot, tiempos de espera, reacciones y tarifas
 - [x] T10: Middlewares - Implementación de AdminAuthMiddleware y DatabaseMiddleware para autenticación de administradores e inyección automática de sesiones de base de datos
 - [x] T11: FSM States - Implementación de estados FSM para administradores y usuarios para flujos de configuración y canje de tokens
+- [x] T12: Handler /admin (Menú Principal) - Handler del comando /admin que muestra el menú principal de administración con navegación, verificación de estado de configuración y teclado inline
 - [ ] ONDA 1: MVP Funcional (T1-T17)
 - [ ] ONDA 2: Features Avanzadas (T18-T33)
 - [ ] ONDA 3: Optimización (T34-T44)
