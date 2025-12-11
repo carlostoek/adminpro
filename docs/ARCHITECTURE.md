@@ -518,6 +518,112 @@ if member_count:
     print(f"Número de miembros: {member_count}")
 ```
 
+#### Config Service (T9)
+
+Gestión de configuración global del bot con funcionalidades clave para administrar la configuración centralizada:
+
+**Responsabilidades:**
+- Obtener/actualizar configuración de BotConfig (singleton)
+- Gestionar tiempo de espera Free
+- Gestionar reacciones de canales
+- Validar que la configuración está completa
+- Configurar tarifas de suscripción
+- Proporcionar resumen de configuración
+
+**Características principales:**
+- **Singleton Pattern:** BotConfig es un registro único (id=1) que almacena toda la configuración global
+- **Tiempo de espera configurable:** Gestión flexible del tiempo de espera para acceso al canal Free
+- **Reacciones personalizables:** Configuración de emojis para reacciones en canales VIP y Free
+- **Validación integral:** Verificación completa de la configuración para asegurar funcionamiento óptimo
+- **Tarifas de suscripción:** Soporte para múltiples tipos de tarifas (mensual, anual, etc.)
+- **Resumen de configuración:** Información detallada del estado de la configuración para administradores
+
+**Flujos Implementados:**
+
+**Get Configuration Flow:**
+```
+1. Servicio solicita configuración → get_config()
+2. Consulta a BD por registro con id=1
+3. Retorna objeto BotConfig
+4. Validación de existencia (debe existir siempre)
+```
+
+**Set Wait Time Flow:**
+```
+1. Admin define tiempo de espera → set_wait_time(minutes)
+2. Validación: minutos >= 1
+3. Actualiza campo wait_time_minutes en BotConfig
+4. Guarda cambios en BD
+5. Log de cambio realizado
+```
+
+**Set Channel Reactions Flow:**
+```
+1. Admin define reacciones → set_vip_reactions() o set_free_reactions()
+2. Validación: lista no vacía, máximo 10 elementos
+3. Actualiza campo correspondiente (vip_reactions o free_reactions)
+4. Guarda cambios en BD
+5. Log de reacciones actualizadas
+```
+
+**Validation Flow:**
+```
+1. Verificación de configuración completa → is_fully_configured()
+2. Valida:
+   - Canal VIP configurado (vip_channel_id != null)
+   - Canal Free configurado (free_channel_id != null)
+   - Tiempo de espera >= 1 minuto
+3. Retorna booleano indicando estado
+```
+
+**Ejemplos de uso:**
+```python
+# Obtención de configuración global
+config = await container.config.get_config()
+print(f"Canal VIP: {config.vip_channel_id}")
+print(f"Canal Free: {config.free_channel_id}")
+print(f"Tiempo de espera: {config.wait_time_minutes} minutos")
+
+# Configuración de tiempos de espera
+current_wait_time = await container.config.get_wait_time()
+print(f"Tiempo actual de espera: {current_wait_time} minutos")
+await container.config.set_wait_time(15)  # 15 minutos de espera
+
+# Gestión de reacciones de canales
+current_vip_reactions = await container.config.get_vip_reactions()
+print(f"Reacciones VIP actuales: {current_vip_reactions}")
+
+# Actualizar reacciones VIP
+await container.config.set_vip_reactions(["👍", "❤️", "🔥", "🎉"])
+await container.config.set_free_reactions(["✅", "✔️", "☑️"])
+
+# Configuración de tarifas de suscripción
+current_fees = await container.config.get_subscription_fees()
+print(f"Tarifas actuales: {current_fees}")
+
+# Actualizar tarifas de suscripción
+await container.config.set_subscription_fees({
+    "monthly": 10.0,
+    "yearly": 100.0,
+    "lifetime": 500.0
+})
+
+# Validación de configuración completa
+is_configured = await container.config.is_fully_configured()
+if is_configured:
+    print("Bot completamente configurado")
+else:
+    status = await container.config.get_config_status()
+    print(f"Faltan elementos: {', '.join(status['missing'])}")
+
+# Obtención de resumen de configuración
+summary = await container.config.get_config_summary()
+print(summary)
+
+# Resetear a valores por defecto (advertencia: borra configuración de canales)
+await container.config.reset_to_defaults()
+```
+
 ### 8. Background Tasks
 
 **Responsabilidad:** Tareas programadas asincrónicas
