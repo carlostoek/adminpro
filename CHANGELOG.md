@@ -10,6 +10,7 @@ y este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Added
 - T6: Service Container - Contenedor de servicios con patrón Dependency Injection + Lazy Loading para reducir consumo de memoria en Termux
 - T7: Subscription Service - Gestión completa de suscripciones VIP (tokens, validación, canjes) y cola de acceso Free
+- T8: Channel Service - Gestión completa de canales VIP y Free con verificación de permisos y envío de publicaciones
 
 ## [1.0.0] - 2025-12-11
 
@@ -25,6 +26,12 @@ y este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - T7: Gestión de suscriptores VIP: creación, extensión y expiración automática
 - T7: Gestión de solicitudes Free: creación y procesamiento automático
 - T7: Limpieza automática de datos antiguos
+- T8: ChannelService con métodos para gestión de canales VIP y Free
+- T8: Configuración de canales con verificación de existencia y permisos
+- T8: Verificación de permisos del bot (can_invite_users, can_post_messages)
+- T8: Envío de contenido multimedia a canales (texto, fotos, videos)
+- T8: Reenvío y copia de mensajes a canales
+- T8: Validación de configuración de canales
 
 ### Changed
 - Refactorización completa de la arquitectura de servicios para usar el contenedor

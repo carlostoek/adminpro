@@ -75,6 +75,10 @@ nohup python main.py > bot.log 2>&1 &
 │   ├── states/          # Estados FSM
 │   ├── utils/           # Utilidades
 │   └── background/      # Tareas programadas
+├── docs/
+│   ├── ARCHITECTURE.md  # Documentación de arquitectura
+│   ├── CHANNEL_SERVICE.md # Documentación específica del servicio de canales
+│   └── ...
 ```
 
 ## 🔧 Arquitectura de Servicios
@@ -96,6 +100,15 @@ Gestión completa de suscripciones VIP y Free con 14 métodos asíncronos:
 - **Invite links únicos:** enlaces de un solo uso (`member_limit=1`)
 - **Gestión de usuarios:** creación, extensión y expiración automática de suscripciones
 
+### Channel Service (T8)
+Gestión completa de canales VIP y Free con verificación de permisos y envío de publicaciones:
+
+- **Configuración de canales:** setup_vip_channel() y setup_free_channel() con verificación de permisos
+- **Verificación de permisos:** can_invite_users, can_post_messages y verificación de admin status
+- **Envío de contenido:** soporte para texto, fotos y videos a canales
+- **Reenvío y copia:** métodos para reenviar y copiar mensajes a canales
+- **Validación de configuración:** métodos para verificar si canales están configurados
+
 **Ejemplo de uso del Service Container:**
 ```python
 container = ServiceContainer(session, bot)
@@ -105,6 +118,15 @@ token = await container.subscription.generate_token(...)
 
 # Segunda vez: reutiliza instancia ya cargada
 result = await container.subscription.validate_token(...)
+
+# Uso del servicio de canales
+success, message = await container.channel.setup_vip_channel("-1001234567890")
+is_valid, perm_message = await container.channel.verify_bot_permissions("-1001234567890")
+sent_success, sent_message, sent_msg = await container.channel.send_to_channel(
+    channel_id="-1001234567890",
+    text="Publicación VIP",
+    photo="photo_file_id"
+)
 ```
 
 ## 🔧 Desarrollo
@@ -112,6 +134,7 @@ result = await container.subscription.validate_token(...)
 Este proyecto está en desarrollo iterativo. Consulta las tareas completadas:
 - [x] T6: Service Container - Contenedor de servicios con patrón DI + Lazy Loading para reducir consumo de memoria en Termux
 - [x] T7: Subscription Service - Gestión completa de suscripciones VIP (tokens, validación, canjes) y cola de acceso Free
+- [x] T8: Channel Service - Gestión completa de canales VIP y Free con verificación de permisos y envío de publicaciones
 - [ ] ONDA 1: MVP Funcional (T1-T17)
 - [ ] ONDA 2: Features Avanzadas (T18-T33)
 - [ ] ONDA 3: Optimización (T34-T44)

@@ -384,6 +384,140 @@ invite_link = await container.subscription.create_invite_link(
 )
 ```
 
+#### Channel Service (T8)
+
+Gestión completa de canales VIP y Free con verificación de permisos y envío de publicaciones:
+
+**Responsabilidades:**
+- Configuración de canales VIP y Free con validación de existencia
+- Verificación de permisos del bot (can_invite_users, can_post_messages)
+- Envío de contenido a canales (texto, fotos, videos)
+- Reenvío y copia de mensajes entre chats y canales
+- Validación de configuración de canales
+
+**Flujos Implementados:**
+
+**Setup Channel Flow:**
+```
+1. Admin configura canal → setup_vip_channel() o setup_free_channel()
+2. Bot verifica que el canal existe
+3. Bot verifica que es admin del canal
+4. Bot verifica permisos necesarios (can_invite_users, can_post_messages)
+5. Canal guardado en BotConfig
+```
+
+**Send to Channel Flow:**
+```
+1. Admin/envío automático → send_to_channel()
+2. Bot determina tipo de contenido (texto, foto, video)
+3. Bot envía mensaje al canal
+4. Retorno de resultado exitoso/error
+```
+
+**Permissions Verification Flow:**
+```
+1. Bot obtiene información del miembro → get_chat_member()
+2. Verifica que sea admin o creador
+3. Verifica permisos específicos (can_invite_users, can_post_messages)
+4. Retorna mensaje detallado de permisos faltantes
+```
+
+**Características principales:**
+- **Configuración segura:** verificación de existencia y permisos antes de guardar
+- **Permisos completos:** verifica can_invite_users y can_post_messages
+- **Soporte multimedia:** envío de texto, fotos y videos
+- **Operaciones avanzadas:** reenvío y copia de mensajes
+- **Validación robusta:** verificaciones de formato e ID de canal
+
+**Ejemplos de uso:**
+```python
+# Configuración de canal VIP
+success, message = await container.channel.setup_vip_channel("-1001234567890")
+if success:
+    print(f"Canal VIP configurado: {message}")
+else:
+    print(f"Error en configuración: {message}")
+
+# Configuración de canal Free
+success, message = await container.channel.setup_free_channel("-1009876543210")
+if success:
+    print(f"Canal Free configurado: {message}")
+else:
+    print(f"Error en configuración: {message}")
+
+# Verificación de permisos del bot
+is_valid, perm_message = await container.channel.verify_bot_permissions("-1001234567890")
+if is_valid:
+    print("Bot tiene todos los permisos necesarios")
+else:
+    print(f"Permisos insuficientes: {perm_message}")
+
+# Envío de mensaje de texto al canal
+sent_success, sent_message, sent_msg = await container.channel.send_to_channel(
+    channel_id="-1001234567890",
+    text="¡Nueva publicación en el canal VIP!",
+    parse_mode="HTML"
+)
+if sent_success:
+    print(f"Mensaje enviado: {sent_message}")
+else:
+    print(f"Error al enviar: {sent_message}")
+
+# Envío de foto con texto al canal
+sent_success, sent_message, sent_msg = await container.channel.send_to_channel(
+    channel_id="-1001234567890",
+    text="Foto destacada del día",
+    photo="AgACAgQAAxkBAA...",
+    parse_mode="HTML"
+)
+
+# Envío de video con descripción
+sent_success, sent_message, sent_msg = await container.channel.send_to_channel(
+    channel_id="-1001234567890",
+    text="Video promocional",
+    video="BAACAgQAAxkBAA...",
+    parse_mode="HTML"
+)
+
+# Reenvío de mensaje a canal
+forward_success, forward_message = await container.channel.forward_to_channel(
+    channel_id="-1001234567890",
+    from_chat_id=-1009876543210,
+    message_id=123
+)
+
+# Copia de mensaje a canal (sin firma de origen)
+copy_success, copy_message = await container.channel.copy_to_channel(
+    channel_id="-1001234567890",
+    from_chat_id=-1009876543210,
+    message_id=123
+)
+
+# Verificación de configuración de canales
+is_vip_configured = await container.channel.is_vip_channel_configured()
+is_free_configured = await container.channel.is_free_channel_configured()
+print(f"Canales configurados - VIP: {is_vip_configured}, Free: {is_free_configured}")
+
+# Obtención de IDs de canales
+vip_channel_id = await container.channel.get_vip_channel_id()
+free_channel_id = await container.channel.get_free_channel_id()
+
+if vip_channel_id:
+    print(f"Canal VIP ID: {vip_channel_id}")
+if free_channel_id:
+    print(f"Canal Free ID: {free_channel_id}")
+
+# Obtención de información del canal
+channel_info = await container.channel.get_channel_info("-1001234567890")
+if channel_info:
+    print(f"Nombre del canal: {channel_info.title}")
+    print(f"Tipo de canal: {channel_info.type}")
+
+member_count = await container.channel.get_channel_member_count("-1001234567890")
+if member_count:
+    print(f"Número de miembros: {member_count}")
+```
+
 ### 8. Background Tasks
 
 **Responsabilidad:** Tareas programadas asincrónicas
