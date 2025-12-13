@@ -6,16 +6,17 @@ Tablas:
 - vip_subscribers: Suscriptores del canal VIP
 - invitation_tokens: Tokens de invitación generados
 - free_channel_requests: Solicitudes de acceso al canal Free
+- subscription_plans: Planes de suscripción/tarifas configurables
 """
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime,
-    BigInteger, JSON, ForeignKey, Index
+    BigInteger, JSON, ForeignKey, Index, Float
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from bot.database.base import Base
 
@@ -64,6 +65,51 @@ class BotConfig(Base):
         )
 
 
+class SubscriptionPlan(Base):
+    """
+    Modelo de planes de suscripción/tarifas.
+
+    Representa un plan que el admin configura con nombre, duración y precio.
+    Los tokens VIP se generan vinculados a un plan específico.
+
+    Attributes:
+        id: ID único del plan
+        name: Nombre del plan (ej: "Plan Mensual", "Plan Anual")
+        duration_days: Duración en días del plan
+        price: Precio del plan (en USD u otra moneda)
+        currency: Símbolo de moneda (default: "$")
+        active: Si el plan está activo (visible para generar tokens)
+        created_at: Fecha de creación
+        created_by: User ID del admin que creó el plan
+
+    Relaciones:
+        tokens: Tokens generados con este plan
+    """
+    __tablename__ = "subscription_plans"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    duration_days = Column(Integer, nullable=False)
+    price = Column(Float, nullable=False)
+    currency = Column(String(10), nullable=False, default="$")
+    active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_by = Column(BigInteger, nullable=False)
+
+    # Relación con tokens
+    tokens = relationship(
+        "InvitationToken",
+        back_populates="plan",
+        cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<SubscriptionPlan(id={self.id}, name='{self.name}', "
+            f"days={self.duration_days}, price={self.price})>"
+        )
+
+
 class InvitationToken(Base):
     """
     Tokens de invitación generados por administradores.
@@ -73,6 +119,7 @@ class InvitationToken(Base):
     - Tiene duración limitada (expira después de X horas)
     - Se marca como "usado" al ser canjeado
     - Registra quién lo generó y quién lo usó
+    - Puede estar asociado a un plan de suscripción
     """
     __tablename__ = "invitation_tokens"
 
@@ -90,6 +137,10 @@ class InvitationToken(Base):
     used = Column(Boolean, default=False, nullable=False, index=True)
     used_by = Column(BigInteger, nullable=True)  # User ID que canjeó
     used_at = Column(DateTime, nullable=True)
+
+    # Plan asociado (nullable para compatibilidad con tokens antiguos)
+    plan_id = Column(Integer, ForeignKey("subscription_plans.id"), nullable=True)
+    plan = relationship("SubscriptionPlan", back_populates="tokens")
 
     # Relación: 1 Token → Many Subscribers
     subscribers = relationship(
