@@ -1,10 +1,15 @@
-"""
-Dashboard Handlers - Panel de control completo del sistema.
+"""Dashboard Handlers - Panel de control completo del sistema.
 
-Handlers para:
-- Dashboard general con estado del sistema
-- Health checks
-- Acciones rápidas
+Este módulo contiene los handlers para el panel de control completo del sistema,
+que proporciona una visión general del estado del bot con health checks,
+configuración, estadísticas clave, tareas en segundo plano y acciones rápidas.
+
+Funcionalidades:
+    - Dashboard general con estado del sistema
+    - Health checks del sistema
+    - Acciones rápidas para administradores
+    - Visualización de estadísticas clave
+    - Estado de tareas en segundo plano
 """
 import logging
 from datetime import datetime, timezone
@@ -80,14 +85,14 @@ async def callback_admin_dashboard(
 
 
 async def _gather_dashboard_data(container: ServiceContainer) -> dict:
-    """
-    Recopila todos los datos necesarios para el dashboard.
+    """Recopila todos los datos necesarios para el dashboard.
 
     Args:
-        container: Service container
+        container: Service container con acceso a los servicios del sistema.
 
     Returns:
-        Dict con todos los datos del dashboard
+        Dict con todos los datos del dashboard, incluyendo configuración,
+        estadísticas, estado del scheduler y health checks.
     """
     # Configuración - get_config_status retorna: is_configured, vip_channel_id, free_channel_id, etc
     config_status = await container.config.get_config_status()
@@ -135,21 +140,20 @@ def _perform_health_checks(
     scheduler_running: bool,
     stats
 ) -> dict:
-    """
-    Realiza health checks del sistema.
+    """Realiza health checks del sistema.
 
     Args:
-        vip_configured: Si canal VIP está configurado
-        free_configured: Si canal Free está configurado
-        scheduler_running: Si scheduler está corriendo
-        stats: OverallStats del sistema
+        vip_configured: Indica si el canal VIP está configurado.
+        free_configured: Indica si el canal Free está configurado.
+        scheduler_running: Indica si el scheduler está corriendo.
+        stats: Objeto OverallStats con estadísticas del sistema.
 
     Returns:
-        Dict con resultados de health checks:
+        Dict con resultados de health checks con la siguiente estructura:
         {
             "status": "healthy" | "degraded" | "down",
-            "issues": [str],  # Lista de issues encontrados
-            "warnings": [str]  # Lista de warnings
+            "issues": [str],  # Lista de problemas encontrados
+            "warnings": [str]  # Lista de advertencias
         }
     """
     issues = []
@@ -195,14 +199,14 @@ def _perform_health_checks(
 
 
 def _format_dashboard_message(data: dict) -> str:
-    """
-    Formatea el mensaje del dashboard.
+    """Formatea el mensaje del dashboard.
 
     Args:
-        data: Dict con datos del dashboard
+        data: Dict con datos del dashboard incluyendo configuración,
+            estadísticas, scheduler y health checks.
 
     Returns:
-        String HTML formateado
+        String HTML formateado con la información del dashboard.
     """
     config = data["config"]
     stats = data["stats"]
@@ -309,14 +313,14 @@ def _format_dashboard_message(data: dict) -> str:
 
 
 def _create_dashboard_keyboard(data: dict) -> "InlineKeyboardMarkup":
-    """
-    Crea keyboard del dashboard con acciones rápidas.
+    """Crea keyboard del dashboard con acciones rápidas.
 
     Args:
-        data: Dict con datos del dashboard
+        data: Dict con datos del dashboard incluyendo configuración
+            y estado del sistema.
 
     Returns:
-        InlineKeyboardMarkup con acciones
+        InlineKeyboardMarkup con acciones rápidas para administradores.
     """
     buttons = []
 
