@@ -89,15 +89,15 @@ async def _gather_dashboard_data(container: ServiceContainer) -> dict:
     Returns:
         Dict con todos los datos del dashboard
     """
-    # Configuración
-    config_summary = await container.config.get_config_status()
-    is_configured = config_summary["is_fully_configured"]
-    vip_configured = config_summary["vip_channel_configured"]
-    free_configured = config_summary["free_channel_configured"]
+    # Configuración - get_config_status retorna: is_configured, vip_channel_id, free_channel_id, etc
+    config_status = await container.config.get_config_status()
 
-    vip_reactions = await container.config.get_vip_reactions()
-    free_reactions = await container.config.get_free_reactions()
-    wait_time = await container.config.get_wait_time()
+    is_configured = config_status["is_configured"]
+    vip_configured = config_status["vip_channel_id"] is not None
+    free_configured = config_status["free_channel_id"] is not None
+    vip_reactions_count = config_status["vip_reactions_count"]
+    free_reactions_count = config_status["free_reactions_count"]
+    wait_time = config_status["wait_time_minutes"]
 
     # Estadísticas (con cache)
     overall_stats = await container.stats.get_overall_stats()
@@ -118,8 +118,8 @@ async def _gather_dashboard_data(container: ServiceContainer) -> dict:
             "is_configured": is_configured,
             "vip_configured": vip_configured,
             "free_configured": free_configured,
-            "vip_reactions_count": len(vip_reactions) if vip_reactions else 0,
-            "free_reactions_count": len(free_reactions) if free_reactions else 0,
+            "vip_reactions_count": vip_reactions_count,
+            "free_reactions_count": free_reactions_count,
             "wait_time": wait_time
         },
         "stats": overall_stats,
