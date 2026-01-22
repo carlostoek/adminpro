@@ -71,6 +71,13 @@ class Config:
         os.getenv("PROCESS_FREE_QUEUE_MINUTES", "5")
     )
 
+    # ===== FREE CHANNEL SETTINGS =====
+    # Ventana anti-spam para solicitudes Free (minutos)
+    # Previene que usuarios soliciten acceso repetidamente en corto tiempo
+    FREE_REQUEST_SPAM_WINDOW_MINUTES: int = int(
+        os.getenv("FREE_REQUEST_SPAM_WINDOW_MINUTES", "5")
+    )
+
     @classmethod
     def load_admin_ids(cls):
         """

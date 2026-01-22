@@ -559,7 +559,8 @@ class SubscriptionService:
         """
         Crea solicitud Free desde ChatJoinRequest de Telegram.
 
-        Verifica duplicados y retorna la solicitud existente o nueva.
+        Limpia solicitudes antiguas y crea una nueva solicitud limpia.
+        Esto permite que usuarios que salieron del canal puedan volver a solicitar.
 
         Args:
             user_id: ID del usuario que solicita
@@ -571,23 +572,65 @@ class SubscriptionService:
                 - str: Mensaje descriptivo
                 - Optional[FreeChannelRequest]: Solicitud creada o existente
         """
-        # Verificar si ya tiene solicitud pendiente
+        # Verificar si ya tiene solicitud pendiente RECIENTE (últimos 5 minutos)
+        # Esto previene spam pero permite reintentos después de salir del canal
+        recent_cutoff = datetime.utcnow() - timedelta(minutes=Config.FREE_REQUEST_SPAM_WINDOW_MINUTES)
+
         result = await self.session.execute(
             select(FreeChannelRequest).where(
                 FreeChannelRequest.user_id == user_id,
-                FreeChannelRequest.processed == False
+                FreeChannelRequest.processed == False,
+                FreeChannelRequest.request_date >= recent_cutoff
             ).order_by(FreeChannelRequest.request_date.desc())
         )
         existing = result.scalar_one_or_none()
 
         if existing:
             logger.info(
-                f"ℹ️ Usuario {user_id} ya tiene solicitud Free pendiente "
+                f"ℹ️ Usuario {user_id} ya tiene solicitud Free reciente "
                 f"(hace {existing.minutes_since_request()} min)"
             )
             return False, "Ya existe solicitud pendiente", existing
 
-        # Crear nueva solicitud
+        # ESTRATEGIA DE LIMPIEZA: Eliminar TODAS las solicitudes antiguas del usuario
+        #
+        # RAZÓN: Garantizar un estado limpio cuando el usuario vuelve a solicitar.
+        # Este enfoque se implementa porque:
+        #
+        # 1. CASOS DE USO LEGÍTIMOS:
+        #    - Usuario salió del canal Free y quiere volver a entrar
+        #    - Usuario tuvo una solicitud antigua que nunca procesó
+        #    - Usuario quiere "resetear" su solicitud después de mucho tiempo
+        #
+        # 2. PREVENCIÓN DE INCONSISTENCIAS:
+        #    - Evita tener múltiples solicitudes del mismo usuario en BD
+        #    - Evita confusión sobre cuál solicitud es la "actual"
+        #    - Simplifica la lógica de procesamiento (siempre hay máximo 1 solicitud)
+        #
+        # 3. TRADE-OFFS CONSIDERADOS:
+        #    - ⚠️ RIESGO: Si falla la creación de nueva solicitud, se pierden datos antiguos
+        #    - ✅ MITIGACIÓN: La ventana anti-spam (5 min) evita pérdida de datos recientes
+        #    - ✅ BENEFICIO: Estado consistente, sin duplicados, fácil de razonar
+        #
+        # 4. ALTERNATIVAS DESCARTADAS:
+        #    - Soft delete: Aumenta complejidad sin beneficio claro
+        #    - Mantener historial: No es requerido para el caso de uso actual
+        #    - Eliminar solo después de crear: Más transacciones, más complejo
+        #
+        # CONCLUSIÓN: La limpieza total es intencional y apropiada para este caso de uso.
+        delete_result = await self.session.execute(
+            delete(FreeChannelRequest).where(
+                FreeChannelRequest.user_id == user_id
+            )
+        )
+        deleted_count = delete_result.rowcount
+
+        if deleted_count > 0:
+            logger.info(
+                f"🧹 Limpiadas {deleted_count} solicitud(es) antigua(s) de user {user_id}"
+            )
+
+        # Crear nueva solicitud limpia
         request = FreeChannelRequest(
             user_id=user_id,
             request_date=datetime.utcnow(),
@@ -704,16 +747,69 @@ class SubscriptionService:
         success_count = 0
         error_count = 0
 
+        # Obtener info del canal una vez (evita N+1 queries)
+        try:
+            channel_info = await self.bot.get_chat(free_channel_id)
+            channel_name = channel_info.title or "Canal Free"
+        except Exception as e:
+            logger.warning(f"⚠️ No se pudo obtener info del canal Free: {e}")
+            channel_name = "Canal Free"
+
         # Aprobar cada solicitud usando Telegram API
         for request in ready_requests:
             try:
-                # Aprobar ChatJoinRequest directamente
+                # 1. Aprobar ChatJoinRequest directamente
                 await self.bot.approve_chat_join_request(
                     chat_id=free_channel_id,
                     user_id=request.user_id
                 )
 
-                # Marcar como procesada
+                # 2. Crear invite link personalizado (1 uso, 24h)
+                invite_link = await self.create_invite_link(
+                    channel_id=free_channel_id,
+                    user_id=request.user_id,
+                    expire_hours=24
+                )
+
+                # 3. Enviar mensaje de confirmación al usuario
+                try:
+                    confirmation_message = (
+                        f"🎉 <b>¡Acceso Free Aprobado!</b>\n\n"
+                        f"Tu solicitud ha sido aprobada exitosamente.\n\n"
+                        f"📺 Canal: <b>{channel_name}</b>\n\n"
+                        f"👇 <b>Haz click aquí para ingresar:</b>\n"
+                        f"{invite_link.invite_link}\n\n"
+                        f"⚠️ <b>Importante:</b>\n"
+                        f"• El link expira en 24 horas\n"
+                        f"• Solo puedes usarlo 1 vez\n"
+                        f"• No lo compartas con otros\n\n"
+                        f"¡Disfruta del contenido! 🎯"
+                    )
+
+                    await self.bot.send_message(
+                        chat_id=request.user_id,
+                        text=confirmation_message,
+                        parse_mode="HTML"
+                    )
+
+                    logger.info(
+                        f"✅ Confirmación enviada a user {request.user_id} con invite link"
+                    )
+
+                except Exception as notify_error:
+                    # Distinguir entre usuario que bloqueó el bot vs otros errores
+                    error_type = type(notify_error).__name__
+                    if "Forbidden" in error_type or "blocked" in str(notify_error).lower():
+                        logger.warning(
+                            f"⚠️ Usuario {request.user_id} bloqueó el bot, no se envió confirmación"
+                        )
+                    else:
+                        logger.error(
+                            f"❌ Error inesperado enviando confirmación a {request.user_id}: {notify_error}"
+                        )
+                    # No falla la aprobación si el mensaje no se envía
+
+                # 4. Marcar como procesada
                 request.processed = True
                 request.processed_at = datetime.utcnow()
 

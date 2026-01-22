@@ -130,14 +130,33 @@ async def _activate_token_from_deeplink(
             )
             return
 
-        # Obtener info del plan (si existe)
-        plan = token.plan if hasattr(token, 'plan') else None
-
-        if not plan:
+        # Verificar si el token tiene plan asociado (acceso directo a plan_id, sin lazy loading)
+        if not token.plan_id:
             # Token antiguo sin plan asociado (compatibilidad)
             await message.answer(
                 "❌ <b>Token Sin Plan Asociado</b>\n\n"
                 "Este token no tiene un plan de suscripción válido.",
+                parse_mode="HTML"
+            )
+            return
+
+        # Cargar plan explícitamente (sin lazy loading)
+        plan = await container.pricing.get_plan_by_id(token.plan_id)
+
+        if not plan:
+            await message.answer(
+                "❌ <b>Plan No Encontrado</b>\n\n"
+                "El plan asociado a este token ya no existe en el sistema.\n"
+                "Contacta al administrador.",
+                parse_mode="HTML"
+            )
+            return
+
+        if not plan.active:
+            await message.answer(
+                "❌ <b>Plan Desactivado</b>\n\n"
+                "El plan asociado a este token fue desactivado.\n"
+                "Contacta al administrador para más información.",
                 parse_mode="HTML"
             )
             return
