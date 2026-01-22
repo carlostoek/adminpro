@@ -727,13 +727,55 @@ class SubscriptionService:
         # Aprobar cada solicitud usando Telegram API
         for request in ready_requests:
             try:
-                # Aprobar ChatJoinRequest directamente
+                # 1. Aprobar ChatJoinRequest directamente
                 await self.bot.approve_chat_join_request(
                     chat_id=free_channel_id,
                     user_id=request.user_id
                 )
 
-                # Marcar como procesada
+                # 2. Crear invite link personalizado (1 uso, 24h)
+                invite_link = await self.create_invite_link(
+                    channel_id=free_channel_id,
+                    user_id=request.user_id,
+                    expire_hours=24
+                )
+
+                # 3. Enviar mensaje de confirmación al usuario
+                try:
+                    # Obtener info del canal para mostrar nombre
+                    channel_info = await self.bot.get_chat(free_channel_id)
+                    channel_name = channel_info.title or "Canal Free"
+
+                    confirmation_message = (
+                        f"🎉 <b>¡Acceso Free Aprobado!</b>\n\n"
+                        f"Tu solicitud ha sido aprobada exitosamente.\n\n"
+                        f"📺 Canal: <b>{channel_name}</b>\n\n"
+                        f"👇 <b>Haz click aquí para ingresar:</b>\n"
+                        f"{invite_link.invite_link}\n\n"
+                        f"⚠️ <b>Importante:</b>\n"
+                        f"• El link expira en 24 horas\n"
+                        f"• Solo puedes usarlo 1 vez\n"
+                        f"• No lo compartas con otros\n\n"
+                        f"¡Disfruta del contenido! 🎯"
+                    )
+
+                    await self.bot.send_message(
+                        chat_id=request.user_id,
+                        text=confirmation_message,
+                        parse_mode="HTML"
+                    )
+
+                    logger.info(
+                        f"✅ Confirmación enviada a user {request.user_id} con invite link"
+                    )
+
+                except Exception as notify_error:
+                    logger.warning(
+                        f"⚠️ No se pudo enviar confirmación a user {request.user_id}: {notify_error}"
+                    )
+                    # No falla la aprobación si el mensaje no se envía
+
+                # 4. Marcar como procesada
                 request.processed = True
                 request.processed_at = datetime.utcnow()
 
