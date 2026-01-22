@@ -63,7 +63,8 @@ class SubscriptionService:
     async def generate_vip_token(
         self,
         generated_by: int,
-        duration_hours: int = 24
+        duration_hours: int = 24,
+        plan_id: Optional[int] = None
     ) -> InvitationToken:
         """
         Genera un token de invitación único para canal VIP.
@@ -73,10 +74,12 @@ class SubscriptionService:
         - Es único (verifica duplicados)
         - Expira después de duration_hours
         - Puede usarse solo 1 vez
+        - Opcionalmente vinculado a un plan de suscripción
 
         Args:
             generated_by: User ID del admin que genera el token
             duration_hours: Duración del token en horas (default: 24h)
+            plan_id: ID del plan de suscripción (opcional)
 
         Returns:
             InvitationToken: Token generado
@@ -121,16 +124,16 @@ class SubscriptionService:
             generated_by=generated_by,
             created_at=datetime.utcnow(),
             duration_hours=duration_hours,
-            used=False
+            used=False,
+            plan_id=plan_id  # Vincular con plan (opcional)
         )
 
         self.session.add(token)
-        await self.session.commit()
-        await self.session.refresh(token)
+        # No commit - dejar que el handler maneje la transacción
 
         logger.info(
             f"✅ Token VIP generado: {token.token} "
-            f"(válido por {duration_hours}h, generado por {generated_by})"
+            f"(válido por {duration_hours}h, plan_id: {plan_id}, generado por {generated_by})"
         )
 
         return token
@@ -232,8 +235,7 @@ class SubscriptionService:
 
             existing_subscriber.status = "active"
 
-            await self.session.commit()
-            await self.session.refresh(existing_subscriber)
+            # No commit - dejar que el handler maneje la transacción
 
             logger.info(
                 f"✅ Suscripción VIP extendida: user {user_id} "
@@ -254,8 +256,7 @@ class SubscriptionService:
         )
 
         self.session.add(subscriber)
-        await self.session.commit()
-        await self.session.refresh(subscriber)
+        # No commit - dejar que el handler maneje la transacción
 
         logger.info(
             f"✅ Nuevo suscriptor VIP: user {user_id} "
@@ -305,6 +306,79 @@ class SubscriptionService:
             return False
 
         return True
+
+    async def activate_vip_subscription(
+        self,
+        user_id: int,
+        token_id: int,
+        duration_hours: int
+    ) -> VIPSubscriber:
+        """
+        Activa una suscripción VIP para un usuario (método privado de deep link).
+
+        NUEVO: Usado por el flujo de deep link para activar automáticamente
+        la suscripción sin pasar por el flujo de canje manual.
+
+        Args:
+            user_id: ID del usuario que activa
+            token_id: ID del token a usar
+            duration_hours: Duración de la suscripción en horas
+
+        Returns:
+            VIPSubscriber: Suscriptor creado o actualizado
+
+        Raises:
+            ValueError: Si el usuario ya es VIP o token inválido
+        """
+        # Verificar si usuario ya es VIP
+        result = await self.session.execute(
+            select(VIPSubscriber).where(
+                VIPSubscriber.user_id == user_id
+            )
+        )
+        existing_subscriber = result.scalar_one_or_none()
+
+        if existing_subscriber:
+            # Usuario ya es VIP: extender suscripción
+            extension = timedelta(hours=duration_hours)
+
+            # Si ya expiró, partir desde ahora
+            if existing_subscriber.is_expired():
+                existing_subscriber.expiry_date = datetime.utcnow() + extension
+            else:
+                # Si aún está activo, extender desde la fecha actual de expiración
+                existing_subscriber.expiry_date += extension
+
+            existing_subscriber.status = "active"
+
+            # No commit - dejar que el handler maneje la transacción
+            logger.info(
+                f"✅ Suscripción VIP extendida vía deep link: user {user_id} "
+                f"(nueva expiración: {existing_subscriber.expiry_date})"
+            )
+
+            return existing_subscriber
+
+        # Usuario nuevo: crear suscripción
+        expiry_date = datetime.utcnow() + timedelta(hours=duration_hours)
+
+        subscriber = VIPSubscriber(
+            user_id=user_id,
+            join_date=datetime.utcnow(),
+            expiry_date=expiry_date,
+            status="active",
+            token_id=token_id
+        )
+
+        self.session.add(subscriber)
+        # No commit - dejar que el handler maneje la transacción
+
+        logger.info(
+            f"✅ Nuevo suscriptor VIP vía deep link: user {user_id} "
+            f"(expira: {expiry_date})"
+        )
+
+        return subscriber
 
     async def expire_vip_subscribers(self) -> int:
         """
@@ -477,6 +551,57 @@ class SubscriptionService:
         )
         return result.scalar_one_or_none()
 
+    async def create_free_request_from_join_request(
+        self,
+        user_id: int,
+        from_chat_id: str
+    ) -> Tuple[bool, str, Optional[FreeChannelRequest]]:
+        """
+        Crea solicitud Free desde ChatJoinRequest de Telegram.
+
+        Verifica duplicados y retorna la solicitud existente o nueva.
+
+        Args:
+            user_id: ID del usuario que solicita
+            from_chat_id: ID del canal desde donde se solicita
+
+        Returns:
+            Tuple[bool, str, Optional[FreeChannelRequest]]:
+                - bool: True si nueva, False si duplicada
+                - str: Mensaje descriptivo
+                - Optional[FreeChannelRequest]: Solicitud creada o existente
+        """
+        # Verificar si ya tiene solicitud pendiente
+        result = await self.session.execute(
+            select(FreeChannelRequest).where(
+                FreeChannelRequest.user_id == user_id,
+                FreeChannelRequest.processed == False
+            ).order_by(FreeChannelRequest.request_date.desc())
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            logger.info(
+                f"ℹ️ Usuario {user_id} ya tiene solicitud Free pendiente "
+                f"(hace {existing.minutes_since_request()} min)"
+            )
+            return False, "Ya existe solicitud pendiente", existing
+
+        # Crear nueva solicitud
+        request = FreeChannelRequest(
+            user_id=user_id,
+            request_date=datetime.utcnow(),
+            processed=False
+        )
+
+        self.session.add(request)
+        await self.session.commit()
+        await self.session.refresh(request)
+
+        logger.info(f"✅ Solicitud Free creada desde ChatJoinRequest: user {user_id}")
+
+        return True, "Solicitud creada exitosamente", request
+
     async def process_free_queue(self, wait_time_minutes: int) -> List[FreeChannelRequest]:
         """
         Procesa la cola de solicitudes Free que cumplieron el tiempo de espera.
@@ -541,6 +666,75 @@ class SubscriptionService:
             logger.info(f"🗑️ {deleted_count} solicitud(es) Free antiguas eliminadas")
 
         return deleted_count
+
+    async def approve_ready_free_requests(
+        self,
+        wait_time_minutes: int,
+        free_channel_id: str
+    ) -> Tuple[int, int]:
+        """
+        Aprueba solicitudes Free que cumplieron tiempo de espera.
+
+        Usa approve_chat_join_request() de Telegram API en lugar de invite links.
+        Este es el método moderno recomendado por Telegram.
+
+        Args:
+            wait_time_minutes: Tiempo mínimo de espera requerido
+            free_channel_id: ID del canal Free
+
+        Returns:
+            Tuple[int, int]: (success_count, error_count)
+        """
+        # Calcular timestamp límite
+        cutoff_time = datetime.utcnow() - timedelta(minutes=wait_time_minutes)
+
+        # Buscar solicitudes listas para aprobar
+        result = await self.session.execute(
+            select(FreeChannelRequest).where(
+                FreeChannelRequest.processed == False,
+                FreeChannelRequest.request_date <= cutoff_time
+            ).order_by(FreeChannelRequest.request_date.asc())
+        )
+        ready_requests = result.scalars().all()
+
+        if not ready_requests:
+            logger.debug("✓ No hay solicitudes Free listas para aprobar")
+            return 0, 0
+
+        success_count = 0
+        error_count = 0
+
+        # Aprobar cada solicitud usando Telegram API
+        for request in ready_requests:
+            try:
+                # Aprobar ChatJoinRequest directamente
+                await self.bot.approve_chat_join_request(
+                    chat_id=free_channel_id,
+                    user_id=request.user_id
+                )
+
+                # Marcar como procesada
+                request.processed = True
+                request.processed_at = datetime.utcnow()
+
+                success_count += 1
+                logger.info(f"✅ Solicitud Free aprobada: user {request.user_id}")
+
+            except Exception as e:
+                error_count += 1
+                logger.error(
+                    f"❌ Error aprobando solicitud de user {request.user_id}: {e}"
+                )
+
+        # Commit todos los cambios
+        await self.session.commit()
+
+        logger.info(
+            f"📊 Procesamiento Free completado: {success_count} aprobadas, "
+            f"{error_count} errores"
+        )
+
+        return success_count, error_count
 
     # ===== INVITE LINKS =====
 

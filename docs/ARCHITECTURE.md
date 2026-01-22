@@ -1253,6 +1253,178 @@ cancel_keyboard = create_inline_keyboard([
 - `get_wait_time()` - Obtiene tiempo de espera configurado para solicitudes Free
 ```
 
+### 4.6 Stats Handler (T19)
+
+**Responsabilidad:** Handlers del panel de estadísticas que proporcionan métricas generales y detalladas sobre el sistema, incluyendo suscriptores VIP, solicitudes Free y tokens de invitación, con funcionalidades de caching y actualización manual.
+
+**Componentes:**
+- `bot/handlers/admin/stats.py` - Handlers principales y callbacks de navegación para el panel de estadísticas
+
+**Características:**
+- **Dashboard general:** Visualización de métricas generales del sistema (VIP, Free, Tokens)
+- **Estadísticas VIP detalladas:** Métricas sobre suscriptores VIP (activos, expirados, próximos a expirar)
+- **Estadísticas Free detalladas:** Métricas sobre solicitudes Free (pendientes, procesadas, tiempos de espera)
+- **Estadísticas de tokens:** Métricas sobre tokens de invitación (generados, usados, expirados, tasa de conversión)
+- **Sistema de cache:** Implementación de cache con TTL de 5 minutos para optimizar performance
+- **Actualización manual:** Posibilidad de forzar recálculo de estadísticas ignorando el cache
+- **Formato visual:** Mensajes HTML formateados con iconos y estructura clara
+- **Proyecciones de ingresos:** Cálculo de ingresos proyectados mensuales y anuales basados en suscriptores activos
+
+**Flujo principal:**
+1. Usuario admin selecciona "📊 Estadísticas" en el menú principal
+2. Bot muestra dashboard de estadísticas generales con cache
+3. Usuario puede navegar entre diferentes vistas de estadísticas
+4. Bot actualiza estadísticas cada 5 minutos (cache TTL)
+5. Usuario puede forzar actualización manual con "🔄 Actualizar Estadísticas"
+
+**Estructura de callbacks:**
+- `admin:stats` - Callback para mostrar el dashboard general de estadísticas
+- `admin:stats:vip` - Callback para mostrar estadísticas VIP detalladas
+- `admin:stats:free` - Callback para mostrar estadísticas Free detalladas
+- `admin:stats:tokens` - Callback para mostrar estadísticas de tokens
+- `admin:stats:refresh` - Callback para forzar recálculo de estadísticas (ignorar cache)
+
+**Aplicación de ServiceContainer:**
+```python
+# Aplicar container de servicios para acceder al servicio de estadísticas
+container = ServiceContainer(session, callback.bot)
+
+# Acceder al servicio de estadísticas
+stats = await container.stats.get_overall_stats()
+vip_stats = await container.stats.get_vip_stats()
+free_stats = await container.stats.get_free_stats()
+token_stats = await container.stats.get_token_stats()
+```
+
+**Flujo de estadísticas generales:**
+1. Admin selecciona "📊 Estadísticas" en menú principal
+2. Bot llama a `container.stats.get_overall_stats()` con cache
+3. Bot formatea mensaje con `_format_overall_stats_message()`
+4. Bot envía mensaje con teclado de estadísticas
+5. Admin puede navegar entre vistas o actualizar
+
+**Ejemplo de handler de estadísticas generales:**
+```python
+@admin_router.callback_query(F.data == "admin:stats")
+async def callback_stats_general(callback: CallbackQuery, session: AsyncSession):
+    """
+    Muestra dashboard de estadísticas generales.
+
+    Incluye:
+    - Resumen VIP (activos, expirados, próximos a expirar)
+    - Resumen Free (pendientes, procesadas)
+    - Resumen Tokens (generados, usados, disponibles)
+    - Actividad reciente (hoy, semana, mes)
+    - Proyección de ingresos
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD (inyectada por middleware)
+    """
+    logger.info(f"📊 Usuario {callback.from_user.id} abrió estadísticas generales")
+
+    # Mostrar "cargando..." temporalmente
+    await callback.answer("📊 Calculando estadísticas...", show_alert=False)
+
+    container = ServiceContainer(session, callback.bot)
+
+    try:
+        # Obtener estadísticas generales (con cache)
+        stats = await container.stats.get_overall_stats()
+
+        # Construir mensaje
+        text = _format_overall_stats_message(stats)
+
+        await callback.message.edit_text(
+            text=text,
+            reply_markup=stats_menu_keyboard(),
+            parse_mode="HTML"
+        )
+
+        logger.debug(f"✅ Stats generales mostradas a user {callback.from_user.id}")
+
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo stats: {e}", exc_info=True)
+
+        await callback.message.edit_text(
+            "❌ <b>Error al Calcular Estadísticas</b>\n\n"
+            "Hubo un problema al obtener las métricas.\n"
+            "Intenta nuevamente en unos momentos.",
+            reply_markup=back_to_main_menu_keyboard(),
+            parse_mode="HTML"
+        )
+```
+
+**Flujo de estadísticas VIP detalladas:**
+1. Admin selecciona "📊 Ver Stats VIP Detalladas"
+2. Bot llama a `container.stats.get_vip_stats()` con cache
+3. Bot formatea mensaje con `_format_vip_stats_message()`
+4. Bot incluye información sobre suscriptores activos, expirados y próximos a expirar
+5. Bot envía mensaje con teclado de estadísticas
+
+**Flujo de estadísticas Free detalladas:**
+1. Admin selecciona "📊 Ver Stats Free Detalladas"
+2. Bot llama a `container.stats.get_free_stats()` con cache
+3. Bot formatea mensaje con `_format_free_stats_message()`
+4. Bot incluye información sobre solicitudes listas para procesar y tiempo promedio de espera
+5. Bot envía mensaje con teclado de estadísticas
+
+**Flujo de estadísticas de tokens:**
+1. Admin selecciona "🎟️ Ver Stats de Tokens"
+2. Bot llama a `container.stats.get_token_stats()` con cache
+3. Bot formatea mensaje con `_format_token_stats_message()`
+4. Bot incluye tasa de conversión y métricas por período
+5. Bot envía mensaje con teclado de estadísticas
+
+**Flujo de actualización manual:**
+1. Admin selecciona "🔄 Actualizar Estadísticas"
+2. Bot llama a servicios con `force_refresh=True`
+3. Servicios ignoran cache y recalculan desde BD
+4. Bot actualiza mensaje con estadísticas recién calculadas
+5. Cache se actualiza con nuevos valores
+
+**Interacción con teclados inline:**
+```python
+def stats_menu_keyboard() -> "InlineKeyboardMarkup":
+    """
+    Keyboard del menú de estadísticas.
+
+    Opciones:
+    - Ver Stats VIP Detalladas
+    - Ver Stats Free Detalladas
+    - Ver Stats de Tokens
+    - Actualizar Estadísticas (force refresh)
+    - Volver al Menú Principal
+
+    Returns:
+        InlineKeyboardMarkup con menú de stats
+    """
+    return create_inline_keyboard([
+        [{"text": "📊 Ver Stats VIP Detalladas", "callback_data": "admin:stats:vip"}],
+        [{"text": "📊 Ver Stats Free Detalladas", "callback_data": "admin:stats:free"}],
+        [{"text": "🎟️ Ver Stats de Tokens", "callback_data": "admin:stats:tokens"}],
+        [{"text": "🔄 Actualizar Estadísticas", "callback_data": "admin:stats:refresh"}],
+        [{"text": "🔙 Volver al Menú Principal", "callback_data": "admin:main"}],
+    ])
+```
+
+**Formato de mensajes de estadísticas:**
+- `_format_overall_stats_message()` - Dashboard general con secciones VIP, Free, Tokens, Actividad y Proyección de Ingresos
+- `_format_vip_stats_message()` - Estadísticas VIP con secciones Estado General, Próximas a Expirar, Actividad Reciente y Top Suscriptores
+- `_format_free_stats_message()` - Estadísticas Free con secciones Estado General, Procesamiento, Actividad Reciente y Próximas a Procesar
+- `_format_token_stats_message()` - Estadísticas de Tokens con secciones Estado General, Generados/Usados por Período y Tasa de Conversión
+
+**Funciones de utilidad:**
+- `format_currency(amount)` - Formatea cantidades como moneda (ej: "$1,234.56")
+- `format_percentage(value)` - Formatea valores como porcentaje (ej: "85.5%")
+
+**Manejo de errores:**
+- Cada handler está envuelto en try-catch para manejar errores de cálculo de estadísticas
+- Mensajes de error claros para el usuario administrador
+- Logging detallado de errores para debugging
+- Retorno a menú de estadísticas en caso de error
+```
+
 ### 4.5 Free Handler (T13)
 
 **Responsabilidad:** Handlers del submenú Free que gestionan el canal Free con configuración de tiempo de espera, configuración del canal Free por reenvío de mensajes y configuración de tiempo de espera para acceso Free
@@ -1504,6 +1676,706 @@ def free_menu_keyboard(is_configured: bool) -> "InlineKeyboardMarkup":
 5. Bot verifica permisos del bot en el canal
 6. Bot guarda configuración si todo es válido
 7. Bot limpia estado FSM y actualiza menú
+
+### 4.7 Broadcasting Handler (T22)
+
+**Responsabilidad:** Handlers del sistema de broadcasting que permiten a los administradores enviar contenido a los canales VIP y Free con funcionalidad de vista previa y confirmación antes del envío.
+
+**Componentes:**
+- `bot/handlers/admin/broadcast.py` - Handlers principales y callbacks de navegación para el sistema de broadcasting
+
+**Características:**
+- **Envío de contenido:** Envío de texto, fotos y videos a canales VIP y Free
+- **Vista previa:** Visualización del contenido antes de enviarlo al canal
+- **Confirmación de envío:** Confirmación opcional antes de publicar en el canal
+- **Uso de FSM:** Utiliza BroadcastStates para el flujo de envío de contenido
+- **Interacción con teclados inline:** Proporciona opciones de confirmación y control a través de teclado inline
+- **Tipos de contenido soportados:** Texto, foto con caption opcional, video con caption opcional
+
+**Flujo principal:**
+1. Usuario admin selecciona "📤 Enviar a Canal VIP" o "📤 Enviar a Canal Free" en menú de gestión
+2. Bot entra en estado FSM `waiting_for_content`
+3. Usuario envía contenido (texto, foto o video)
+4. Bot procesa contenido y entra en estado `waiting_for_confirmation`
+5. Bot muestra vista previa y solicita confirmación
+6. Usuario confirma o cancela envío
+7. Si confirma: Bot envía contenido al canal y limpia estado FSM
+8. Si cancela: Bot limpia estado FSM y regresa al menú principal
+
+**Estructura de callbacks:**
+- `vip:broadcast` - Callback para iniciar broadcasting al canal VIP
+- `free:broadcast` - Callback para iniciar broadcasting al canal Free
+- `broadcast:confirm` - Callback para confirmar envío de contenido
+- `broadcast:cancel` - Callback para cancelar broadcasting
+- `broadcast:change` - Callback para cambiar contenido antes de enviar
+
+**Aplicación de FSM:**
+```python
+# Aplicar estados FSM para broadcasting
+@admin_router.callback_query(F.data == "vip:broadcast")
+async def callback_broadcast_to_vip(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    """
+    Inicia broadcasting al canal VIP.
+
+    Args:
+        callback: Callback query
+        state: FSM context
+    """
+    logger.info(f"📤 Usuario {callback.from_user.id} iniciando broadcast a VIP")
+
+    # Guardar canal destino en FSM data
+    await state.set_data({"target_channel": "vip"})
+
+    # Entrar en estado FSM
+    await state.set_state(BroadcastStates.waiting_for_content)
+
+    text = (
+        "📤 <b>Enviar Publicación a Canal VIP</b>\n\n"
+        "Envía el contenido que quieres publicar:\n\n"
+        "• <b>Texto:</b> Envía un mensaje de texto\n"
+        "• <b>Foto:</b> Envía una foto (con caption opcional)\n"
+        "• <b>Video:</b> Envía un video (con caption opcional)\n\n"
+        "El mensaje será enviado exactamente como lo envíes.\n\n"
+        "👁️ Verás un preview antes de confirmar el envío."
+    )
+
+    await callback.message.edit_text(
+        text=text,
+        reply_markup=create_inline_keyboard([
+            [{"text": "❌ Cancelar", "callback_data": "broadcast:cancel"}]
+        ]),
+        parse_mode="HTML"
+    )
+
+    await callback.answer()
+
+@admin_router.message(
+    BroadcastStates.waiting_for_content,
+    F.content_type.in_([ContentType.TEXT, ContentType.PHOTO, ContentType.VIDEO])
+)
+async def process_broadcast_content(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession
+):
+    """
+    Procesa el contenido enviado para broadcasting.
+
+    Guarda el contenido en FSM data y muestra preview.
+
+    Args:
+        message: Mensaje con el contenido
+        state: FSM context
+        session: Sesión de BD
+    """
+    user_id = message.from_user.id
+
+    # Obtener data del FSM
+    data = await state.get_data()
+    target_channel = data.get("target_channel", "vip")
+
+    logger.info(
+        f"📥 Usuario {user_id} envió contenido para broadcast a {target_channel}"
+    )
+
+    # Determinar tipo de contenido
+    content_type = message.content_type
+    caption = None
+
+    if content_type == ContentType.PHOTO:
+        # Guardar file_id de la foto más grande
+        photo = message.photo[-1]  # Última foto es la más grande
+        file_id = photo.file_id
+        caption = message.caption
+
+    elif content_type == ContentType.VIDEO:
+        file_id = message.video.file_id
+        caption = message.caption
+
+    else:  # TEXT
+        file_id = None
+        caption = message.text
+
+    # Actualizar FSM data con contenido
+    await state.update_data({
+        "content_type": content_type,
+        "file_id": file_id,
+        "caption": caption,
+        "original_message_id": message.message_id,
+    })
+
+    # Mostrar preview
+    preview_text = await _generate_preview_text(target_channel, content_type, caption)
+
+    # Enviar preview al admin
+    await message.answer(
+        text=preview_text,
+        reply_markup=create_inline_keyboard([
+            [
+                {"text": "✅ Confirmar y Enviar", "callback_data": "broadcast:confirm"},
+                {"text": "❌ Cancelar", "callback_data": "broadcast:cancel"}
+            ],
+            [{"text": "🔄 Enviar Otro Contenido", "callback_data": "broadcast:change"}]
+        ]),
+        parse_mode="HTML"
+    )
+
+    # Reenviar el contenido como preview visual
+    if content_type == ContentType.PHOTO:
+        await message.answer_photo(
+            photo=file_id,
+            caption="👁️ <i>Preview del mensaje</i>",
+            parse_mode="HTML"
+        )
+    elif content_type == ContentType.VIDEO:
+        await message.answer_video(
+            video=file_id,
+            caption="👁️ <i>Preview del mensaje</i>",
+            parse_mode="HTML"
+        )
+
+    # Cambiar a estado de confirmación
+    await state.set_state(BroadcastStates.waiting_for_confirmation)
+
+    logger.debug(f"✅ Preview generado para user {user_id}")
+```
+
+**Flujo de envío con confirmación:**
+1. Admin selecciona "📤 Enviar a Canal VIP" o "📤 Enviar a Canal Free"
+2. Bot entra en estado `waiting_for_content`
+3. Admin envía contenido (texto, foto o video)
+4. Bot procesa contenido y entra en estado `waiting_for_confirmation`
+5. Bot muestra vista previa del contenido
+6. Bot solicita confirmación con teclado inline
+7. Admin confirma o cancela envío
+8. Si confirma: Bot envía contenido al canal y limpia estado
+9. Si cancela: Bot limpia estado y regresa al menú
+
+**Ejemplo de confirmación de envío:**
+```python
+@admin_router.callback_query(
+    BroadcastStates.waiting_for_confirmation,
+    F.data == "broadcast:confirm"
+)
+async def callback_broadcast_confirm(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession
+):
+    """
+    Confirma y envía el mensaje al canal(es).
+
+    Args:
+        callback: Callback query
+        state: FSM context
+        session: Sesión de BD
+    """
+    user_id = callback.from_user.id
+
+    # Obtener data del FSM
+    data = await state.get_data()
+    target_channel = data["target_channel"]
+    content_type = data["content_type"]
+    file_id = data.get("file_id")
+    caption = data.get("caption")
+
+    logger.info(f"📤 Usuario {user_id} confirmó broadcast a {target_channel}")
+
+    # Notificar que se está enviando
+    await callback.answer("📤 Enviando publicación...", show_alert=False)
+
+    container = ServiceContainer(session, callback.bot)
+
+    # Determinar canales destino
+    channels_to_send = []
+
+    if target_channel == "vip":
+        vip_channel = await container.channel.get_vip_channel_id()
+        if vip_channel:
+            channels_to_send.append(("VIP", vip_channel))
+
+    elif target_channel == "free":
+        free_channel = await container.channel.get_free_channel_id()
+        if free_channel:
+            channels_to_send.append(("Free", free_channel))
+
+    # Validar que hay canales configurados
+    if not channels_to_send:
+        await callback.message.edit_text(
+            "❌ <b>Error: Canales No Configurados</b>\n\n"
+            "Debes configurar los canales antes de enviar publicaciones.",
+            reply_markup=create_inline_keyboard([
+                [{"text": "🔙 Volver", "callback_data": "admin:main"}]
+            ]),
+            parse_mode="HTML"
+        )
+        await state.clear()
+        return
+
+    # Enviar a cada canal
+    results = []
+
+    for channel_name, channel_id in channels_to_send:
+        try:
+            if content_type == ContentType.PHOTO:
+                success, msg, _ = await container.channel.send_to_channel(
+                    channel_id=channel_id,
+                    text=caption or "",
+                    photo=file_id
+                )
+
+            elif content_type == ContentType.VIDEO:
+                success, msg, _ = await container.channel.send_to_channel(
+                    channel_id=channel_id,
+                    text=caption or "",
+                    video=file_id
+                )
+
+            else:  # TEXT
+                success, msg, _ = await container.channel.send_to_channel(
+                    channel_id=channel_id,
+                    text=caption or ""
+                )
+
+            if success:
+                results.append(f"✅ Canal {channel_name}")
+                logger.info(f"✅ Publicación enviada a canal {channel_name}")
+            else:
+                results.append(f"❌ Canal {channel_name}: {msg}")
+                logger.error(f"❌ Error enviando a {channel_name}: {msg}")
+
+        except Exception as e:
+            results.append(f"❌ Canal {channel_name}: Error inesperado")
+            logger.error(f"❌ Excepción enviando a {channel_name}: {e}", exc_info=True)
+
+    # Mostrar resultados
+    results_text = "\n".join(results)
+
+    await callback.message.edit_text(
+        f"📤 <b>Resultado del Envío</b>\n\n{results_text}\n\n"
+        f"La publicación ha sido procesada.",
+        reply_markup=create_inline_keyboard([
+            [{"text": "🔙 Volver al Menú", "callback_data": "admin:main"}]
+        ]),
+        parse_mode="HTML"
+    )
+
+    # Limpiar estado FSM
+    await state.clear()
+
+    logger.info(f"✅ Broadcasting completado para user {user_id}")
+```
+
+**Uso del ServiceContainer en los handlers de broadcasting:**
+```python
+# Crear container de servicios con sesión de BD y bot
+container = ServiceContainer(session, callback.bot)
+
+# Acceder a servicios específicos
+vip_channel = await container.channel.get_vip_channel_id()
+free_channel = await container.channel.get_free_channel_id()
+success, msg, _ = await container.channel.send_to_channel(
+    channel_id=channel_id,
+    text=caption or "",
+    photo=file_id
+)
+```
+
+**Interacción con teclados inline de broadcasting:**
+```python
+# Teclado para confirmación de envío
+confirmation_keyboard = create_inline_keyboard([
+    [
+        {"text": "✅ Confirmar y Enviar", "callback_data": "broadcast:confirm"},
+        {"text": "❌ Cancelar", "callback_data": "broadcast:cancel"}
+    ],
+    [{"text": "🔄 Enviar Otro Contenido", "callback_data": "broadcast:change"}]
+])
+
+# Teclado para cancelación de broadcasting
+cancel_keyboard = create_inline_keyboard([
+    [{"text": "❌ Cancelar", "callback_data": "broadcast:cancel"}]
+])
+```
+
+### 4.8 Reactions Handler (T23)
+
+**Responsabilidad:** Handlers del sistema de configuración de reacciones automáticas que permiten a los administradores definir emojis que se aplicarán automáticamente a las publicaciones en los canales VIP y Free.
+
+**Componentes:**
+- `bot/handlers/admin/reactions.py` - Handlers principales y callbacks de navegación para el sistema de reacciones
+
+**Características:**
+- **Configuración de reacciones VIP:** Configuración de emojis para el canal VIP
+- **Configuración de reacciones Free:** Configuración de emojis para el canal Free
+- **Validación de emojis:** Validación de formato y cantidad de emojis (1-10)
+- **Uso de FSM:** Utiliza ReactionSetupStates para el flujo de configuración de reacciones
+- **Interacción con teclados inline:** Proporciona opciones de navegación a través de teclado inline
+- **Persistencia de configuración:** Almacenamiento en la tabla BotConfig
+
+**Flujo principal:**
+1. Usuario admin selecciona "⚙️ Configurar Reacciones VIP" o "⚙️ Configurar Reacciones Free" en menú de configuración
+2. Bot entra en estado FSM correspondiente (`waiting_for_vip_reactions` o `waiting_for_free_reactions`)
+3. Usuario envía emojis separados por espacios
+4. Bot valida formato y cantidad de emojis
+5. Si válido: Bot guarda configuración y limpia estado FSM
+6. Si inválido: Bot mantiene estado FSM y solicita reingreso
+
+**Estructura de callbacks:**
+- `config:reactions:vip` - Callback para iniciar configuración de reacciones VIP
+- `config:reactions:free` - Callback para iniciar configuración de reacciones Free
+
+**Aplicación de FSM:**
+```python
+# Aplicar estados FSM para configuración de reacciones VIP
+@admin_router.callback_query(F.data == "config:reactions:vip")
+async def callback_setup_vip_reactions(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    state: FSMContext
+):
+    """
+    Inicia configuración de reacciones para canal VIP.
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+        state: FSM context
+    """
+    logger.info(f"⚙️ Usuario {callback.from_user.id} configurando reacciones VIP")
+
+    container = ServiceContainer(session, callback.bot)
+
+    # Obtener reacciones actuales
+    current_reactions = await container.config.get_vip_reactions()
+
+    if current_reactions:
+        current_text = " ".join(current_reactions)
+        status_text = f"<b>Reacciones actuales:</b> {current_text}\n\n"
+    else:
+        status_text = "<b>Reacciones actuales:</b> <i>Ninguna configurada</i>\n\n"
+
+    # Entrar en estado FSM
+    await state.set_state(ReactionSetupStates.waiting_for_vip_reactions)
+
+    text = (
+        "⚙️ <b>Configurar Reacciones VIP</b>\n\n"
+        f"{status_text}"
+        "Envía los emojis que quieres usar como reacciones, "
+        "separados por espacios.\n\n"
+        "<b>Ejemplo:</b> <code>👍 ❤️ 🔥 🎉 💯</code>\n\n"
+        "<b>Reglas:</b>\n"
+        "• Mínimo: 1 emoji\n"
+        "• Máximo: 10 emojis\n"
+        "• Solo emojis válidos\n\n"
+        "Las reacciones se aplicarán automáticamente a "
+        "nuevas publicaciones en el canal VIP."
+    )
+
+    await callback.message.edit_text(
+        text=text,
+        reply_markup=create_inline_keyboard([
+            [{"text": "❌ Cancelar", "callback_data": "admin:config"}]
+        ]),
+        parse_mode="HTML"
+    )
+
+    await callback.answer()
+
+@admin_router.message(ReactionSetupStates.waiting_for_vip_reactions)
+async def process_vip_reactions_input(
+    message: Message,
+    session: AsyncSession,
+    state: FSMContext
+):
+    """
+    Procesa el input de reacciones VIP.
+
+    Args:
+        message: Mensaje con emojis
+        session: Sesión de BD
+        state: FSM context
+    """
+    user_id = message.from_user.id
+    text = message.text.strip()
+
+    logger.info(f"⚙️ Usuario {user_id} enviando reacciones VIP: {text}")
+
+    # Validar emojis
+    is_valid, error_msg, emojis = validate_emoji_list(text)
+
+    if not is_valid:
+        # Input inválido
+        await message.answer(
+            f"❌ <b>Input Inválido</b>\n\n"
+            f"{error_msg}\n\n"
+            f"Por favor, envía los emojis separados por espacios.\n"
+            f"Ejemplo: <code>👍 ❤️ 🔥</code>",
+            parse_mode="HTML"
+        )
+        # Mantener estado FSM para reintentar
+        return
+
+    container = ServiceContainer(session, message.bot)
+
+    try:
+        # Guardar reacciones
+        await container.config.set_vip_reactions(emojis)
+
+        reactions_text = " ".join(emojis)
+
+        await message.answer(
+            f"✅ <b>Reacciones VIP Configuradas</b>\n\n"
+            f"<b>Reacciones:</b> {reactions_text}\n"
+            f"<b>Total:</b> {len(emojis)} emojis\n\n"
+            f"Estas reacciones se aplicarán automáticamente a "
+            f"nuevas publicaciones en el canal VIP.",
+            reply_markup=create_inline_keyboard([
+                [{"text": "🔙 Volver a Configuración", "callback_data": "admin:config"}]
+            ]),
+            parse_mode="HTML"
+        )
+
+        # Limpiar estado FSM
+        await state.clear()
+
+        logger.info(f"✅ Reacciones VIP configuradas: {len(emojis)} emojis")
+
+    except ValueError as e:
+        # Error de validación del service
+        logger.error(f"❌ Error validando reacciones VIP: {e}")
+
+        await message.answer(
+            f"❌ <b>Error al Guardar Reacciones</b>\n\n"
+            f"{str(e)}\n\n"
+            f"Intenta nuevamente.",
+            parse_mode="HTML"
+        )
+        # Mantener estado para reintentar
+
+    except Exception as e:
+        # Error inesperado
+        logger.error(f"❌ Error guardando reacciones VIP: {e}", exc_info=True)
+
+        await message.answer(
+            "❌ <b>Error Inesperado</b>\n\n"
+            "No se pudieron guardar las reacciones.\n"
+            "Intenta nuevamente.",
+            parse_mode="HTML"
+        )
+        await state.clear()
+```
+
+**Flujo de configuración de reacciones:**
+1. Admin selecciona "⚙️ Configurar Reacciones VIP" o "⚙️ Configurar Reacciones Free"
+2. Bot entra en estado FSM correspondiente
+3. Bot muestra reacciones actuales y solicita nuevas reacciones
+4. Admin envía emojis separados por espacios
+5. Bot valida formato y cantidad (1-10 emojis)
+6. Bot guarda configuración en BD
+7. Bot limpia estado FSM y actualiza menú
+
+**Validación de reacciones:**
+- Mínimo 1 emoji
+- Máximo 10 emojis
+- Solo caracteres de emoji válidos
+- Formato: emojis separados por espacios
+
+**Uso del ServiceContainer en los handlers de reacciones:**
+```python
+# Crear container de servicios con sesión de BD y bot
+container = ServiceContainer(session, message.bot)
+
+# Acceder a servicios específicos
+current_reactions = await container.config.get_vip_reactions()
+await container.config.set_vip_reactions(emojis)
+current_reactions = await container.config.get_free_reactions()
+await container.config.set_free_reactions(emojis)
+```
+
+**Interacción con teclados inline de reacciones:**
+```python
+# Teclado para cancelación de configuración de reacciones
+cancel_keyboard = create_inline_keyboard([
+    [{"text": "❌ Cancelar", "callback_data": "admin:config"}]
+])
+
+# Teclado para volver a menú de configuración
+back_to_config_keyboard = create_inline_keyboard([
+    [{"text": "🔙 Volver a Configuración", "callback_data": "admin:config"}]
+])
+
+### 4.9 Dashboard Handler (T27)
+
+**Responsabilidad:** Handlers del panel de control completo del sistema que proporciona una visión general del estado del bot con health checks, configuración, estadísticas clave, tareas en segundo plano y acciones rápidas.
+
+**Componentes:**
+- `bot/handlers/admin/dashboard.py` - Handlers principales y callbacks de navegación para el panel de control completo
+
+**Características:**
+- **Estado de configuración:** Visualización del estado de los canales VIP y Free, reacciones configuradas y tiempo de espera
+- **Estadísticas clave:** Métricas importantes como VIPs activos, solicitudes Free pendientes, tokens disponibles y nuevos VIPs
+- **Health checks:** Verificación del estado del sistema con identificación de problemas y advertencias
+- **Background tasks:** Estado del scheduler y próxima ejecución de tareas programadas
+- **Acciones rápidas:** Acceso directo a funciones administrativas desde el dashboard
+- **Actualización automática:** Muestra la hora exacta de la última actualización
+- **Diseño estructurado:** Información organizada en secciones claras con bordes y emojis
+
+**Flujo principal:**
+1. Usuario admin selecciona "📊 Dashboard Completo" en el menú principal
+2. Bot recopila todos los datos necesarios para el dashboard
+3. Bot realiza health checks del sistema
+4. Bot formatea mensaje con `_format_dashboard_message()`
+5. Bot crea teclado inline con `_create_dashboard_keyboard()`
+6. Bot envía dashboard completo con estado general, problemas detectados, configuración actual, estadísticas clave y estado de tareas en segundo plano
+7. Usuario puede navegar a otras secciones desde el teclado inline
+
+**Estructura de callbacks:**
+- `admin:dashboard` - Callback para mostrar el dashboard completo del sistema
+
+**Flujo de recopilación de datos:**
+1. Admin selecciona "📊 Dashboard Completo"
+2. Bot llama a `_gather_dashboard_data()` que recopila:
+   - Estado de configuración (VIP/Free channels, reacciones, tiempo de espera)
+   - Estadísticas generales del sistema
+   - Estado del scheduler y tareas en segundo plano
+   - Realiza health checks del sistema
+3. Bot formatea mensaje con `_format_dashboard_message()`
+4. Bot crea teclado inline con `_create_dashboard_keyboard()`
+5. Bot envía dashboard al admin
+
+**Ejemplo de handler de dashboard:**
+```python
+@admin_router.callback_query(F.data == "admin:dashboard")
+async def callback_admin_dashboard(
+    callback: CallbackQuery,
+    session: AsyncSession
+):
+    """
+    Muestra dashboard completo del sistema.
+
+    Incluye:
+    - Estado de configuración (canales, reacciones)
+    - Estadísticas clave (VIP, Free, Tokens)
+    - Background tasks (estado, próxima ejecución)
+    - Health checks
+    - Acciones rápidas
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+    """
+    logger.info(f"📊 Usuario {callback.from_user.id} abrió dashboard completo")
+
+    await callback.answer("📊 Cargando dashboard...", show_alert=False)
+
+    container = ServiceContainer(session, callback.bot)
+
+    try:
+        # Obtener datos del dashboard
+        dashboard_data = await _gather_dashboard_data(container)
+
+        # Formatear mensaje
+        text = _format_dashboard_message(dashboard_data)
+
+        # Keyboard con acciones rápidas
+        keyboard = _create_dashboard_keyboard(dashboard_data)
+
+        await callback.message.edit_text(
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
+        logger.debug("✅ Dashboard mostrado exitosamente")
+
+    except Exception as e:
+        logger.error(f"❌ Error generando dashboard: {e}", exc_info=True)
+
+        await callback.message.edit_text(
+            "❌ <b>Error al Cargar Dashboard</b>\n\n"
+            "No se pudo generar el dashboard completo.\n"
+            "Intenta nuevamente.",
+            reply_markup=create_inline_keyboard([
+                [{"text": "🔄 Reintentar", "callback_data": "admin:dashboard"}],
+                [{"text": "🔙 Volver", "callback_data": "admin:main"}]
+            ]),
+            parse_mode="HTML"
+        )
+```
+
+**Flujo de health checks:**
+1. Bot recibe datos de configuración, estadísticas y scheduler
+2. Bot llama a `_perform_health_checks()` con los datos
+3. Función verifica:
+   - Canales configurados (VIP y Free)
+   - Background tasks corriendo
+   - Tokens disponibles
+   - VIPs próximos a expirar
+   - Cola Free grande
+4. Función determina estado general (healthy, degraded, down)
+5. Bot incluye resultados en el dashboard
+
+**Formato de mensaje del dashboard:**
+- `_format_dashboard_message()` - Dashboard general con secciones de configuración, estadísticas clave, background tasks y health checks
+- Diseño estructurado con emojis y bordes para mejor visualización
+- Muestra estado general del sistema con indicadores visuales
+
+**Interacción con teclados inline:**
+```python
+def _create_dashboard_keyboard(data: dict) -> "InlineKeyboardMarkup":
+    """
+    Crea keyboard del dashboard con acciones rápidas.
+
+    Args:
+        data: Dict con datos del dashboard
+
+    Returns:
+        InlineKeyboardMarkup con acciones
+    """
+    buttons = []
+
+    # Fila 1: Stats y Config
+    buttons.append([
+        {"text": "📊 Estadísticas Detalladas", "callback_data": "admin:stats"},
+        {"text": "⚙️ Configuración", "callback_data": "admin:config"}
+    ])
+
+    # Fila 2: Gestión (adaptativa según configuración)
+    row_2 = []
+
+    if data["config"]["vip_configured"]:
+        row_2.append(
+            {"text": "👥 Suscriptores VIP", "callback_data": "vip:list_subscribers"}
+        )
+
+    if data["config"]["free_configured"]:
+        row_2.append(
+            {"text": "📋 Cola Free", "callback_data": "free:view_queue"}
+        )
+
+    if row_2:
+        buttons.append(row_2)
+
+    # Fila 3: Actualizar y Volver
+    buttons.append([
+        {"text": "🔄 Actualizar", "callback_data": "admin:dashboard"},
+        {"text": "🔙 Menú", "callback_data": "admin:main"}
+    ])
+
+    return create_inline_keyboard(buttons)
+```
+
+**Características del dashboard:**
+- **Actualización automática:** Muestra la hora exacta de la última actualización
+- **Diseño estructurado:** Información organizada en secciones claras con bordes y emojis
+- **Adaptabilidad:** El teclado inline se adapta según la configuración actual (muestra "Suscriptores VIP" solo si canal VIP está configurado)
+- **Acceso directo:** Botones para acceder rápidamente a funciones administrativas importantes
+- **Health checks:** Identificación automática de problemas y advertencias en el sistema
+- **Visualización clara:** Uso de emojis y formato HTML para mejor comprensión del estado del sistema
 
 ### 7. Services
 
@@ -2273,6 +3145,51 @@ class TokenService:
 
 ### 3. Repository Pattern (planeado)
 
+### 4. Pricing System Architecture (T28)
+
+**Componentes:**
+- `bot/services/pricing.py`: PricingService para gestión de planes de suscripción
+- `bot/database/models.py`: SubscriptionPlan model para almacenamiento de planes
+- `bot/database/enums.py`: UserRole enum para roles de usuarios
+- `bot/services/user.py`: UserService para gestión de usuarios y roles
+- `bot/handlers/admin/vip.py`: Generación de tokens con deep links profesionales
+- `bot/handlers/user/start.py`: Activación automática desde deep links
+
+**Características:**
+- Sistema de planes con nombre, duración, precio y moneda
+- Gestión CRUD completa de planes de suscripción
+- Deep links profesionales con formato `https://t.me/bot?start=TOKEN`
+- Activación automática de suscripciones desde deep links
+- Sistema de roles jerárquico (FREE, VIP, ADMIN) con transiciones automáticas
+
+### 5. User Role Management Architecture (T29)
+
+**Componentes:**
+- `bot/database/enums.py`: UserRole enum con FREE, VIP, ADMIN
+- `bot/database/models.py`: User model con campo de rol
+- `bot/services/user.py`: UserService con métodos de gestión de roles
+- `bot/handlers/user/start.py`: Detección y manejo de roles en el flujo de usuario
+
+**Características:**
+- Transiciones automáticas basadas en estado de suscripción
+- Verificación de permisos por rol
+- Gestión manual de roles por administradores
+- Integración con otros sistemas del bot
+
+### 6. Deep Links Architecture (T30)
+
+**Componentes:**
+- `bot/handlers/user/start.py`: Manejo de parámetros de deep links
+- `bot/handlers/admin/vip.py`: Generación de deep links profesionales
+- `bot/services/subscription.py`: Activación de suscripciones desde tokens
+- `bot/services/user.py`: Actualización de roles durante activación
+
+**Características:**
+- Formato estándar: `https://t.me/botname?start=TOKEN`
+- Activación automática sin pasos manuales
+- Integración con sistema de precios y roles
+- Registro y seguimiento de activaciones
+
 Para aislar lógica de acceso a datos:
 
 ```python
@@ -2483,5 +3400,1231 @@ dp.update.middleware(DatabaseMiddleware())
 
 ---
 
-**Última actualización:** 2025-12-11
+### 8.1 Broadcasting Handler (T22)
+
+**Responsabilidad:** Handlers del sistema de broadcasting que permiten a los administradores enviar contenido a los canales VIP y Free con funcionalidad de vista previa y confirmación antes del envío.
+
+**Componentes:**
+- `bot/handlers/admin/broadcast.py` - Handlers principales y callbacks de navegación para el sistema de broadcasting
+
+**Características:**
+- **Envío de contenido:** Envío de texto, fotos y videos a canales VIP y Free
+- **Vista previa:** Visualización del contenido antes de enviarlo al canal
+- **Confirmación de envío:** Confirmación opcional antes de publicar en el canal
+- **Uso de FSM:** Utiliza BroadcastStates para el flujo de envío de contenido
+- **Interacción con teclados inline:** Proporciona opciones de confirmación y control a través de teclado inline
+- **Tipos de contenido soportados:** Texto, foto con caption opcional, video con caption opcional
+
+**Flujo principal:**
+1. Usuario admin selecciona "📤 Enviar a Canal VIP" o "📤 Enviar a Canal Free" en menú de gestión
+2. Bot entra en estado FSM `waiting_for_content`
+3. Usuario envía contenido (texto, foto o video)
+4. Bot procesa contenido y entra en estado `waiting_for_confirmation`
+5. Bot muestra vista previa y solicita confirmación
+6. Usuario confirma o cancela envío
+7. Si confirma: Bot envía contenido al canal y limpia estado FSM
+8. Si cancela: Bot limpia estado FSM y regresa al menú principal
+
+**Estructura de callbacks:**
+- `vip:broadcast` - Callback para iniciar broadcasting al canal VIP
+- `free:broadcast` - Callback para iniciar broadcasting al canal Free
+- `broadcast:confirm` - Callback para confirmar envío de contenido
+- `broadcast:cancel` - Callback para cancelar broadcasting
+- `broadcast:change` - Callback para cambiar contenido antes de enviar
+
+**Aplicación de FSM:**
+```python
+# Aplicar estados FSM para broadcasting
+@admin_router.callback_query(F.data == "vip:broadcast")
+async def callback_broadcast_to_vip(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    """
+    Inicia broadcasting al canal VIP.
+
+    Args:
+        callback: Callback query
+        state: FSM context
+    """
+    logger.info(f"📤 Usuario {callback.from_user.id} iniciando broadcast a VIP")
+
+    # Guardar canal destino en FSM data
+    await state.set_data({"target_channel": "vip"})
+
+    # Entrar en estado FSM
+    await state.set_state(BroadcastStates.waiting_for_content)
+
+    text = (
+        "📤 <b>Enviar Publicación a Canal VIP</b>\n\n"
+        "Envía el contenido que quieres publicar:\n\n"
+        "• <b>Texto:</b> Envía un mensaje de texto\n"
+        "• <b>Foto:</b> Envía una foto (con caption opcional)\n"
+        "• <b>Video:</b> Envía un video (con caption opcional)\n\n"
+        "El mensaje será enviado exactamente como lo envíes.\n\n"
+        "👁️ Verás un preview antes de confirmar el envío."
+    )
+
+    await callback.message.edit_text(
+        text=text,
+        reply_markup=create_inline_keyboard([
+            [{"text": "❌ Cancelar", "callback_data": "broadcast:cancel"}]
+        ]),
+        parse_mode="HTML"
+    )
+
+    await callback.answer()
+
+@admin_router.message(
+    BroadcastStates.waiting_for_content,
+    F.content_type.in_([ContentType.TEXT, ContentType.PHOTO, ContentType.VIDEO])
+)
+async def process_broadcast_content(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession
+):
+    """
+    Procesa el contenido enviado para broadcasting.
+
+    Guarda el contenido en FSM data y muestra preview.
+
+    Args:
+        message: Mensaje con el contenido
+        state: FSM context
+        session: Sesión de BD
+    """
+    user_id = message.from_user.id
+
+    # Obtener data del FSM
+    data = await state.get_data()
+    target_channel = data.get("target_channel", "vip")
+
+    logger.info(
+        f"📥 Usuario {user_id} envió contenido para broadcast a {target_channel}"
+    )
+
+    # Determinar tipo de contenido
+    content_type = message.content_type
+    caption = None
+
+    if content_type == ContentType.PHOTO:
+        # Guardar file_id de la foto más grande
+        photo = message.photo[-1]  # Última foto es la más grande
+        file_id = photo.file_id
+        caption = message.caption
+
+    elif content_type == ContentType.VIDEO:
+        file_id = message.video.file_id
+        caption = message.caption
+
+    else:  # TEXT
+        file_id = None
+        caption = message.text
+
+    # Actualizar FSM data con contenido
+    await state.update_data({
+        "content_type": content_type,
+        "file_id": file_id,
+        "caption": caption,
+        "original_message_id": message.message_id,
+    })
+
+    # Mostrar preview
+    preview_text = await _generate_preview_text(target_channel, content_type, caption)
+
+    # Enviar preview al admin
+    await message.answer(
+        text=preview_text,
+        reply_markup=create_inline_keyboard([
+            [
+                {"text": "✅ Confirmar y Enviar", "callback_data": "broadcast:confirm"},
+                {"text": "❌ Cancelar", "callback_data": "broadcast:cancel"}
+            ],
+            [{"text": "🔄 Enviar Otro Contenido", "callback_data": "broadcast:change"}]
+        ]),
+        parse_mode="HTML"
+    )
+
+    # Reenviar el contenido como preview visual
+    if content_type == ContentType.PHOTO:
+        await message.answer_photo(
+            photo=file_id,
+            caption="👁️ <i>Preview del mensaje</i>",
+            parse_mode="HTML"
+        )
+    elif content_type == ContentType.VIDEO:
+        await message.answer_video(
+            video=file_id,
+            caption="👁️ <i>Preview del mensaje</i>",
+            parse_mode="HTML"
+        )
+
+    # Cambiar a estado de confirmación
+    await state.set_state(BroadcastStates.waiting_for_confirmation)
+
+    logger.debug(f"✅ Preview generado para user {user_id}")
+```
+
+**Flujo de envío con confirmación:**
+1. Admin selecciona "📤 Enviar a Canal VIP" o "📤 Enviar a Canal Free"
+2. Bot entra en estado `waiting_for_content`
+3. Admin envía contenido (texto, foto o video)
+4. Bot procesa contenido y entra en estado `waiting_for_confirmation`
+5. Bot muestra vista previa del contenido
+6. Bot solicita confirmación con teclado inline
+7. Admin confirma o cancela envío
+8. Si confirma: Bot envía contenido al canal y limpia estado
+9. Si cancela: Bot limpia estado y regresa al menú
+
+**Ejemplo de confirmación de envío:**
+```python
+@admin_router.callback_query(
+    BroadcastStates.waiting_for_confirmation,
+    F.data == "broadcast:confirm"
+)
+async def callback_broadcast_confirm(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession
+):
+    """
+    Confirma y envía el mensaje al canal(es).
+
+    Args:
+        callback: Callback query
+        state: FSM context
+        session: Sesión de BD
+    """
+    user_id = callback.from_user.id
+
+    # Obtener data del FSM
+    data = await state.get_data()
+    target_channel = data["target_channel"]
+    content_type = data["content_type"]
+    file_id = data.get("file_id")
+    caption = data.get("caption")
+
+    logger.info(f"📤 Usuario {user_id} confirmó broadcast a {target_channel}")
+
+    # Notificar que se está enviando
+    await callback.answer("📤 Enviando publicación...", show_alert=False)
+
+    container = ServiceContainer(session, callback.bot)
+
+    # Determinar canales destino
+    channels_to_send = []
+
+    if target_channel == "vip":
+        vip_channel = await container.channel.get_vip_channel_id()
+        if vip_channel:
+            channels_to_send.append(("VIP", vip_channel))
+
+    elif target_channel == "free":
+        free_channel = await container.channel.get_free_channel_id()
+        if free_channel:
+            channels_to_send.append(("Free", free_channel))
+
+    # Validar que hay canales configurados
+    if not channels_to_send:
+        await callback.message.edit_text(
+            "❌ <b>Error: Canales No Configurados</b>\n\n"
+            "Debes configurar los canales antes de enviar publicaciones.",
+            reply_markup=create_inline_keyboard([
+                [{"text": "🔙 Volver", "callback_data": "admin:main"}]
+            ]),
+            parse_mode="HTML"
+        )
+        await state.clear()
+        return
+
+    # Enviar a cada canal
+    results = []
+
+    for channel_name, channel_id in channels_to_send:
+        try:
+            if content_type == ContentType.PHOTO:
+                success, msg, _ = await container.channel.send_to_channel(
+                    channel_id=channel_id,
+                    text=caption or "",
+                    photo=file_id
+                )
+
+            elif content_type == ContentType.VIDEO:
+                success, msg, _ = await container.channel.send_to_channel(
+                    channel_id=channel_id,
+                    text=caption or "",
+                    video=file_id
+                )
+
+            else:  # TEXT
+                success, msg, _ = await container.channel.send_to_channel(
+                    channel_id=channel_id,
+                    text=caption or ""
+                )
+
+            if success:
+                results.append(f"✅ Canal {channel_name}")
+                logger.info(f"✅ Publicación enviada a canal {channel_name}")
+            else:
+                results.append(f"❌ Canal {channel_name}: {msg}")
+                logger.error(f"❌ Error enviando a {channel_name}: {msg}")
+
+        except Exception as e:
+            results.append(f"❌ Canal {channel_name}: Error inesperado")
+            logger.error(f"❌ Excepción enviando a {channel_name}: {e}", exc_info=True)
+
+    # Mostrar resultados
+    results_text = "\n".join(results)
+
+    await callback.message.edit_text(
+        f"📤 <b>Resultado del Envío</b>\n\n{results_text}\n\n"
+        f"La publicación ha sido procesada.",
+        reply_markup=create_inline_keyboard([
+            [{"text": "🔙 Volver al Menú", "callback_data": "admin:main"}]
+        ]),
+        parse_mode="HTML"
+    )
+
+    # Limpiar estado FSM
+    await state.clear()
+
+    logger.info(f"✅ Broadcasting completado para user {user_id}")
+```
+
+**Uso del ServiceContainer en los handlers de broadcasting:**
+```python
+# Crear container de servicios con sesión de BD y bot
+container = ServiceContainer(session, callback.bot)
+
+# Acceder a servicios específicos
+vip_channel = await container.channel.get_vip_channel_id()
+free_channel = await container.channel.get_free_channel_id()
+success, msg, _ = await container.channel.send_to_channel(
+    channel_id=channel_id,
+    text=caption or "",
+    photo=file_id
+)
+```
+
+**Interacción con teclados inline de broadcasting:**
+```python
+# Teclado para confirmación de envío
+confirmation_keyboard = create_inline_keyboard([
+    [
+        {"text": "✅ Confirmar y Enviar", "callback_data": "broadcast:confirm"},
+        {"text": "❌ Cancelar", "callback_data": "broadcast:cancel"}
+    ],
+    [{"text": "🔄 Enviar Otro Contenido", "callback_data": "broadcast:change"}]
+])
+
+# Teclado para cancelación de broadcasting
+cancel_keyboard = create_inline_keyboard([
+    [{"text": "❌ Cancelar", "callback_data": "broadcast:cancel"}]
+])
+```
+
+### 8.2 Reactions Handler (T23)
+
+**Responsabilidad:** Handlers del sistema de configuración de reacciones automáticas que permiten a los administradores definir emojis que se aplicarán automáticamente a las publicaciones en los canales VIP y Free.
+
+**Componentes:**
+- `bot/handlers/admin/reactions.py` - Handlers principales y callbacks de navegación para el sistema de reacciones
+
+**Características:**
+- **Configuración de reacciones VIP:** Configuración de emojis para el canal VIP
+- **Configuración de reacciones Free:** Configuración de emojis para el canal Free
+- **Validación de emojis:** Validación de formato y cantidad de emojis (1-10)
+- **Uso de FSM:** Utiliza ReactionSetupStates para el flujo de configuración de reacciones
+- **Interacción con teclados inline:** Proporciona opciones de navegación a través de teclado inline
+- **Persistencia de configuración:** Almacenamiento en la tabla BotConfig
+
+**Flujo principal:**
+1. Usuario admin selecciona "⚙️ Configurar Reacciones VIP" o "⚙️ Configurar Reacciones Free" en menú de configuración
+2. Bot entra en estado FSM correspondiente (`waiting_for_vip_reactions` o `waiting_for_free_reactions`)
+3. Usuario envía emojis separados por espacios
+4. Bot valida formato y cantidad de emojis
+5. Si válido: Bot guarda configuración y limpia estado FSM
+6. Si inválido: Bot mantiene estado FSM y solicita reingreso
+
+**Estructura de callbacks:**
+- `config:reactions:vip` - Callback para iniciar configuración de reacciones VIP
+- `config:reactions:free` - Callback para iniciar configuración de reacciones Free
+
+**Aplicación de FSM:**
+```python
+# Aplicar estados FSM para configuración de reacciones VIP
+@admin_router.callback_query(F.data == "config:reactions:vip")
+async def callback_setup_vip_reactions(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    state: FSMContext
+):
+    """
+    Inicia configuración de reacciones para canal VIP.
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+        state: FSM context
+    """
+    logger.info(f"⚙️ Usuario {callback.from_user.id} configurando reacciones VIP")
+
+    container = ServiceContainer(session, callback.bot)
+
+    # Obtener reacciones actuales
+    current_reactions = await container.config.get_vip_reactions()
+
+    if current_reactions:
+        current_text = " ".join(current_reactions)
+        status_text = f"<b>Reacciones actuales:</b> {current_text}\n\n"
+    else:
+        status_text = "<b>Reacciones actuales:</b> <i>Ninguna configurada</i>\n\n"
+
+    # Entrar en estado FSM
+    await state.set_state(ReactionSetupStates.waiting_for_vip_reactions)
+
+    text = (
+        "⚙️ <b>Configurar Reacciones VIP</b>\n\n"
+        f"{status_text}"
+        "Envía los emojis que quieres usar como reacciones, "
+        "separados por espacios.\n\n"
+        "<b>Ejemplo:</b> <code>👍 ❤️ 🔥 🎉 💯</code>\n\n"
+        "<b>Reglas:</b>\n"
+        "• Mínimo: 1 emoji\n"
+        "• Máximo: 10 emojis\n"
+        "• Solo emojis válidos\n\n"
+        "Las reacciones se aplicarán automáticamente a "
+        "nuevas publicaciones en el canal VIP."
+    )
+
+    await callback.message.edit_text(
+        text=text,
+        reply_markup=create_inline_keyboard([
+            [{"text": "❌ Cancelar", "callback_data": "admin:config"}]
+        ]),
+        parse_mode="HTML"
+    )
+
+    await callback.answer()
+
+@admin_router.message(ReactionSetupStates.waiting_for_vip_reactions)
+async def process_vip_reactions_input(
+    message: Message,
+    session: AsyncSession,
+    state: FSMContext
+):
+    """
+    Procesa el input de reacciones VIP.
+
+    Args:
+        message: Mensaje con emojis
+        session: Sesión de BD
+        state: FSM context
+    """
+    user_id = message.from_user.id
+    text = message.text.strip()
+
+    logger.info(f"⚙️ Usuario {user_id} enviando reacciones VIP: {text}")
+
+    # Validar emojis
+    is_valid, error_msg, emojis = validate_emoji_list(text)
+
+    if not is_valid:
+        # Input inválido
+        await message.answer(
+            f"❌ <b>Input Inválido</b>\n\n"
+            f"{error_msg}\n\n"
+            f"Por favor, envía los emojis separados por espacios.\n"
+            f"Ejemplo: <code>👍 ❤️ 🔥</code>",
+            parse_mode="HTML"
+        )
+        # Mantener estado FSM para reintentar
+        return
+
+    container = ServiceContainer(session, message.bot)
+
+    try:
+        # Guardar reacciones
+        await container.config.set_vip_reactions(emojis)
+
+        reactions_text = " ".join(emojis)
+
+        await message.answer(
+            f"✅ <b>Reacciones VIP Configuradas</b>\n\n"
+            f"<b>Reacciones:</b> {reactions_text}\n"
+            f"<b>Total:</b> {len(emojis)} emojis\n\n"
+            f"Estas reacciones se aplicarán automáticamente a "
+            f"nuevas publicaciones en el canal VIP.",
+            reply_markup=create_inline_keyboard([
+                [{"text": "🔙 Volver a Configuración", "callback_data": "admin:config"}]
+            ]),
+            parse_mode="HTML"
+        )
+
+        # Limpiar estado FSM
+        await state.clear()
+
+        logger.info(f"✅ Reacciones VIP configuradas: {len(emojis)} emojis")
+
+    except ValueError as e:
+        # Error de validación del service
+        logger.error(f"❌ Error validando reacciones VIP: {e}")
+
+        await message.answer(
+            f"❌ <b>Error al Guardar Reacciones</b>\n\n"
+            f"{str(e)}\n\n"
+            f"Intenta nuevamente.",
+            parse_mode="HTML"
+        )
+        # Mantener estado para reintentar
+
+    except Exception as e:
+        # Error inesperado
+        logger.error(f"❌ Error guardando reacciones VIP: {e}", exc_info=True)
+
+        await message.answer(
+            "❌ <b>Error Inesperado</b>\n\n"
+            "No se pudieron guardar las reacciones.\n"
+            "Intenta nuevamente.",
+            parse_mode="HTML"
+        )
+        await state.clear()
+```
+
+**Flujo de configuración de reacciones:**
+1. Admin selecciona "⚙️ Configurar Reacciones VIP" o "⚙️ Configurar Reacciones Free"
+2. Bot entra en estado FSM correspondiente
+3. Bot muestra reacciones actuales y solicita nuevas reacciones
+4. Admin envía emojis separados por espacios
+5. Bot valida formato y cantidad (1-10 emojis)
+6. Bot guarda configuración en BD
+7. Bot limpia estado FSM y actualiza menú
+
+**Validación de reacciones:**
+- Mínimo 1 emoji
+- Máximo 10 emojis
+- Solo caracteres de emoji válidos
+- Formato: emojis separados por espacios
+
+**Uso del ServiceContainer en los handlers de reacciones:**
+```python
+# Crear container de servicios con sesión de BD y bot
+container = ServiceContainer(session, message.bot)
+
+# Acceder a servicios específicos
+current_reactions = await container.config.get_vip_reactions()
+await container.config.set_vip_reactions(emojis)
+current_reactions = await container.config.get_free_reactions()
+await container.config.set_free_reactions(emojis)
+```
+
+**Interacción con teclados inline de reacciones:**
+```python
+# Teclado para cancelación de configuración de reacciones
+cancel_keyboard = create_inline_keyboard([
+    [{"text": "❌ Cancelar", "callback_data": "admin:config"}]
+])
+
+# Teclado para volver a menú de configuración
+back_to_config_keyboard = create_inline_keyboard([
+    [{"text": "🔙 Volver a Configuración", "callback_data": "admin:config"}]
+])
+```
+
+### 9. Pagination System (T24)
+
+**Responsabilidad:** Sistema de paginación reutilizable para listas largas de elementos con navegación y formateo de contenido
+
+**Componentes:**
+- `bot/utils/pagination.py` - Sistema completo de paginación con clase Paginator genérica, teclado de navegación paginado y formateadores de contenido
+
+**Características:**
+- **Clase Paginator genérica:** Sistema de paginación reutilizable con soporte para cualquier tipo de datos (T)
+- **Clase Page:** Representa una página específica con información sobre elementos, número de página, total de páginas, etc.
+- **Teclado de navegación:** Generación automática de teclado inline con botones de "Anterior", "Siguiente" y visualización de página actual
+- **Formateadores de contenido:** Funciones para formatear headers de página y listas de elementos con formatos personalizados
+- **Extractores de página:** Funciones para extraer número de página de callbacks
+- **Helpers para consultas:** Funciones auxiliares para paginar resultados de consultas de base de datos
+
+**Arquitectura:**
+```python
+from typing import List, TypeVar, Generic
+from dataclasses import dataclass
+
+T = TypeVar('T')  # Tipo genérico para elementos
+
+@dataclass
+class Page(Generic[T]):
+    """
+    Representa una página de elementos.
+
+    Attributes:
+        items: Lista de elementos en esta página
+        current_page: Número de página actual (1-indexed)
+        total_pages: Total de páginas disponibles
+        total_items: Total de elementos en todas las páginas
+        has_previous: Si hay página anterior
+        has_next: Si hay página siguiente
+        page_size: Número de elementos por página
+    """
+    items: List[T]
+    current_page: int
+    total_pages: int
+    total_items: int
+    has_previous: bool
+    has_next: bool
+    page_size: int
+
+class Paginator(Generic[T]):
+    """
+    Paginador genérico para listas de elementos.
+
+    Uso:
+        # Crear paginador
+        paginator = Paginator(items=my_list, page_size=10)
+
+        # Obtener página específica
+        page = paginator.get_page(page_number=2)
+
+        # Verificar propiedades
+        if page.has_next:
+            next_page = paginator.get_page(page.current_page + 1)
+
+    Attributes:
+        items: Lista completa de elementos
+        page_size: Número de elementos por página (default: 10)
+    """
+    def __init__(self, items: List[T], page_size: int = 10):
+        if page_size < 1:
+            raise ValueError("page_size debe ser >= 1")
+
+        self.items = items
+        self.page_size = page_size
+        self.total_items = len(items)
+        self.total_pages = max(1, math.ceil(self.total_items / self.page_size))
+
+    def get_page(self, page_number: int) -> Page[T]:
+        """
+        Obtiene una página específica.
+
+        Args:
+            page_number: Número de página (1-indexed)
+
+        Returns:
+            Page con los elementos de esa página
+
+        Raises:
+            ValueError: Si page_number < 1 o > total_pages
+        """
+        if page_number < 1:
+            raise ValueError(f"page_number debe ser >= 1 (recibido: {page_number})")
+
+        if page_number > self.total_pages:
+            raise ValueError(
+                f"page_number debe ser <= {self.total_pages} (recibido: {page_number})"
+            )
+
+        # Calcular offset y límite
+        offset = (page_number - 1) * self.page_size
+        limit = self.page_size
+
+        # Extraer items de la página
+        page_items = self.items[offset:offset + limit]
+
+        # Determinar si hay páginas anterior/siguiente
+        has_previous = page_number > 1
+        has_next = page_number < self.total_pages
+
+        return Page(
+            items=page_items,
+            current_page=page_number,
+            total_pages=self.total_pages,
+            total_items=self.total_items,
+            has_previous=has_previous,
+            has_next=has_next,
+            page_size=self.page_size
+        )
+
+    def get_first_page(self) -> Page[T]:
+        """Obtiene la primera página."""
+        return self.get_page(1)
+
+    def get_last_page(self) -> Page[T]:
+        """Obtiene la última página."""
+        return self.get_page(self.total_pages)
+```
+
+**Funciones auxiliares:**
+```python
+def create_pagination_keyboard(
+    page: Page,
+    callback_pattern: str,
+    additional_buttons: Optional[List[List[dict]]] = None,
+    back_callback: str = "admin:main"
+) -> InlineKeyboardMarkup:
+    """
+    Crea un keyboard de paginación.
+
+    Genera botones de navegación:
+    [◀️ Anterior] [Página X/Y] [Siguiente ▶️]
+
+    Si hay botones adicionales, se agregan arriba de la paginación.
+
+    Args:
+        page: Objeto Page con info de paginación
+        callback_pattern: Pattern para callbacks de navegación.
+            Debe contener {page} que será reemplazado por el número.
+            Ejemplo: "vip:subscribers:page:{page}"
+        additional_buttons: Lista de filas de botones adicionales (opcional)
+        back_callback: Callback para botón "Volver" (default: "admin:main")
+
+    Returns:
+        InlineKeyboardMarkup con botones de paginación
+
+    Ejemplos:
+        >>> page = Page(items=[...], current_page=2, total_pages=5, ...)
+        >>> keyboard = create_pagination_keyboard(
+        ...     page=page,
+        ...     callback_pattern="vip:subscribers:page:{page}"
+        ... )
+        # Genera:
+        # [◀️ Anterior] [Página 2/5] [Siguiente ▶️]
+        # [🔙 Volver]
+    """
+    # Implementación que genera el teclado con botones de navegación
+    # [◀️ Anterior] [Página X/Y] [Siguiente ▶️]
+    # [Volver al menú principal]
+    pass
+
+def format_page_header(page: Page, title: str) -> str:
+    """
+    Formatea un header para una página paginada.
+
+    Args:
+        page: Objeto Page con info de paginación
+        title: Título del listado
+
+    Returns:
+        String HTML formateado con header
+
+    Ejemplos:
+        >>> page = Page(items=[...], current_page=2, total_pages=5, total_items=47, ...)
+        >>> header = format_page_header(page, "Suscriptores VIP")
+        # Output:
+        # 📋 <b>Suscriptores VIP</b>
+        #
+        # <b>Total:</b> 47 elementos
+        # <b>Página:</b> 2/5 (mostrando 11-20)
+    """
+    if page.is_empty:
+        return (
+            f"📋 <b>{title}</b>\n\n"
+            f"<i>No hay elementos para mostrar.</i>"
+        )
+
+    header = f"📋 <b>{title}</b>\n\n"
+    header += f"<b>Total:</b> {page.total_items} elementos\n"
+    header += f"<b>Página:</b> {page.current_page}/{page.total_pages}"
+
+    # Agregar rango de elementos si hay items
+    if not page.is_empty:
+        header += f" (mostrando {page.start_index}-{page.end_index})"
+
+    return header
+
+def format_items_list(
+    items: List[T],
+    formatter: Callable[[T, int], str],
+    separator: str = "\n"
+) -> str:
+    """
+    Formatea una lista de elementos usando un formatter personalizado.
+
+    Args:
+        items: Lista de elementos a formatear
+        formatter: Función que toma (item, index) y retorna string
+            - item: Elemento a formatear
+            - index: Índice en la página (1-indexed)
+        separator: Separador entre elementos (default: newline)
+
+    Returns:
+        String con todos los elementos formateados
+
+    Ejemplos:
+        >>> def format_subscriber(sub, idx):
+        ...     return f"{idx}. User {sub.user_id} - {sub.days_remaining} días"
+        >>>
+        >>> formatted = format_items_list(subscribers, format_subscriber)
+        # Output:
+        # 1. User 123456 - 15 días
+        # 2. User 789012 - 8 días
+        # ...
+    """
+    if not items:
+        return ""
+
+    formatted_items = []
+    for idx, item in enumerate(items, start=1):
+        formatted_item = formatter(item, idx)
+        formatted_items.append(formatted_item)
+
+    return separator.join(formatted_items)
+
+def paginate_query_results(
+    results: List[T],
+    page_number: int,
+    page_size: int = 10
+) -> Page[T]:
+    """
+    Helper para paginar resultados de query.
+
+    Uso típico:
+        # Obtener todos los resultados de BD
+        all_subscribers = await session.execute(query)
+        results = all_subscribers.scalars().all()
+
+        # Paginar
+        page = paginate_query_results(results, page_number=2, page_size=10)
+
+    Args:
+        results: Lista completa de resultados
+        page_number: Número de página deseada (1-indexed)
+        page_size: Elementos por página (default: 10)
+
+    Returns:
+        Page con los elementos de esa página
+    """
+    paginator = Paginator(items=results, page_size=page_size)
+    return paginator.get_page(page_number)
+
+def extract_page_from_callback(callback_data: str, pattern: str) -> int:
+    """
+    Extrae el número de página de un callback data.
+
+    Args:
+        callback_data: String de callback (ej: "vip:subscribers:page:3")
+        pattern: Pattern esperado con {page} como placeholder
+            (ej: "vip:subscribers:page:{page}")
+
+    Returns:
+        Número de página extraído (1-indexed)
+
+    Raises:
+        ValueError: Si no se puede extraer el número de página
+
+    Ejemplos:
+        >>> extract_page_from_callback(
+        ...     "vip:subscribers:page:3",
+        ...     "vip:subscribers:page:{page}"
+        ... )
+        3
+    """
+    # Convertir pattern a regex
+    # Escapar el pattern y luego reemplazar {page} con regex
+    regex_pattern = re.escape(pattern)
+    regex_pattern = regex_pattern.replace(r"\{page\}", r"(\d+)")
+
+    match = re.match(regex_pattern, callback_data)
+
+    if not match:
+        raise ValueError(
+            f"Callback data '{callback_data}' no coincide con pattern '{pattern}'"
+        )
+
+    page_str = match.group(1)
+
+    try:
+        page_number = int(page_str)
+        if page_number < 1:
+            raise ValueError(f"Número de página inválido: {page_number}")
+        return page_number
+    except ValueError as e:
+        raise ValueError(f"No se pudo parsear número de página: {e}")
+```
+
+**Uso en handlers:**
+```python
+# En handlers/admin/management.py
+from bot.utils.pagination import (
+    paginate_query_results,
+    create_pagination_keyboard,
+    format_page_header,
+    format_items_list,
+)
+
+# Paginar suscriptores VIP
+async def _show_vip_subscribers_page(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    page_number: int,
+    filter_status: str = "active"
+):
+    # ... construir query según filtro ...
+    result = await session.execute(query)
+    subscribers = result.scalars().all()
+
+    # Paginar resultados
+    page = paginate_query_results(
+        results=list(subscribers),
+        page_number=page_number,
+        page_size=10
+    )
+
+    # Formatear mensaje
+    filter_name = _get_filter_name(filter_status)
+    header = format_page_header(page, f"Suscriptores VIP - {filter_name}")
+
+    if page.is_empty:
+        text = f"{header}\n\n<i>No hay suscriptores en esta categoría.</i>"
+    else:
+        items_text = format_items_list(page.items, _format_vip_subscriber)
+        text = f"{header}\n\n{items_text}"
+
+    # Crear keyboard con filtros y paginación
+    keyboard = create_pagination_keyboard(
+        page=page,
+        callback_pattern=f"vip:subscribers:page:{{page}}:{filter_status}",
+        additional_buttons=additional_buttons,
+        back_callback="admin:vip"
+    )
+
+    await callback.message.edit_text(
+        text=text,
+        reply_markup=keyboard,
+        parse_mode="HTML"
+    )
+```
+
+### 10. Paginated VIP Subscriber Management (T25)
+
+**Responsabilidad:** Gestión paginada de suscriptores VIP con listado, filtrado por estado, vistas detalladas y expulsión manual de suscriptores
+
+**Componentes:**
+- `bot/handlers/admin/management.py` - Handlers principales para gestión paginada de suscriptores VIP y visualización de cola Free
+
+**Características:**
+- **Listado paginado de suscriptores VIP:** Visualización de suscriptores VIP en páginas de 10 elementos con navegación
+- **Filtrado por estado:** Filtros disponibles para mostrar solo suscriptores activos, expirados, próximos a expirar o todos
+- **Vistas detalladas:** Visualización de información completa de un suscriptor individual
+- **Expulsión manual:** Posibilidad de expulsar manualmente a un suscriptor VIP del canal
+- **Interacción con teclados inline:** Navegación entre páginas y opciones de filtrado a través de teclado inline
+- **Formateo de información:** Visualización de información de suscriptores con formato claro y estructurado
+
+**Flujo principal:**
+1. Usuario admin selecciona "👥 Listar Suscriptores VIP" en menú de administración
+2. Bot muestra la primera página de suscriptores VIP activos
+3. Usuario puede navegar entre páginas con botones de paginación
+4. Usuario puede filtrar por estado (activos, expirados, próximos a expirar, todos)
+5. Usuario puede ver detalles de un suscriptor individual
+6. Admin puede expulsar manualmente a un suscriptor del canal VIP
+
+**Estructura de callbacks:**
+- `vip:list_subscribers` - Callback para mostrar listado inicial de suscriptores VIP
+- `vip:subscribers:page:N:FILTER` - Callback para navegar a página específica de suscriptores con filtro
+- `vip:filter:STATUS` - Callback para cambiar filtro de visualización (active, expired, expiring_soon, all)
+- `vip:details:USER_ID` - Callback para ver detalles de un suscriptor específico
+- `vip:kick:USER_ID` - Callback para expulsar manualmente a un suscriptor del canal VIP
+
+**Aplicación de paginación:**
+```python
+# Aplicar sistema de paginación para listado de suscriptores VIP
+@admin_router.callback_query(F.data == "vip:list_subscribers")
+async def callback_list_vip_subscribers(
+    callback: CallbackQuery,
+    session: AsyncSession
+):
+    """
+    Muestra listado paginado de suscriptores VIP.
+
+    Por defecto muestra solo activos en la página 1.
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+    """
+    logger.info(f"👥 Usuario {callback.from_user.id} listando suscriptores VIP")
+
+    await callback.answer("📋 Cargando suscriptores...", show_alert=False)
+
+    # Mostrar página 1, filtro "active"
+    await _show_vip_subscribers_page(
+        callback=callback,
+        session=session,
+        page_number=1,
+        filter_status="active"
+    )
+
+async def _show_vip_subscribers_page(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    page_number: int,
+    filter_status: str = "active"
+):
+    """
+    Muestra una página de suscriptores VIP con filtro aplicado.
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+        page_number: Número de página a mostrar
+        filter_status: Filtro a aplicar (active, expired, expiring_soon, all)
+    """
+    # Construir query según filtro
+    query = select(VIPSubscriber).order_by(VIPSubscriber.expiry_date.desc())
+
+    if filter_status == "active":
+        query = query.where(VIPSubscriber.status == "active")
+    elif filter_status == "expired":
+        query = query.where(VIPSubscriber.status == "expired")
+    elif filter_status == "expiring_soon":
+        # Próximos 7 días
+        cutoff_date = datetime.utcnow() + timedelta(days=7)
+        query = query.where(
+            and_(
+                VIPSubscriber.status == "active",
+                VIPSubscriber.expiry_date <= cutoff_date,
+                VIPSubscriber.expiry_date > datetime.utcnow()
+            )
+        )
+    # "all" no aplica filtro adicional
+
+    # Ejecutar query
+    result = await session.execute(query)
+    subscribers = result.scalars().all()
+
+    # Paginar resultados
+    page = paginate_query_results(
+        results=list(subscribers),
+        page_number=page_number,
+        page_size=10
+    )
+
+    # Formatear mensaje
+    filter_name = _get_filter_name(filter_status)
+    header = format_page_header(page, f"Suscriptores VIP - {filter_name}")
+
+    if page.is_empty:
+        text = f"{header}\n\n<i>No hay suscriptores en esta categoría.</i>"
+    else:
+        items_text = format_items_list(page.items, _format_vip_subscriber)
+        text = f"{header}\n\n{items_text}"
+
+    # Crear keyboard con filtros y paginación
+    additional_buttons = [
+        # Fila de filtros
+        [
+            {"text": "✅ Activos" if filter_status == "active" else "Activos",
+             "callback_data": "vip:filter:active"},
+            {"text": "❌ Expirados" if filter_status == "expired" else "Expirados",
+             "callback_data": "vip:filter:expired"},
+        ],
+        [
+            {"text": "⏱️ Por Expirar" if filter_status == "expiring_soon" else "Por Expirar",
+             "callback_data": "vip:filter:expiring_soon"},
+            {"text": "📋 Todos" if filter_status == "all" else "Todos",
+             "callback_data": "vip:filter:all"},
+        ]
+    ]
+
+    keyboard = create_pagination_keyboard(
+        page=page,
+        callback_pattern=f"vip:subscribers:page:{{page}}:{filter_status}",
+        additional_buttons=additional_buttons,
+        back_callback="admin:vip"
+    )
+
+    try:
+        await callback.message.edit_text(
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        if "message is not modified" not in str(e):
+            logger.error(f"❌ Error editando mensaje: {e}")
+```
+
+**Flujo de visualización de detalles:**
+1. Admin selecciona un suscriptor en la lista paginada
+2. Bot entra en vista de detalles del suscriptor
+3. Bot muestra información completa del suscriptor (ID, estado, fechas, token usado)
+4. Admin puede expulsar manualmente al suscriptor si está activo
+5. Admin puede regresar al listado de suscriptores
+
+**Flujo de expulsión manual:**
+1. Admin selecciona "🗑️ Expulsar del Canal" en vista de detalles
+2. Bot marca al suscriptor como expirado en la base de datos
+3. Bot intenta expulsar al usuario del canal VIP usando la API de Telegram
+4. Bot notifica resultado de la operación
+5. Admin puede regresar al listado de suscriptores
+
+### 11. Free Queue Visualization (T26)
+
+**Responsabilidad:** Visualización paginada de cola de solicitudes Free con filtrado por estado y monitoreo del tiempo de espera configurado
+
+**Características:**
+- **Visualización paginada de cola Free:** Visualización de solicitudes Free en páginas de 10 elementos con navegación
+- **Filtrado por estado:** Filtros disponibles para mostrar solo solicitudes pendientes, listas para procesar, procesadas o todas
+- **Monitoreo del tiempo de espera:** Visualización del tiempo de espera configurado en la visualización
+- **Cálculo de estado de solicitudes:** Determinación de si una solicitud está lista para procesar basado en el tiempo de espera
+- **Interacción con teclados inline:** Navegación entre páginas y opciones de filtrado a través de teclado inline
+- **Formateo de información:** Visualización de información de solicitudes con formato claro y estructurado
+
+**Flujo principal:**
+1. Usuario admin selecciona "📋 Ver Cola Free" en menú de administración
+2. Bot muestra la primera página de solicitudes Free pendientes
+3. Usuario puede navegar entre páginas con botones de paginación
+4. Usuario puede filtrar por estado (pendientes, listas para procesar, procesadas, todas)
+5. Usuario puede ver información detallada de cada solicitud
+6. Bot muestra tiempo de espera configurado en la visualización
+
+**Estructura de callbacks:**
+- `free:view_queue` - Callback para mostrar listado inicial de cola Free
+- `free:queue:page:N:FILTER` - Callback para navegar a página específica de cola con filtro
+- `free:filter:STATUS` - Callback para cambiar filtro de visualización (pending, ready, processed, all)
+
+**Aplicación de paginación:**
+```python
+# Aplicar sistema de paginación para visualización de cola Free
+@admin_router.callback_query(F.data == "free:view_queue")
+async def callback_view_free_queue(
+    callback: CallbackQuery,
+    session: AsyncSession
+):
+    """
+    Muestra cola de solicitudes Free paginada.
+
+    Por defecto muestra solo pendientes en la página 1.
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+    """
+    logger.info(f"📋 Usuario {callback.from_user.id} viendo cola Free")
+
+    await callback.answer("📋 Cargando cola...", show_alert=False)
+
+    # Mostrar página 1, filtro "pending"
+    await _show_free_queue_page(
+        callback=callback,
+        session=session,
+        page_number=1,
+        filter_status="pending"
+    )
+
+async def _show_free_queue_page(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    page_number: int,
+    filter_status: str = "pending"
+):
+    """
+    Muestra una página de la cola Free con filtro aplicado.
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+        page_number: Número de página a mostrar
+        filter_status: Filtro a aplicar (pending, ready, processed, all)
+    """
+    from bot.database.models import BotConfig
+
+    # Obtener tiempo de espera configurado
+    config_result = await session.execute(
+        select(BotConfig.wait_time_minutes).where(BotConfig.id == 1)
+    )
+    wait_time_minutes = config_result.scalar() or 5
+
+    # Construir query según filtro
+    query = select(FreeChannelRequest).order_by(
+        FreeChannelRequest.request_date.asc()  # Más antiguas primero
+    )
+
+    if filter_status == "pending":
+        query = query.where(FreeChannelRequest.processed == False)
+    elif filter_status == "ready":
+        # Listas para procesar (tiempo cumplido y no procesadas)
+        cutoff_time = datetime.utcnow() - timedelta(minutes=wait_time_minutes)
+        query = query.where(
+            and_(
+                FreeChannelRequest.processed == False,
+                FreeChannelRequest.request_date <= cutoff_time
+            )
+        )
+    elif filter_status == "processed":
+        query = query.where(FreeChannelRequest.processed == True)
+    # "all" no aplica filtro adicional
+
+    # Ejecutar query
+    result = await session.execute(query)
+    requests = result.scalars().all()
+
+    # Paginar resultados
+    page = paginate_query_results(
+        results=list(requests),
+        page_number=page_number,
+        page_size=10
+    )
+
+    # Formatear mensaje
+    filter_name = _get_free_filter_name(filter_status)
+    header = format_page_header(page, f"Cola Free - {filter_name}")
+
+    if page.is_empty:
+        text = f"{header}\n\n<i>No hay solicitudes en esta categoría.</i>"
+    else:
+        # Formatter específico que incluye wait_time
+        def formatter(req, idx):
+            return _format_free_request(req, idx, wait_time_minutes)
+
+        items_text = format_items_list(page.items, formatter)
+        text = f"{header}\n\n{items_text}"
+
+    # Agregar info de configuración
+    text += f"\n\n⏱️ <i>Tiempo de espera configurado: {wait_time_minutes} min</i>"
+
+    # Crear keyboard con filtros y paginación
+    additional_buttons = [
+        # Fila de filtros
+        [
+            {"text": "⏳ Pendientes" if filter_status == "pending" else "Pendientes",
+             "callback_data": "free:filter:pending"},
+            {"text": "✅ Listas" if filter_status == "ready" else "Listas",
+             "callback_data": "free:filter:ready"},
+        ],
+        [
+            {"text": "🔄 Procesadas" if filter_status == "processed" else "Procesadas",
+             "callback_data": "free:filter:processed"},
+            {"text": "📋 Todas" if filter_status == "all" else "Todas",
+             "callback_data": "free:filter:all"},
+        ]
+    ]
+
+    keyboard = create_pagination_keyboard(
+        page=page,
+        callback_pattern=f"free:queue:page:{{page}}:{filter_status}",
+        additional_buttons=additional_buttons,
+        back_callback="admin:free"
+    )
+
+    await callback.message.edit_text(
+        text=text,
+        reply_markup=keyboard,
+        parse_mode="HTML"
+    )
+```
+
+### 12. Utilities
+
+**Responsabilidad:** Funciones y utilidades comunes
+
+**Módulos Disponibles:**
+- `keyboards.py` - Factory de inline/reply keyboards
+- `pagination.py` - Sistema de paginación reutilizable (T24)
+- `validators.py` - Funciones de validación (token format, user_id, etc.)
+
+---
+
+**Última actualización:** 2025-12-13
 **Versión:** 1.0.0

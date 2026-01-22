@@ -17,6 +17,8 @@ Documentación completa de los comandos disponibles en el bot de administración
    - Gestión Canal VIP
    - Gestión Canal Free
    - Configuración
+   - Estadísticas
+   - Gestión Avanzada
 
 **Ejemplo:**
 ```
@@ -27,7 +29,217 @@ Documentación completa de los comandos disponibles en el bot de administración
 Selecciona una opción:
 - 📺 Gestión Canal VIP
 - 📺 Gestión Canal Free
+- 📊 Estadísticas
 - ⚙️ Configuración
+- 👥 Gestión Avanzada
+```
+
+## Gestión Avanzada
+
+### `Gestión Avanzada` - Opciones de administración avanzada
+
+**Descripción:** Accede al menú de gestión avanzada que incluye herramientas de administración como listado paginado de suscriptores VIP y visualización de cola Free.
+
+**Permisos:** Solo administradores
+
+**Funcionalidades:**
+- Listado paginado de suscriptores VIP
+- Visualización paginada de cola Free
+- Filtros por estado de suscriptores y solicitudes
+- Vistas detalladas de usuarios
+- Expulsión manual de suscriptores
+
+**Flujo de uso:**
+1. Seleccionar "👥 Gestión Avanzada" en el menú principal
+2. El bot muestra las opciones de gestión avanzada
+3. El administrador puede elegir entre:
+   - Listar suscriptores VIP
+   - Ver cola Free
+
+### `Listar Suscriptores VIP` - Visualización paginada de suscriptores VIP
+
+**Descripción:** Muestra un listado paginado de suscriptores VIP con posibilidad de filtrar por estado y ver detalles individuales.
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. Seleccionar "👥 Listar Suscriptores VIP" en el menú de gestión avanzada
+2. El bot muestra la primera página de suscriptores activos
+3. El administrador puede navegar entre páginas con botones de paginación
+4. El administrador puede filtrar por estado (activos, expirados, próximos a expirar, todos)
+5. El administrador puede ver detalles de un suscriptor individual
+6. El administrador puede expulsar manualmente a un suscriptor del canal VIP
+
+**Características:**
+- Visualización paginada (10 elementos por página)
+- Filtros por estado: activos, expirados, próximos a expirar, todos
+- Navegación entre páginas con botones "Anterior"/"Siguiente"
+- Visualización de información detallada del suscriptor
+- Posibilidad de expulsión manual del canal VIP
+
+**Ejemplo de interacción:**
+```
+👥 Usuario listando suscriptores VIP
+📋 Suscriptores VIP - Activos
+
+<b>Total:</b> 47 elementos
+<b>Página:</b> 1/5 (mostrando 1-10)
+
+🟢 1. User <code>123456789</code>
+   └─ Expira: 2025-12-25 (15 días)
+🟡 2. User <code>987654321</code>
+   └─ Expira: 2025-12-18 (8 días)
+...
+
+[◀️ Anterior] [Página 1/5] [Siguiente ▶️]
+[✅ Activos] [❌ Expirados] [⏱️ Por Expirar] [📋 Todos]
+[🔙 Volver]
+```
+
+### `Ver Cola Free` - Visualización paginada de solicitudes Free
+
+**Descripción:** Muestra una cola paginada de solicitudes de acceso Free con posibilidad de filtrar por estado y ver detalles del tiempo de espera.
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. Seleccionar "📋 Ver Cola Free" en el menú de gestión avanzada
+2. El bot muestra la primera página de solicitudes pendientes
+3. El administrador puede navegar entre páginas con botones de paginación
+4. El administrador puede filtrar por estado (pendientes, listas para procesar, procesadas, todas)
+5. El administrador puede ver información detallada de cada solicitud
+6. El bot muestra el tiempo de espera configurado en la visualización
+
+**Características:**
+- Visualización paginada (10 elementos por página)
+- Filtros por estado: pendientes, listas para procesar, procesadas, todas
+- Navegación entre páginas con botones "Anterior"/"Siguiente"
+- Visualización del tiempo de espera configurado
+- Cálculo automático del estado de cada solicitud
+
+**Ejemplo de interacción:**
+```
+📋 Cola Free - Pendientes
+
+<b>Total:</b> 23 elementos
+<b>Página:</b> 1/3 (mostrando 1-10)
+
+⏳ 1. User <code>111222333</code>
+   ├─ Solicitó: 2025-12-13 08:30
+   └─ Falta 4 min
+⏳ 2. User <code>444555666</code>
+   ├─ Solicitó: 2025-12-13 08:25
+   └─ Falta 9 min
+
+⏱️ <i>Tiempo de espera configurado: 10 min</i>
+
+[◀️ Anterior] [Página 1/3] [Siguiente ▶️]
+[⏳ Pendientes] [✅ Listas] [🔄 Procesadas] [📋 Todas]
+[🔙 Volver]
+```
+
+### `Filtros de Suscriptores VIP` - Filtrado por estado de suscriptores
+
+**Descripción:** Permite filtrar la visualización de suscriptores VIP por diferentes estados (activos, expirados, próximos a expirar, todos).
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. Estar en la visualización de suscriptores VIP
+2. Seleccionar uno de los botones de filtro:
+   - "✅ Activos" - Mostrar solo suscriptores activos
+   - "❌ Expirados" - Mostrar solo suscriptores expirados
+   - "⏱️ Por Expirar" - Mostrar suscriptores que expirarán en los próximos 7 días
+   - "📋 Todos" - Mostrar todos los suscriptores
+
+**Características:**
+- Filtros dinámicos que actualizan inmediatamente la visualización
+- Conteo automático de elementos por estado
+- Navegación entre páginas manteniendo el filtro aplicado
+
+### `Filtros de Cola Free` - Filtrado por estado de solicitudes
+
+**Descripción:** Permite filtrar la visualización de solicitudes Free por diferentes estados (pendientes, listas para procesar, procesadas, todas).
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. Estar en la visualización de cola Free
+2. Seleccionar uno de los botones de filtro:
+   - "⏳ Pendientes" - Mostrar solo solicitudes pendientes
+   - "✅ Listas" - Mostrar solicitudes que cumplen el tiempo de espera
+   - "🔄 Procesadas" - Mostrar solicitudes ya procesadas
+   - "📋 Todas" - Mostrar todas las solicitudes
+
+**Características:**
+- Filtros dinámicos que actualizan inmediatamente la visualización
+- Cálculo automático del estado de cada solicitud basado en el tiempo de espera configurado
+- Navegación entre páginas manteniendo el filtro aplicado
+
+### `Detalles de Suscriptor VIP` - Información detallada de un suscriptor
+
+**Descripción:** Muestra información detallada de un suscriptor VIP individual, incluyendo fechas, estado y token usado.
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. Seleccionar un suscriptor en la lista paginada de suscriptores VIP
+2. El bot muestra la vista detallada del suscriptor
+3. El administrador puede ver información completa (ID, estado, fechas, token)
+4. Si el suscriptor está activo, el administrador puede expulsarlo manualmente del canal
+5. El administrador puede regresar al listado de suscriptores
+
+**Características:**
+- Visualización de información completa del suscriptor
+- Posibilidad de expulsión manual del canal VIP
+- Formato claro y estructurado de la información
+
+**Ejemplo de detalles:**
+```
+👤 Detalles de Suscriptor VIP
+
+<b>User ID:</b> <code>123456789</code>
+<b>Estado:</b> 🟢 Activo
+
+<b>Fecha de Ingreso:</b> 2025-11-13 10:30
+<b>Fecha de Expiración:</b> 2025-12-13 10:30
+<b>Tiempo:</b> 0 días restantes
+
+<b>Token Usado:</b> ID 456789
+
+[🗑️ Expulsar del Canal] (solo si está activo)
+[🔙 Volver al Listado]
+```
+
+### `Expulsión Manual de Suscriptor` - Expulsión forzada de un suscriptor VIP
+
+**Descripción:** Permite expulsar manualmente a un suscriptor VIP del canal, marcándolo como expirado en la base de datos e intentando expulsarlo del canal usando la API de Telegram.
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. Ver detalles de un suscriptor VIP activo
+2. Seleccionar "🗑️ Expulsar del Canal"
+3. El bot marca al suscriptor como expirado en la base de datos
+4. El bot intenta expulsar al usuario del canal VIP usando la API de Telegram
+5. El bot notifica el resultado de la operación
+6. El administrador puede regresar al listado de suscriptores
+
+**Características:**
+- Expulsión tanto en la base de datos como en el canal de Telegram
+- Notificación del resultado de la operación
+- Validación de que el suscriptor esté activo antes de expulsar
+
+**Ejemplo de resultado:**
+```
+✅ Suscriptor Marcado Expirado
+
+User <code>123456789</code> ha sido marcado como expirado.
+
+✅ También fue expulsado del canal VIP.
+Esta acción es permanente.
+
+[🔙 Volver al Listado]
 ```
 
 ## Submenú VIP
@@ -192,6 +404,305 @@ El tiempo debe ser mayor o igual a 1 minuto.
 ✅ Tiempo de Espera Actualizado
 Nuevo tiempo: 15 minutos
 Las nuevas solicitudes esperarán 15 minutos antes de procesarse.
+```
+
+## Estadísticas
+
+### `Estadísticas` - Panel de Estadísticas del Sistema
+
+**Descripción:** Accede al panel de estadísticas que proporciona métricas generales y detalladas sobre el sistema, incluyendo información sobre suscriptores VIP, solicitudes Free y tokens de invitación.
+
+**Permisos:** Solo administradores
+
+**Funcionalidades:**
+- Visualización de estadísticas generales del sistema
+- Estadísticas detalladas de suscriptores VIP
+- Estadísticas detalladas de solicitudes Free
+- Estadísticas detalladas de tokens de invitación
+- Proyecciones de ingresos
+- Actualización manual de estadísticas (force refresh)
+
+**Flujo de uso:**
+1. El administrador selecciona "📊 Estadísticas" en el menú principal
+2. El bot muestra el dashboard de estadísticas generales
+3. El administrador puede navegar entre diferentes vistas de estadísticas
+4. El bot actualiza automáticamente las estadísticas cada 5 minutos (cache)
+
+### `Ver Stats VIP Detalladas` - Estadísticas de suscriptores VIP
+
+**Descripción:** Muestra estadísticas detalladas sobre los suscriptores VIP, incluyendo activos, expirados, próximos a expirar y actividad reciente.
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. El administrador selecciona "📊 Ver Stats VIP Detalladas" en el menú de estadísticas
+2. El bot calcula y muestra las métricas VIP detalladas
+3. El bot incluye información como:
+   - Total de suscriptores activos y expirados
+   - Suscriptores que expirarán próximamente (hoy, semana, mes)
+   - Nuevos suscriptores (hoy, semana, mes)
+   - Top suscriptores por días restantes
+
+### `Ver Stats Free Detalladas` - Estadísticas de solicitudes Free
+
+**Descripción:** Muestra estadísticas detalladas sobre las solicitudes de acceso Free, incluyendo pendientes, procesadas y tiempos de espera.
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. El administrador selecciona "📊 Ver Stats Free Detalladas" en el menú de estadísticas
+2. El bot calcula y muestra las métricas Free detalladas
+3. El bot incluye información como:
+   - Total de solicitudes pendientes y procesadas
+   - Solicitudes listas para procesar y aún esperando
+   - Tiempo promedio de espera
+   - Solicitudes próximas a procesar
+   - Actividad reciente (hoy, semana, mes)
+
+### `Ver Stats de Tokens` - Estadísticas de tokens de invitación
+
+**Descripción:** Muestra estadísticas detalladas sobre los tokens de invitación VIP, incluyendo generados, usados, expirados y tasa de conversión.
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. El administrador selecciona "🎟️ Ver Stats de Tokens" en el menú de estadísticas
+2. El bot calcula y muestra las métricas de tokens detalladas
+3. El bot incluye información como:
+   - Total de tokens generados, usados, expirados y disponibles
+   - Tokens generados y usados por período (hoy, semana, mes)
+   - Tasa de conversión (tokens usados vs generados)
+
+### `Actualizar Estadísticas` - Forzar recálculo de estadísticas
+
+**Descripción:** Fuerza el recálculo de todas las estadísticas, ignorando el cache actual.
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. El administrador selecciona "🔄 Actualizar Estadísticas" en el menú de estadísticas
+2. El bot recalcula todas las métricas desde la base de datos
+3. El bot muestra las estadísticas actualizadas inmediatamente
+4. El cache se actualiza con los nuevos valores
+
+## Configuración Avanzada
+
+### `Configuración` - Panel de Configuración Avanzada
+
+**Descripción:** Accede al panel de configuración avanzada que permite gestionar las opciones de reacciones y otras configuraciones del sistema.
+
+**Permisos:** Solo administradores
+
+**Funcionalidades:**
+- Visualización del estado actual de configuración
+- Configuración de reacciones para canales VIP y Free
+- Verificación de parámetros de configuración
+
+**Flujo de uso:**
+1. El administrador selecciona "⚙️ Configuración" en el menú principal
+2. El bot muestra el menú de configuración con las opciones disponibles
+3. El administrador puede navegar entre diferentes opciones de configuración
+
+### `Configurar Reacciones VIP` - Configuración de reacciones para canal VIP
+
+**Descripción:** Configura las reacciones automáticas que se aplicarán a las publicaciones en el canal VIP.
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. El administrador selecciona "⚙️ Configurar Reacciones VIP" en el menú de configuración
+2. El bot muestra las reacciones actuales y solicita ingresar nuevos emojis
+3. El administrador envía los emojis separados por espacios
+4. El bot valida y guarda las nuevas reacciones
+5. El bot actualiza la configuración y notifica el cambio
+
+**Requisitos:**
+- Mínimo 1 emoji
+- Máximo 10 emojis
+- Solo emojis válidos
+
+**Ejemplo de interacción:**
+```
+⚙️ Configurar Reacciones VIP
+
+Reacciones actuales: 👍 ❤️ 🔥 🎉 💯
+
+Envía los emojis que quieres usar como reacciones, separados por espacios.
+Ejemplo: 👍 ❤️ 🔥
+
+Reglas:
+• Mínimo: 1 emoji
+• Máximo: 10 emojis
+• Solo emojis válidos
+
+Las reacciones se aplicarán automáticamente a nuevas publicaciones en el canal VIP.
+
+(Administrador envía: 👍 ❤️ 🌟 💯 ✨)
+✅ Reacciones VIP Configuradas
+Reacciones: 👍 ❤️ 🌟 💯 ✨
+Total: 5 emojis
+Estas reacciones se aplicarán automáticamente a nuevas publicaciones en el canal VIP.
+```
+
+### `Configurar Reacciones Free` - Configuración de reacciones para canal Free
+
+**Descripción:** Configura las reacciones automáticas que se aplicarán a las publicaciones en el canal Free.
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. El administrador selecciona "⚙️ Configurar Reacciones Free" en el menú de configuración
+2. El bot muestra las reacciones actuales y solicita ingresar nuevos emojis
+3. El administrador envía los emojis separados por espacios
+4. El bot valida y guarda las nuevas reacciones
+5. El bot actualiza la configuración y notifica el cambio
+
+**Requisitos:**
+- Mínimo 1 emoji
+- Máximo 10 emojis
+- Solo emojis válidos
+
+**Ejemplo de interacción:**
+```
+⚙️ Configurar Reacciones Free
+
+Reacciones actuales: ✅ ✔️ ☑️
+
+Envía los emojis que quieres usar como reacciones, separados por espacios.
+Ejemplo: ✅ ✔️ ☑️
+
+Reglas:
+• Mínimo: 1 emoji
+• Máximo: 10 emojis
+• Solo emojis válidos
+
+Las reacciones se aplicarán automáticamente a nuevas publicaciones en el canal Free.
+
+(Administrador envía: ✅ ✔️ 📝)
+✅ Reacciones Free Configuradas
+Reacciones: ✅ ✔️ 📝
+Total: 3 emojis
+Estas reacciones se aplicarán automáticamente a nuevas publicaciones en el canal Free.
+```
+
+## Broadcasting
+
+### `Enviar a Canal VIP` - Envío de publicaciones al canal VIP
+
+**Descripción:** Inicia el flujo de envío de contenido al canal VIP con funcionalidad de vista previa y confirmación.
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. El administrador selecciona "📤 Enviar a Canal VIP" en el menú de gestión VIP
+2. El bot solicita enviar el contenido (texto, foto o video)
+3. El administrador envía el contenido deseado
+4. El bot muestra una vista previa del contenido
+5. El administrador confirma o cancela el envío
+6. Si confirma, el bot envía el contenido al canal VIP
+
+**Tipos de contenido soportados:**
+- Texto
+- Foto (con caption opcional)
+- Video (con caption opcional)
+
+**Características:**
+- Vista previa antes de enviar
+- Confirmación de envío
+- Cancelación en cualquier momento
+
+**Ejemplo de interacción:**
+```
+📤 Enviar Publicación a Canal VIP
+
+Envía el contenido que quieres publicar:
+
+• Texto: Envía un mensaje de texto
+• Foto: Envía una foto (con caption opcional)
+• Video: Envía un video (con caption opcional)
+
+El mensaje será enviado exactamente como lo envíes.
+
+👁️ Verás un preview antes de confirmar el envío.
+
+(Administrador envía una foto con caption)
+👁️ Preview de Publicación
+
+Destino: Canal VIP
+Tipo: Foto
+
+Caption:
+Contenido exclusivo para VIPs
+
+⚠️ Verifica que el contenido sea correcto antes de confirmar.
+
+✅ Confirmar y Enviar | ❌ Cancelar | 🔄 Enviar Otro Contenido
+
+(Administrador selecciona "✅ Confirmar y Enviar")
+📤 Resultado del Envío
+
+✅ Canal VIP
+
+La publicación ha sido procesada.
+```
+
+### `Enviar a Canal Free` - Envío de publicaciones al canal Free
+
+**Descripción:** Inicia el flujo de envío de contenido al canal Free con funcionalidad de vista previa y confirmación.
+
+**Permisos:** Solo administradores
+
+**Flujo de uso:**
+1. El administrador selecciona "📤 Enviar a Canal Free" en el menú de gestión Free
+2. El bot solicita enviar el contenido (texto, foto o video)
+3. El administrador envía el contenido deseado
+4. El bot muestra una vista previa del contenido
+5. El administrador confirma o cancela el envío
+6. Si confirma, el bot envía el contenido al canal Free
+
+**Tipos de contenido soportados:**
+- Texto
+- Foto (con caption opcional)
+- Video (con caption opcional)
+
+**Características:**
+- Vista previa antes de enviar
+- Confirmación de envío
+- Cancelación en cualquier momento
+
+**Ejemplo de interacción:**
+```
+📤 Enviar Publicación a Canal Free
+
+Envía el contenido que quieres publicar:
+
+• Texto: Envía un mensaje de texto
+• Foto: Envía una foto (con caption opcional)
+• Video: Envía un video (con caption opcional)
+
+El mensaje será enviado exactamente como lo envíes.
+
+👁️ Verás un preview antes de confirmar el envío.
+
+(Administrador envía un texto)
+👁️ Preview de Publicación
+
+Destino: Canal Free
+Tipo: Texto
+
+Texto:
+¡Novedades en el canal Free!
+
+⚠️ Verifica que el contenido sea correcto antes de confirmar.
+
+✅ Confirmar y Enviar | ❌ Cancelar | 🔄 Enviar Otro Contenido
+
+(Administrador selecciona "✅ Confirmar y Enviar")
+📤 Resultado del Envío
+
+✅ Canal Free
+
+La publicación ha sido procesada.
 ```
 
 ## Comandos de Usuario
@@ -372,6 +883,128 @@ Puedes cerrar este chat, te notificaré cuando esté listo! 🔔
   - El token no existe
   - El canal VIP no está configurado
 
+## Dashboard de Estado del Sistema
+
+### `Dashboard Completo` - Panel de control del sistema (T27)
+
+**Descripción:** Accede al panel de control completo del sistema que proporciona una visión general del estado del bot con health checks, configuración, estadísticas clave, tareas en segundo plano y acciones rápidas.
+
+**Permisos:** Solo administradores
+
+**Funcionalidades:**
+- **Estado de configuración:** Visualización del estado de los canales VIP y Free, reacciones configuradas y tiempo de espera
+- **Estadísticas clave:** Métricas importantes como VIPs activos, solicitudes Free pendientes, tokens disponibles y nuevos VIPs
+- **Health checks:** Verificación del estado del sistema con identificación de problemas y advertencias
+- **Background tasks:** Estado del scheduler y próxima ejecución de tareas programadas
+- **Acciones rápidas:** Acceso directo a funciones administrativas desde el dashboard
+
+**Flujo de uso:**
+1. El administrador selecciona "📊 Dashboard Completo" en el menú principal de administración
+2. El bot recopila todos los datos necesarios para el dashboard
+3. El bot realiza health checks del sistema
+4. El bot muestra el dashboard completo con estado general, problemas detectados, configuración actual, estadísticas clave y estado de tareas en segundo plano
+5. El administrador puede navegar a otras secciones desde el teclado inline
+
+**Ejemplo de visualización del dashboard:**
+```
+📊 <b>Dashboard del Sistema</b>
+
+🟢 <b>Estado:</b> Operativo
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ <b>⚙️ CONFIGURACIÓN</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ Canal VIP: ✅ (5 reacciones)
+┃ Canal Free: ✅ (10 min espera)
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ <b>📈 ESTADÍSTICAS CLAVE</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ VIP Activos: <b>25</b>
+┃ Free Pendientes: <b>8</b>
+┃ Tokens Disponibles: <b>12</b>
+┃
+┃ Nuevos VIP (hoy): 2
+┃ Nuevos VIP (semana): 15
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ <b>🔄 BACKGROUND TASKS</b>
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┃ Estado: 🟢 Corriendo
+┃ Jobs: 3
+┃ Próximo job: 4 min
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+<i>Actualizado: 2025-12-13 10:30:00 UTC</i>
+```
+
+**Teclado inline del dashboard:**
+- "📊 Estadísticas Detalladas" - Acceso al panel de estadísticas completo
+- "⚙️ Configuración" - Acceso al panel de configuración
+- "👥 Suscriptores VIP" - Visualización de suscriptores VIP (si canal VIP está configurado)
+- "📋 Cola Free" - Visualización de cola Free (si canal Free está configurado)
+- "🔄 Actualizar" - Recarga manual del dashboard
+- "🔙 Menú" - Vuelve al menú principal de administración
+
+**Health checks realizados:**
+- **Canales configurados:** Verifica que al menos uno de los canales (VIP o Free) esté configurado
+- **Background tasks:** Verifica que el scheduler esté corriendo
+- **Tokens disponibles:** Alerta si hay menos de 3 tokens disponibles
+- **VIPs próximos a expirar:** Alerta si hay más de 10 VIPs expirando en los próximos 7 días
+- **Cola Free:** Alerta si hay más de 50 solicitudes Free pendientes
+
+**Estados de health check:**
+- **Operativo (🟢):** No se detectaron problemas ni advertencias
+- **Funcionando con Advertencias (🟡):** Se detectaron advertencias pero no problemas críticos
+- **Problemas Detectados (🔴):** Se detectaron problemas críticos que requieren atención
+
+**Características del dashboard:**
+- **Actualización automática:** Muestra la hora exacta de la última actualización
+- **Diseño estructurado:** Información organizada en secciones claras con bordes y emojis
+- **Adaptabilidad:** El teclado inline se adapta según la configuración actual (muestra "Suscriptores VIP" solo si canal VIP está configurado)
+- **Acceso directo:** Botones para acceder rápidamente a funciones administrativas importantes
+
+## Comandos Relacionados con el Sistema de Precios y Roles
+
+### `/admin` - Panel de Administración (Actualizado)
+
+**Descripción:** El panel de administración ahora incluye funcionalidades para gestionar planes de suscripción y roles de usuarios.
+
+**Nuevas funcionalidades:**
+- **Gestión de Planes de Suscripción:** Crear, listar, actualizar y activar/desactivar planes de suscripción
+- **Visualización de Roles:** Ver usuarios por rol (FREE, VIP, ADMIN)
+- **Gestión Profesional de Tokens:** Generación de tokens asociados a planes con deep links profesionales
+
+**Flujo de gestión de planes:**
+1. Administrador selecciona "📊 Dashboard Completo" o navega a la gestión de planes
+2. Puede crear nuevos planes con nombre, duración y precio
+3. Puede activar/desactivar planes existentes
+4. Puede ver estadísticas de uso de planes
+
+### `Generar Token con Plan` - Generación Profesional de Tokens
+
+**Descripción:** Nuevo flujo que permite generar tokens VIP asociados a planes de suscripción específicos con deep links profesionales.
+
+**Flujo de uso:**
+1. Administrador selecciona "Generar Token con Plan" en el menú VIP
+2. Sistema muestra lista de planes disponibles
+3. Administrador selecciona un plan
+4. Sistema genera token asociado al plan
+5. Sistema crea deep link profesional: `https://t.me/bot?start=TOKEN`
+6. Administrador recibe el deep link para distribuir
+
+**Características:**
+- Deep link con formato profesional
+- Información clara del plan asociado
+- Fácil distribución y seguimiento
+
+**Ejemplo de deep link generado:**
+```
+https://t.me/mi_bot_vip?start=ABCD1234EFGH5678
+```
+
 ## Tareas Programadas (Background Tasks)
 
 El bot ejecuta automáticamente tareas programadas que realizan operaciones periódicas para mantener el sistema funcionando correctamente:
@@ -409,3 +1042,9 @@ El bot ejecuta automáticamente tareas programadas que realizan operaciones peri
 - `PROCESS_FREE_QUEUE_MINUTES`: Intervalo para procesamiento de cola Free (default: 5)
 
 Estas tareas se ejecutan automáticamente sin intervención del usuario y ayudan a mantener el sistema limpio y funcional.
+
+---
+
+**Última actualización:** 2025-12-13
+**Versión:** 1.0.0
+**Estado:** Documentación completa de comandos del bot VIP/Free

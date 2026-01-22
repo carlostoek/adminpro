@@ -74,11 +74,9 @@ async def process_free_queue(bot: Bot):
 
     Proceso:
     1. Busca solicitudes que cumplieron el tiempo de espera
-    2. Para cada solicitud:
-       - Marca como procesada
-       - Crea invite link
-       - Envía link al usuario por mensaje privado
-    3. Loguea resultados
+    2. Aprueba automáticamente usando approve_chat_join_request() de Telegram
+    3. Marca solicitudes como procesadas
+    4. Loguea resultados
 
     Args:
         bot: Instancia del bot de Telegram
@@ -99,62 +97,18 @@ async def process_free_queue(bot: Bot):
             # Obtener tiempo de espera configurado
             wait_time = await container.config.get_wait_time()
 
-            # Buscar solicitudes listas para procesar
-            ready_requests = await container.subscription.process_free_queue(wait_time)
+            # Aprobar solicitudes usando Telegram API
+            success_count, error_count = await container.subscription.approve_ready_free_requests(
+                wait_time_minutes=wait_time,
+                free_channel_id=free_channel_id
+            )
 
-            if not ready_requests:
-                logger.debug("✓ No hay solicitudes Free listas")
+            if success_count == 0 and error_count == 0:
+                logger.debug("✓ No hay solicitudes Free listas para procesar")
                 return
 
-            logger.info(f"📋 Procesando {len(ready_requests)} solicitud(es) Free")
-
-            # Procesar cada solicitud
-            success_count = 0
-            error_count = 0
-
-            for request in ready_requests:
-                user_id = request.user_id
-
-                try:
-                    # Crear invite link personal
-                    invite_link = await container.subscription.create_invite_link(
-                        channel_id=free_channel_id,
-                        user_id=user_id,
-                        expire_hours=24  # Link Free válido por 24 horas
-                    )
-
-                    # Enviar link al usuario por mensaje privado
-                    message_text = (
-                        f"✅ <b>¡Tu Acceso Free está Listo!</b>\n\n"
-                        f"Has esperado {wait_time} minutos como se requiere.\n\n"
-                        f"👇 Usa este link para unirte al canal Free:\n"
-                        f"{invite_link.invite_link}\n\n"
-                        f"⚠️ <b>Importante:</b>\n"
-                        f"• El link expira en 24 horas\n"
-                        f"• Solo puedes usarlo 1 vez\n"
-                        f"• No lo compartas con otros\n\n"
-                        f"Disfruta del contenido! 🎉"
-                    )
-
-                    await bot.send_message(
-                        chat_id=user_id,
-                        text=message_text,
-                        parse_mode="HTML"
-                    )
-
-                    success_count += 1
-                    logger.info(f"✅ Link Free enviado a user {user_id}")
-
-                except Exception as e:
-                    error_count += 1
-                    logger.error(
-                        f"❌ Error enviando link Free a user {user_id}: {e}",
-                        exc_info=True
-                    )
-                    # Continuar con siguiente usuario
-
             logger.info(
-                f"✅ Cola Free procesada: {success_count} éxitos, {error_count} errores"
+                f"✅ Cola Free procesada: {success_count} aprobadas, {error_count} errores"
             )
 
     except Exception as e:
@@ -289,17 +243,27 @@ def stop_background_tasks():
 
 def get_scheduler_status() -> dict:
     """
-    Obtiene el estado actual del scheduler.
-
-    Útil para dashboard admin (ONDA 2).
+    Obtiene el estado actual del scheduler de background tasks.
 
     Returns:
-        Dict con información del scheduler:
+        Dict con info del scheduler:
         {
             "running": bool,
             "jobs_count": int,
-            "jobs": List[dict]
+            "jobs": [
+                {
+                    "id": str,
+                    "name": str,
+                    "next_run_time": datetime or None,
+                    "trigger": str
+                }
+            ]
         }
+
+    Examples:
+        >>> status = get_scheduler_status()
+        >>> if status["running"]:
+        ...     print(f"{status['jobs_count']} jobs activos")
     """
     if _scheduler is None:
         return {
@@ -312,12 +276,13 @@ def get_scheduler_status() -> dict:
     for job in _scheduler.get_jobs():
         jobs_info.append({
             "id": job.id,
-            "name": job.name,
-            "next_run": job.next_run_time.isoformat() if job.next_run_time else None
+            "name": job.name or job.id,
+            "next_run_time": job.next_run_time,
+            "trigger": str(job.trigger)
         })
 
     return {
-        "running": True,
+        "running": _scheduler.running,
         "jobs_count": len(jobs_info),
         "jobs": jobs_info
     }

@@ -7,119 +7,12 @@ Proyecto en desarrollo activo siguiendo flujo ONDA 1.
 # CONTEXTO TÉCNICO UNIFICADO - ONDA 1
 ═══════════════════════════════════════════════════════════════
 
-## 🛠️ STACK TECNOLÓGICO
+Para ver la información técnica detallada sobre tecnologías, estructura de proyecto y convenciones, consultar:
 
-```yaml
-Backend: Python 3.11+
-Framework: Aiogram 3.4.1 (async)
-Base de Datos: SQLite 3.x con WAL mode
-ORM: SQLAlchemy 2.0.25 (Async engine)
-Driver DB: aiosqlite 0.19.0
-Scheduler: APScheduler 3.10.4
-Environment: python-dotenv 1.0.0
-Testing: pytest 7.4+ + pytest-asyncio 0.21+
-
-Librerías Clave:
-  - aiogram: 3.4.1 - Framework bot Telegram async
-  - sqlalchemy: 2.0.25 - ORM con soporte async/await
-  - aiosqlite: 0.19.0 - Driver SQLite async
-  - APScheduler: 3.10.4 - Tareas programadas en background
-  - python-dotenv: 1.0.0 - Gestión de variables de entorno
-```
-
-## 📁 ESTRUCTURA DE PROYECTO
-
-```
-/
-├── main.py                      # Entry point del bot
-├── config.py                    # Configuración centralizada
-├── requirements.txt             # Dependencias pip
-├── .env                         # Variables de entorno (NO commitear)
-├── .env.example                 # Template para .env
-├── README.md                    # Documentación
-├── bot.db                       # SQLite database (generado)
-│
-└── bot/
-    ├── __init__.py
-    │
-    ├── database/
-    │   ├── __init__.py
-    │   ├── base.py             # Base declarativa SQLAlchemy
-    │   ├── engine.py           # Factory de engine y sesiones
-    │   └── models.py           # Modelos: BotConfig, VIPSubscriber, etc.
-    │
-    ├── services/
-    │   ├── __init__.py
-    │   ├── container.py        # Dependency Injection Container
-    │   ├── subscription.py     # Lógica VIP/Free/Tokens
-    │   ├── channel.py          # Gestión canales Telegram
-    │   └── config.py           # Configuración del bot
-    │
-    ├── handlers/
-    │   ├── __init__.py
-    │   ├── admin/
-    │   │   ├── __init__.py
-    │   │   ├── main.py         # /admin - Menú principal
-    │   │   ├── vip.py          # Submenú gestión VIP
-    │   │   └── free.py         # Submenú gestión Free
-    │   └── user/
-    │       ├── __init__.py
-    │       ├── start.py        # /start - Bienvenida
-    │       ├── vip_flow.py     # Flujo canje token
-    │       └── free_flow.py    # Flujo solicitud Free
-    │
-    ├── middlewares/
-    │   ├── __init__.py
-    │   ├── admin_auth.py       # Validación permisos admin
-    │   └── database.py         # Inyección de sesión DB
-    │
-    ├── states/
-    │   ├── __init__.py
-    │   ├── admin.py            # FSM states para admin
-    │   └── user.py             # FSM states para usuarios
-    │
-    ├── utils/
-    │   ├── __init__.py
-    │   ├── keyboards.py        # Factory de inline keyboards
-    │   └── validators.py       # Funciones de validación
-    │
-    └── background/
-        ├── __init__.py
-        └── tasks.py            # Tareas programadas (cleanup, expiración)
-```
-
-## 🎨 CONVENCIONES
-
-```python
-# Naming:
-# - Clases: PascalCase (VIPSubscriber, SubscriptionService)
-# - Funciones/métodos: snake_case (generate_token, check_expiry)
-# - Constantes: UPPER_SNAKE_CASE (DEFAULT_WAIT_TIME, MAX_TOKEN_LENGTH)
-# - Archivos: snake_case (admin_auth.py, vip_flow.py)
-
-# Imports:
-# - Estándar → Third-party → Local
-# - Ordenados alfabéticamente en cada grupo
-
-# Async:
-# - TODOS los handlers son async def
-# - TODOS los métodos de services son async def
-# - Usar await para llamadas DB y API Telegram
-
-# Error Handling:
-# - Try-except en handlers (nunca dejar crashear el bot)
-# - Logger en cada módulo: logger = logging.getLogger(__name__)
-# - Niveles: DEBUG (desarrollo), INFO (eventos), WARNING (problemas no críticos), ERROR (fallos), CRITICAL (bot no operativo)
-
-# Type Hints:
-# - Obligatorio en signatures de funciones
-# - Usar Optional[T] para valores opcionales
-# - Usar Union[T1, T2] cuando hay múltiples tipos
-
-# Docstrings:
-# - Google Style
-# - En todas las clases y funciones públicas
-```
+- Documento de **Referencia Rápida** - `docs/Referencia_Rápida.md`
+- Documento de **Diseño** - `docs/DESIGN.md`
+- Documento de **Arquitectura** - `docs/ARCHITECTURE.md`
+- Documento de **Configuración** - `docs/SETUP.md`
 
 ═══════════════════════════════════════════════════════════════
 # FLUJO DE DESARROLLO - ONDA 1
@@ -477,11 +370,10 @@ Handlers para usuarios, testing completo, y deployment.
    - Mensaje describiendo cambios
    - Listas de métodos implementados
    - Características clave
-   - Sin referencias a herramientas externas como Claude code
+   - Sin referencias a herramientas externas como Claude code, Qwen Code, Gemini, etc
 
-6. **Documentación (Optional)**
-   - Actualizar README.md si aplica
-   - Actualizar CLAUDE.md si hay cambios arquitectónicos
+6. **Documentación (Omitir)**
+   - NO realizar ningún tipo de documentación ya que existe un agente especializado en documentar todo lo que se va desarrollando
 
 ---
 
@@ -968,3 +860,292 @@ bash scripts/run_tests.sh
 
 **Status:** ✅ FASE 1.5 COMPLETADA (T16)
 **Próximo:** T17 - Features Finales y Deployment
+
+═══════════════════════════════════════════════════════════════
+# ONDA 2 - ENHANCEMENTS Y UTILITIES
+═══════════════════════════════════════════════════════════════
+
+Fase de mejoras, utilidades reutilizables, y testing E2E completo.
+
+---
+
+## ✅ CHECKLIST ONDA 2
+
+- [x] T27: Dashboard estado completo
+  - [x] Panel visual con health checks
+  - [x] Estadísticas en tiempo real
+  - [x] Status de background tasks
+  - [x] Acciones rápidas
+  - [x] Refactor con status_emoji y helpers
+
+- [x] T28: Formatters y helpers reutilizables
+  - [x] 19 funciones de formateo
+  - [x] Type hints 100%
+  - [x] Docstrings con ejemplos
+  - [x] 18 tests unitarios (todos pasando)
+  - [x] Formateo ISO, monedas, porcentajes
+  - [x] Tiempo relativo inteligente
+  - [x] Emojis consistentes (🟢🟡🔴)
+  - [x] HTML escaping para Telegram
+
+- [x] T29: Testing E2E ONDA 2
+  - [x] 12 tests E2E implementados
+  - [x] 100% tests pasando (12/12 ✅)
+  - [x] Coverage >85% ONDA 2
+  - [x] Tests de stats (overall, VIP, Free, tokens, cache)
+  - [x] Tests de paginación (básica, vacía)
+  - [x] Tests de formatters (fechas, números, emojis)
+  - [x] Tests integrados (VIP, Free con paginación)
+  - [x] README_ONDA2.md con documentación
+  - [x] scripts/run_tests.sh actualizado
+
+**Status:** ✅ ONDA 2 COMPLETADA (3/3 tareas completadas)
+
+---
+
+## 📊 ONDA 2 RESUMEN
+
+### Features Implementadas
+
+**T27: Dashboard Estado Completo** ✅
+- Panel visual con health checks
+- Estadísticas en tiempo real
+- Status de background tasks
+- Acciones rápidas
+
+**T28: Formatters y Helpers Reutilizables** ✅
+- 19 funciones de formateo
+- 100% type hints
+- 18 tests unitarios (todos pasando)
+- Emojis consistentes
+
+**T29: Testing E2E ONDA 2** ✅
+- 12 tests E2E completos
+- Coverage >85% ONDA 2
+- Validación de stats, paginación, formatters
+
+### Estadísticas Finales ONDA 2
+
+- **Total de Tests:** 12 (todos pasando ✅)
+- **Funciones Formatters:** 19
+- **Líneas de Código Tests:** 470+
+- **Líneas de Código Formatters:** 649
+- **Coverage:** >85% ONDA 2
+- **Duración Tests:** 5.42 segundos
+- **Type Hints:** 100%
+- **Docstrings:** 100%
+
+### Próximos Pasos
+
+**ONDA 3** → Features Avanzadas, Optimización, Deployment
+- T30: Broadcasting avanzado
+- T31: Estadísticas avanzadas
+- T32: Deployment
+
+═══════════════════════════════════════════════════════════════
+# ONDA 3 - FEATURES AVANZADAS (PRODUCCIÓN)
+═══════════════════════════════════════════════════════════════
+
+---
+
+## ✅ A1 - Sistema Completo de Tarifas/Planes ✅
+
+Sistema de tarifas configurables con soporte para múltiples planes de suscripción.
+
+**Completado:**
+- Crear, actualizar, eliminar planes
+- Activar/desactivar planes
+- Validación de duración y precio
+- Tests E2E completos
+
+---
+
+## ✅ A2 - Sistema Completo de Roles de Usuario ✅
+
+Gestión de roles avanzada (FREE, VIP, ADMIN) con emisión de eventos.
+
+**Completado:**
+- Cambio de roles con historial
+- Promoted/Demoted events
+- Validación de permisos por rol
+- Tests E2E completos
+
+---
+
+## ✅ A3 - GENERACIÓN DE TOKENS CON DEEP LINKS Y ACTIVACIÓN AUTOMÁTICA ✅
+
+**Descripción:**
+Sistema profesional de generación de tokens vinculados a planes de suscripción.
+Los usuarios activan su suscripción automáticamente haciendo click en un deep link.
+
+**Cambios Principales:**
+
+#### 1. Generación de Tokens por Tarifa
+- Admin selecciona tarifa configurada (menú con botones)
+- Token se vincula automáticamente con el plan
+- Deep link profesional generado: `https://t.me/bot?start=TOKEN`
+
+#### 2. Activación Automática vía Deep Link
+- Handler `/start` maneja parámetros (deep links)
+- Detecta automáticamente tokens en parámetros
+- Activa suscripción VIP sin pasos adicionales
+- Cambia rol usuario de FREE a VIP automáticamente
+
+#### 3. Métodos nuevos en SubscriptionService
+```python
+async def generate_vip_token(
+    generated_by: int,
+    duration_hours: int = 24,
+    plan_id: Optional[int] = None  # NUEVO
+) -> InvitationToken
+
+async def activate_vip_subscription(  # NUEVO
+    user_id: int,
+    token_id: int,
+    duration_hours: int
+) -> VIPSubscriber
+```
+
+#### 4. Handlers Modificados
+- **admin/vip.py:**
+  - `callback_generate_token_select_plan`: Muestra menú de planes
+  - `callback_generate_token_with_plan`: Genera token con deep link
+  - Integración con PricingService
+
+- **user/start.py:**
+  - `cmd_start`: Detecta deep links en parámetros
+  - `_activate_token_from_deeplink`: Activación automática
+  - `_send_welcome_message`: Refactorizado para reutilización
+
+#### 5. Flujo de Usuario
+
+**Desde Admin:**
+```
+1. /admin → Gestión Canal VIP → Generar Token
+2. Seleccionar "Plan Mensual - $9.99"
+3. Copiar deep link: https://t.me/botname?start=TOKEN
+4. Enviar al usuario por cualquier canal
+```
+
+**Desde Usuario:**
+```
+1. Hacer click en: https://t.me/botname?start=TOKEN
+2. Abre conversación con el bot
+3. Mensaje automático: "¡Suscripción VIP Activada!"
+4. Click en "Unirse al Canal VIP"
+5. Acceso inmediato al contenido exclusivo
+```
+
+#### 6. Compatibilidad
+- Tokens antiguos sin `plan_id` siguen funcionando (error apropiado)
+- Invite links se generan automáticamente (5 horas de validez)
+- Extensión de suscripción si usuario ya es VIP
+- Rol cambia automáticamente a VIP en BD
+
+#### 7. Validaciones Implementadas
+- ✅ Token de un solo uso (no se puede canjear dos veces)
+- ✅ Expiración de token (24 horas)
+- ✅ Expiración de invite link (5 horas)
+- ✅ Validación de plan activo
+- ✅ Canal VIP debe estar configurado
+
+#### 8. Tests E2E (7 tests - 100% pasando)
+
+```
+✅ test_generate_token_with_plan
+   - Generar token vinculado a plan específico
+   - Duration automática desde plan.duration_days
+
+✅ test_activate_vip_from_deep_link
+   - Activar suscripción desde deep link
+   - Cambio automático de rol FREE → VIP
+   - Generación de invite link
+
+✅ test_deep_link_format
+   - Validar formato correcto del deep link
+   - Contiene token y username del bot
+
+✅ test_extend_vip_via_deep_link
+   - Extender suscripción si usuario ya es VIP
+   - No crea duplicados en BD
+
+✅ test_backward_compatibility_token_without_plan
+   - Tokens antiguos sin plan_id funcionan
+   - Error apropiado si plan no disponible
+
+✅ test_token_expiry_validation
+   - Token inválido después de 24 horas
+   - Mensaje de error correcto
+
+✅ test_token_single_use
+   - Token rechaza segundo uso
+   - Mensaje "token ya fue usado"
+```
+
+#### 9. Archivos Modificados
+- `bot/services/subscription.py` (+28 líneas): `generate_vip_token`, `activate_vip_subscription`
+- `bot/handlers/admin/vip.py` (+165 líneas): Generación con deep links
+- `bot/handlers/user/start.py` (+165 líneas): Activación automática
+- `tests/test_a3_deep_links.py` (NUEVO): 7 tests E2E
+
+#### 10. Estadísticas Finales A3
+- **Tests:** 7/7 pasando ✅
+- **Líneas agregadas:** ~358 (código productivo)
+- **Líneas tests:** ~490
+- **Type Hints:** 100%
+- **Docstrings:** 100%
+- **Compatibilidad:** Backwards-compatible
+
+**Status:** ✅ A3 COMPLETADO
+**Próximo:** A4 - Broadcasting Avanzado
+
+═══════════════════════════════════════════════════════════════
+# FLUJO DE TRABAJO PRINCIPAL
+═══════════════════════════════════════════════════════════════
+
+## 🔄 PROCESO DE DESARROLLO
+
+Cuando el usuario envíe un prompt, se debe seguir este workflow principal:
+
+### 1. Análisis del Requerimiento
+- Analizar lo que se requiere
+- Identificar puntos de integración
+- Leer el documento `docs/Referencia_Rápida.md` para tener un contexto general del estado del sistema
+
+### 2. Implementación
+- Realizar la implementación, desarrollo o lo que se haya solicitado
+- Seguir las convenciones y patrones establecidos en el proyecto
+- Asegurar calidad de código (type hints, docstrings, logging)
+
+### 3. Pruebas
+- Realizar tests (100% deben pasar)
+- Implementar tests unitarios, integración y E2E según sea apropiado
+- Verificar que no se rompen funcionalidades existentes
+
+### 4. Documentación
+- NO realizar ningún tipo de documentación ya que existe un agente especializado en documentar todo lo que se va desarrollando
+
+### 5. Tracking de Progreso
+- Si el requerimiento inicial es parte de una serie de fases (identificables por la cabecera con algún identificador numérico secuencial, ejm. PROMPT 3), actualizar el archivo `docs/tracking.md` marcando el Progreso según implementado
+
+### 6. Commit
+- Hacer commit con un mensaje descriptivo sin referencias a herramientas externas como Claude code, Qwen Code, Gemini, etc
+- Incluir en el mensaje las características clave de la implementación
+
+---
+
+**Ejemplo de Flujo Completo:**
+```
+Usuario: "Implementar función que calcule estadísticas de usuarios VIP"
+
+1. Análisis: Revisar modelo VIPSubscriber, identificar campos relevantes
+2. Integración: Consultar ServiceContainer, posibles dependencias
+3. Contexto: Leer Referencia_Rápida.md para entender estructura actual
+4. Implementación: Agregar método en StatsService, actualizar dependencias
+5. Tests: Crear test cases, verificar 100% coverage, correr suite completa
+6. Documentación: Omitir (agente especializado se encargará)
+7. Tracking: Si es parte de PROMPT 5, actualizar docs/tracking.md
+8. Commit: "feat: Add VIP stats calculation with 100% test coverage"
+```
+
+**Status:** ✅ Workflow Documentado
