@@ -559,7 +559,8 @@ class SubscriptionService:
         """
         Crea solicitud Free desde ChatJoinRequest de Telegram.
 
-        Verifica duplicados y retorna la solicitud existente o nueva.
+        Limpia solicitudes antiguas y crea una nueva solicitud limpia.
+        Esto permite que usuarios que salieron del canal puedan volver a solicitar.
 
         Args:
             user_id: ID del usuario que solicita
@@ -571,23 +572,42 @@ class SubscriptionService:
                 - str: Mensaje descriptivo
                 - Optional[FreeChannelRequest]: Solicitud creada o existente
         """
-        # Verificar si ya tiene solicitud pendiente
+        # Verificar si ya tiene solicitud pendiente RECIENTE (últimos 5 minutos)
+        # Esto previene spam pero permite reintentos después de salir del canal
+        from datetime import timedelta
+        recent_cutoff = datetime.utcnow() - timedelta(minutes=5)
+
         result = await self.session.execute(
             select(FreeChannelRequest).where(
                 FreeChannelRequest.user_id == user_id,
-                FreeChannelRequest.processed == False
+                FreeChannelRequest.processed == False,
+                FreeChannelRequest.request_date >= recent_cutoff
             ).order_by(FreeChannelRequest.request_date.desc())
         )
         existing = result.scalar_one_or_none()
 
         if existing:
             logger.info(
-                f"ℹ️ Usuario {user_id} ya tiene solicitud Free pendiente "
+                f"ℹ️ Usuario {user_id} ya tiene solicitud Free reciente "
                 f"(hace {existing.minutes_since_request()} min)"
             )
             return False, "Ya existe solicitud pendiente", existing
 
-        # Crear nueva solicitud
+        # Limpiar TODAS las solicitudes antiguas del usuario (procesadas o no)
+        # Esto garantiza un estado limpio cuando el usuario vuelve a solicitar
+        delete_result = await self.session.execute(
+            delete(FreeChannelRequest).where(
+                FreeChannelRequest.user_id == user_id
+            )
+        )
+        deleted_count = delete_result.rowcount
+
+        if deleted_count > 0:
+            logger.info(
+                f"🧹 Limpiadas {deleted_count} solicitud(es) antigua(s) de user {user_id}"
+            )
+
+        # Crear nueva solicitud limpia
         request = FreeChannelRequest(
             user_id=user_id,
             request_date=datetime.utcnow(),
