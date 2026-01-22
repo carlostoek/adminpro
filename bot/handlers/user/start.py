@@ -141,7 +141,7 @@ async def _activate_token_from_deeplink(
             return
 
         # Cargar plan explícitamente (sin lazy loading)
-        plan = await container.pricing.get_plan(token.plan_id)
+        plan = await container.pricing.get_plan_by_id(token.plan_id)
 
         if not plan or not plan.active:
             await message.answer(
