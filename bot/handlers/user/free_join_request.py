@@ -87,11 +87,16 @@ async def handle_free_join_request(
         except Exception as e:
             logger.error(f"❌ Error declinando solicitud duplicada: {e}")
 
-        # Notificar tiempo restante
+        # Notificar tiempo restante con barra de progreso
         if request:
+            from bot.utils.formatters import format_progress_with_time
+
             wait_time = await container.config.get_wait_time()
             minutes_since = request.minutes_since_request()
             minutes_remaining = max(0, wait_time - minutes_since)
+
+            # Generar barra de progreso visual
+            progress_bar = format_progress_with_time(minutes_remaining, wait_time, length=15)
 
             try:
                 await join_request.bot.send_message(
@@ -99,12 +104,14 @@ async def handle_free_join_request(
                     text=(
                         f"ℹ️ <b>Solicitud Pendiente</b>\n\n"
                         f"📺 Canal: <b>{channel_name}</b>\n\n"
-                        f"Ya tienes una solicitud en proceso:\n\n"
-                        f"⏱️ <b>Progreso:</b>\n"
+                        f"Ya tienes una solicitud en proceso.\n\n"
+                        f"<b>Progreso de Aprobación:</b>\n"
+                        f"<code>{progress_bar}</code>\n\n"
+                        f"⏰ <b>Detalles:</b>\n"
                         f"• Tiempo transcurrido: <b>{minutes_since} min</b>\n"
                         f"• Tiempo restante: <b>{minutes_remaining} min</b>\n"
-                        f"• Total: <b>{wait_time} min</b>\n\n"
-                        f"✅ Serás aprobado automáticamente cuando se cumpla el tiempo.\n\n"
+                        f"• Total configurado: <b>{wait_time} min</b>\n\n"
+                        f"✅ Serás aprobado automáticamente en {minutes_remaining} minutos.\n\n"
                         f"💡 No es necesario solicitar de nuevo."
                     ),
                     parse_mode="HTML"

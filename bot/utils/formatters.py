@@ -647,3 +647,108 @@ def is_valid_emoji(text: str) -> bool:
     )
 
     return bool(emoji_pattern.fullmatch(text.strip()))
+
+
+# ===== BARRAS DE PROGRESO =====
+
+def format_progress_bar(
+    current: Union[int, float],
+    total: Union[int, float],
+    length: int = 10,
+    fill: str = "▓",
+    empty: str = "░"
+) -> str:
+    """
+    Genera barra de progreso visual.
+
+    Args:
+        current: Valor actual
+        total: Valor total
+        length: Longitud de la barra (default: 10)
+        fill: Caracter para parte llena (default: "▓")
+        empty: Caracter para parte vacía (default: "░")
+
+    Returns:
+        String con barra de progreso
+
+    Examples:
+        >>> format_progress_bar(3, 10, 10)
+        "▓▓▓░░░░░░░ 30%"
+
+        >>> format_progress_bar(7, 10, 10)
+        "▓▓▓▓▓▓▓░░░ 70%"
+
+        >>> format_progress_bar(10, 10, 10)
+        "▓▓▓▓▓▓▓▓▓▓ 100%"
+    """
+    if not isinstance(current, (int, float)) or not isinstance(total, (int, float)):
+        raise TypeError("current y total deben ser numéricos")
+
+    if not isinstance(length, int) or length < 1:
+        raise ValueError("length debe ser int >= 1")
+
+    if total <= 0:
+        return empty * length + " 0%"
+
+    # Calcular progreso (0.0 - 1.0)
+    progress = min(current / total, 1.0)
+    progress = max(progress, 0.0)  # No negativo
+
+    # Calcular cuántos caracteres llenar
+    filled_length = int(length * progress)
+
+    # Generar barra
+    bar = fill * filled_length + empty * (length - filled_length)
+
+    # Calcular porcentaje
+    percentage = int(progress * 100)
+
+    return f"{bar} {percentage}%"
+
+
+def format_progress_with_time(
+    remaining_minutes: int,
+    total_minutes: int,
+    length: int = 15
+) -> str:
+    """
+    Genera barra de progreso con tiempo restante.
+
+    Args:
+        remaining_minutes: Minutos restantes
+        total_minutes: Total de minutos
+        length: Longitud de la barra (default: 15)
+
+    Returns:
+        String con barra de progreso y tiempo
+
+    Examples:
+        >>> format_progress_with_time(3, 10)
+        "▓▓▓▓▓▓▓▓▓▓░░░░░ 70% (3 min restantes)"
+
+        >>> format_progress_with_time(0, 10)
+        "▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ 100% (listo)"
+
+        >>> format_progress_with_time(10, 10)
+        "░░░░░░░░░░░░░░░ 0% (10 min restantes)"
+    """
+    if not isinstance(remaining_minutes, int) or not isinstance(total_minutes, int):
+        raise TypeError("remaining_minutes y total_minutes deben ser int")
+
+    if total_minutes <= 0:
+        raise ValueError("total_minutes debe ser > 0")
+
+    # Calcular minutos transcurridos
+    elapsed = total_minutes - remaining_minutes
+    elapsed = max(0, elapsed)  # No negativo
+
+    # Generar barra de progreso
+    bar = format_progress_bar(elapsed, total_minutes, length)
+
+    # Mensaje de tiempo
+    if remaining_minutes <= 0:
+        time_msg = "(listo)"
+    else:
+        time_msg = f"({remaining_minutes} min restantes)"
+
+    return f"{bar} {time_msg}"

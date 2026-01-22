@@ -34,10 +34,9 @@ def free_menu_keyboard(is_configured: bool) -> "InlineKeyboardMarkup":
 
     if is_configured:
         buttons.extend([
-            [{"text": "⏱️ Configurar Tiempo de Espera", "callback_data": "free:set_wait_time"}],
             [{"text": "📤 Enviar Publicación", "callback_data": "free:broadcast"}],
-            [{"text": "📋 Ver Cola de Solicitudes", "callback_data": "free:view_queue"}],
-            [{"text": "🔧 Reconfigurar Canal", "callback_data": "free:setup"}],
+            [{"text": "📋 Cola de Solicitudes", "callback_data": "free:view_queue"}],
+            [{"text": "⚙️ Configuración", "callback_data": "free:config"}],
         ])
     else:
         buttons.append([{"text": "⚙️ Configurar Canal Free", "callback_data": "free:setup"}])
@@ -309,3 +308,44 @@ async def process_wait_time_input(
             "Intenta nuevamente.",
             parse_mode="HTML"
         )
+
+
+# ===== SUBMENÚ DE CONFIGURACIÓN FREE =====
+
+@admin_router.callback_query(F.data == "free:config")
+async def callback_free_config(callback: CallbackQuery, session: AsyncSession):
+    """
+    Muestra el submenú de configuración Free.
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+    """
+    logger.debug(f"⚙️ Usuario {callback.from_user.id} abrió configuración Free")
+
+    container = ServiceContainer(session, callback.bot)
+    wait_time = await container.config.get_wait_time()
+
+    text = (
+        "⚙️ <b>Configuración Canal Free</b>\n\n"
+        f"⏱️ Tiempo de espera actual: <b>{wait_time} minutos</b>\n\n"
+        "Selecciona una opción:"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "⏱️ Cambiar Tiempo de Espera", "callback_data": "free:set_wait_time"}],
+        [{"text": "🔧 Reconfigurar Canal", "callback_data": "free:setup"}],
+        [{"text": "🔙 Volver", "callback_data": "admin:free"}]
+    ])
+
+    try:
+        await callback.message.edit_text(
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        if "message is not modified" not in str(e):
+            logger.error(f"Error editando mensaje config Free: {e}")
+
+    await callback.answer()
