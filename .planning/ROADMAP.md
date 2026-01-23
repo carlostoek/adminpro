@@ -51,6 +51,9 @@ The phased delivery ensures zero-downtime migration, prevents critical pitfalls 
 ### Phase 2: Template Organization & Admin Migration
 **Goal:** Migrate all admin handlers to use message service with compositional template design
 
+**Status:** 🔄 In Progress (2026-01-23)
+**Started:** 2026-01-23
+
 **Dependencies:** Phase 1 (requires foundation)
 
 **Requirements:**
@@ -71,6 +74,13 @@ The phased delivery ensures zero-downtime migration, prevents critical pitfalls 
 3. Token generation messages adapt based on whether VIP channel is configured (conditional content blocks)
 4. Message methods return tuple (text, keyboard) with integrated inline keyboards
 5. Template composition prevents method explosion (base messages reused with variations)
+
+**Plans:** 3 plans in 2 waves
+
+**Plan List:**
+- [ ] 02-01-PLAN.md — AdminVIPMessages provider + vip.py handler migration ✅
+- [ ] 02-02-PLAN.md — AdminFreeMessages provider + free.py handler migration ✅
+- [ ] 02-03-PLAN.md — AdminMainMessages provider + main.py handler migration + keyboard updates ✅
 
 ---
 
@@ -120,21 +130,22 @@ The phased delivery ensures zero-downtime migration, prevents critical pitfalls 
 | Phase | Status | Requirements | Completion |
 |-------|--------|--------------|------------|
 | 1 - Service Foundation | ✅ Complete | 9 requirements | 100% |
-| 2 - Template Organization | Pending | 10 requirements | 0% |
+| 2 - Template Organization | 🔄 Planned | 10 requirements | 0% |
 | 3 - User Flow Migration | Pending | 9 requirements | 0% |
 | 4 - Advanced Voice Features | Pending | 0 requirements | 0% |
 
 **Total:** 28 v1 requirements mapped
 **Phase 1:** 9/9 requirements complete (100%)
+**Phase 2:** 10/10 requirements planned (0%)
 
 ---
 
 ## Dependencies
 
 ```
-Phase 1 (Foundation)
+Phase 1 (Foundation) ✅
     ↓
-Phase 2 (Admin) ←→ Phase 3 (User)  [can parallelize after Phase 1]
+Phase 2 (Admin) 🔄 ←→ Phase 3 (User)  [can parallelize after Phase 1]
     ↓
 Phase 4 (Advanced)
 ```
@@ -165,4 +176,4 @@ Phase 4 (Advanced)
 
 *Roadmap created: 2026-01-23*
 *Phase 1 completed: 2026-01-23*
-*Ready for planning: Phase 2*
+*Phase 2 planned: 2026-01-23*
