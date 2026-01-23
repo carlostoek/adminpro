@@ -1,0 +1,156 @@
+# Roadmap: LucienVoiceService
+
+**Project:** Sistema Centralizado de Mensajes con Voz de Lucien
+**Created:** 2026-01-23
+**Depth:** standard
+**Total Phases:** 4
+
+## Overview
+
+This roadmap delivers a centralized message service that maintains Lucien's sophisticated voice consistently across all bot interactions. The approach follows a foundation-first strategy: establish stateless architecture and voice rules before migrating any handlers, then gradually migrate admin flows (lower risk) followed by user flows (higher traffic), and finally add advanced voice features based on user feedback.
+
+The phased delivery ensures zero-downtime migration, prevents critical pitfalls (stateful services, voice inconsistency, template explosion), and validates architecture with lower-risk admin flows before touching high-traffic user interactions.
+
+## Phases
+
+### Phase 1: Service Foundation & Voice Rules
+**Goal:** Establish stateless message service architecture with voice consistency enforcement
+
+**Dependencies:** None (foundation phase)
+
+**Requirements:**
+- TMPL-02 (HTML formatting)
+- TMPL-03 (centralized messages)
+- TMPL-05 (error/success standards)
+- VOICE-03 (tone directives)
+- VOICE-04 (anti-pattern validation)
+- VOICE-05 (emoji consistency)
+- INTEG-01 (ServiceContainer integration)
+- INTEG-02 (stateless service)
+- INTEG-03 (formatter integration)
+
+**Success Criteria:**
+1. LucienVoiceService class exists in ServiceContainer and loads lazily via @property
+2. BaseMessageProvider abstract class enforces stateless interface (no session/bot instance variables)
+3. CommonMessages provider returns HTML-formatted error and success messages with consistent emoji usage
+4. Voice rules documented in docstrings prevent tutear, jerga técnica, and emoji incorrectos
+5. Service integrates with existing formatters from utils/formatters.py for dates and numbers
+
+---
+
+### Phase 2: Template Organization & Admin Migration
+**Goal:** Migrate all admin handlers to use message service with compositional template design
+
+**Dependencies:** Phase 1 (requires foundation)
+
+**Requirements:**
+- TMPL-01 (variable interpolation)
+- TMPL-04 (keyboard integration)
+- VOICE-01 (random variations)
+- VOICE-02 (weighted variations)
+- DYN-01 (conditional blocks)
+- DYN-04 (template composition)
+- INTEG-04 (keyboard migration)
+- REFAC-01 (admin/main.py)
+- REFAC-02 (admin/vip.py)
+- REFAC-03 (admin/free.py)
+
+**Success Criteria:**
+1. Admin can navigate /admin menu and all messages come from LucienVoiceService (zero hardcoded strings in handlers)
+2. Admin sees at least 2-3 variations for key messages (greetings, confirmations) using random.choices with weights
+3. Token generation messages adapt based on whether VIP channel is configured (conditional content blocks)
+4. Message methods return tuple (text, keyboard) with integrated inline keyboards
+5. Template composition prevents method explosion (base messages reused with variations)
+
+---
+
+### Phase 3: User Flow Migration & Testing Strategy
+**Goal:** Migrate all user-facing handlers with semantic test helpers preventing brittleness
+
+**Dependencies:** Phase 2 (validates architecture with admin flows)
+
+**Requirements:**
+- DYN-02 (dynamic lists)
+- DYN-03 (contextual adaptation)
+- REFAC-04 (user/start.py)
+- REFAC-05 (user/vip_flow.py)
+- REFAC-06 (user/free_flow.py)
+- REFAC-07 (E2E tests pass)
+- TEST-01 (semantic helpers)
+- TEST-02 (unit tests)
+- TEST-03 (integration tests)
+
+**Success Criteria:**
+1. User receives /start message that adapts based on role (Admin redirected, VIP sees expiry, Free sees options)
+2. VIP token redemption messages render dynamic lists (available tokens, subscription history) using consistent formatting
+3. All 12 existing E2E tests pass after handler migration (no functionality broken)
+4. Test suite uses semantic assertions (assert_message_contains_greeting) instead of exact string matching
+5. User flow messages show contextual adaptation (hora del día affects greeting tone)
+
+---
+
+### Phase 4: Advanced Voice Features
+**Goal:** Add context-aware variation and voice validation tools based on user feedback
+
+**Dependencies:** Phase 3 (requires user flows deployed)
+
+**Requirements:** None (all v1 requirements covered in Phases 1-3)
+
+**Success Criteria:**
+1. Message variations avoid repetition within single session (context-aware selection)
+2. Pre-commit hook validates new messages against voice rules (automated anti-pattern detection)
+3. Preview mode allows testing all message variations without running bot
+4. Performance profiling confirms message generation <5ms on Termux environment
+5. Voice audit dashboard shows consistency metrics across all handlers
+
+---
+
+## Progress
+
+| Phase | Status | Requirements | Completion |
+|-------|--------|--------------|------------|
+| 1 - Service Foundation | Pending | 9 requirements | 0% |
+| 2 - Template Organization | Pending | 10 requirements | 0% |
+| 3 - User Flow Migration | Pending | 9 requirements | 0% |
+| 4 - Advanced Voice Features | Pending | 0 requirements | 0% |
+
+**Total:** 28 v1 requirements mapped
+
+---
+
+## Dependencies
+
+```
+Phase 1 (Foundation)
+    ↓
+Phase 2 (Admin) ←→ Phase 3 (User)  [can parallelize after Phase 1]
+    ↓
+Phase 4 (Advanced)
+```
+
+**Critical path:** Phase 1 → Phase 2 → Phase 3 → Phase 4
+
+**Notes:**
+- Phases 2 and 3 can parallelize after Phase 1 completes if needed
+- Phase 4 is optional polish; core functionality complete after Phase 3
+- Research flags Phase 4 as needing deeper UX research for variation perception
+
+---
+
+## Key Decisions
+
+**Why this phase structure:**
+- **Foundation first:** Stateless architecture and voice rules cannot be retrofitted cost-effectively
+- **Admin before user:** Lower traffic, easier rollback, validates architecture with lower risk
+- **Testing during migration:** User flows change frequently, test strategy must be established during migration
+- **Polish deferred:** Variation features need user validation before implementation
+
+**Coverage validation:**
+- All 28 v1 requirements mapped to exactly one phase
+- No orphaned requirements
+- Phase 4 includes no v1 requirements (all advanced features)
+
+---
+
+*Roadmap created: 2026-01-23*
+*Ready for planning: Phase 1*
