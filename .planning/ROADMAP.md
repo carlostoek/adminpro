@@ -36,6 +36,13 @@ The phased delivery ensures zero-downtime migration, prevents critical pitfalls 
 4. Voice rules documented in docstrings prevent tutear, jerga técnica, and emoji incorrectos
 5. Service integrates with existing formatters from utils/formatters.py for dates and numbers
 
+**Plans:** 3 plans in 2 waves
+
+**Plan List:**
+- [ ] 01-01-PLAN.md — BaseMessageProvider abstract class with utility methods (_compose, _choose_variant)
+- [ ] 01-02-PLAN.md — LucienVoiceService with CommonMessages provider integrated into ServiceContainer
+- [ ] 01-03-PLAN.md — Test suite validating voice consistency, HTML formatting, and stateless design
+
 ---
 
 ### Phase 2: Template Organization & Admin Migration
