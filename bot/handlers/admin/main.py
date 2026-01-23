@@ -10,11 +10,6 @@ from aiogram.types import Message, CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares import AdminAuthMiddleware, DatabaseMiddleware
-from bot.utils.keyboards import (
-    admin_main_menu_keyboard,
-    back_to_main_menu_keyboard,
-    config_menu_keyboard
-)
 from bot.services.container import ServiceContainer
 
 logger = logging.getLogger(__name__)
@@ -48,25 +43,15 @@ async def cmd_admin(message: Message, session: AsyncSession):
     # Verificar estado de configuración
     config_status = await container.config.get_config_status()
 
-    # Construir texto del menú
-    if config_status["is_configured"]:
-        text = (
-            "🤖 <b>Panel de Administración</b>\n\n"
-            "✅ Bot configurado correctamente\n\n"
-            "Selecciona una opción:"
-        )
-    else:
-        missing_items = ", ".join(config_status["missing"])
-        text = (
-            "🤖 <b>Panel de Administración</b>\n\n"
-            f"⚠️ <b>Configuración incompleta</b>\n"
-            f"Faltante: {missing_items}\n\n"
-            "Selecciona una opción para configurar:"
-        )
+    # Obtener mensaje del provider
+    text, keyboard = container.message.admin.main.admin_menu_greeting(
+        is_configured=config_status["is_configured"],
+        missing_items=config_status.get("missing", [])
+    )
 
     await message.answer(
         text=text,
-        reply_markup=admin_main_menu_keyboard(),
+        reply_markup=keyboard,
         parse_mode="HTML"
     )
 
@@ -91,27 +76,17 @@ async def callback_admin_main(callback: CallbackQuery, session: AsyncSession):
     # Verificar estado de configuración
     config_status = await container.config.get_config_status()
 
-    # Construir texto del menú (mismo que cmd_admin)
-    if config_status["is_configured"]:
-        text = (
-            "🤖 <b>Panel de Administración</b>\n\n"
-            "✅ Bot configurado correctamente\n\n"
-            "Selecciona una opción:"
-        )
-    else:
-        missing_items = ", ".join(config_status["missing"])
-        text = (
-            "🤖 <b>Panel de Administración</b>\n\n"
-            f"⚠️ <b>Configuración incompleta</b>\n"
-            f"Faltante: {missing_items}\n\n"
-            "Selecciona una opción para configurar:"
-        )
+    # Obtener mensaje del provider
+    text, keyboard = container.message.admin.main.admin_menu_greeting(
+        is_configured=config_status["is_configured"],
+        missing_items=config_status.get("missing", [])
+    )
 
     # Editar mensaje existente (no enviar nuevo)
     try:
         await callback.message.edit_text(
             text=text,
-            reply_markup=admin_main_menu_keyboard(),
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
     except Exception as e:
@@ -138,17 +113,17 @@ async def callback_admin_config(callback: CallbackQuery, session: AsyncSession):
     """
     logger.debug(f"⚙️ Usuario {callback.from_user.id} abrió menú de configuración")
 
-    text = (
-        "⚙️ <b>Menú de Configuración</b>\n\n"
-        "Desde aquí puedes configurar las opciones avanzadas del bot.\n\n"
-        "Selecciona una opción:"
-    )
+    # Crear container de services
+    container = ServiceContainer(session, callback.bot)
+
+    # Obtener mensaje del provider
+    text, keyboard = container.message.admin.main.config_menu()
 
     # Editar mensaje con menú de config
     try:
         await callback.message.edit_text(
             text=text,
-            reply_markup=config_menu_keyboard(),
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
     except Exception as e:
@@ -175,30 +150,26 @@ async def callback_config_status(callback: CallbackQuery, session: AsyncSession)
 
     container = ServiceContainer(session, callback.bot)
 
-    # Obtener resumen de configuración (ya existe de T9)
-    summary = await container.config.get_config_summary()
-
-    # Obtener reacciones
+    # Obtener datos de configuración
     vip_reactions = await container.config.get_vip_reactions()
     free_reactions = await container.config.get_free_reactions()
+    is_vip_configured = await container.channel.is_vip_channel_configured()
+    is_free_configured = await container.channel.is_free_channel_configured()
+    wait_time = await container.config.get_wait_time()
 
-    # Agregar info de reacciones al resumen
-    if vip_reactions:
-        vip_text = " ".join(vip_reactions)
-        summary += f"\n\n<b>Reacciones VIP:</b> {vip_text}"
-    else:
-        summary += "\n\n<b>Reacciones VIP:</b> <i>No configuradas</i>"
-
-    if free_reactions:
-        free_text = " ".join(free_reactions)
-        summary += f"\n<b>Reacciones Free:</b> {free_text}"
-    else:
-        summary += "\n<b>Reacciones Free:</b> <i>No configuradas</i>"
+    # Obtener mensaje del provider
+    text, keyboard = container.message.admin.main.config_status(
+        vip_reactions=vip_reactions,
+        free_reactions=free_reactions,
+        is_vip_configured=is_vip_configured,
+        is_free_configured=is_free_configured,
+        wait_time=wait_time
+    )
 
     try:
         await callback.message.edit_text(
-            text=summary,
-            reply_markup=config_menu_keyboard(),
+            text=text,
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
     except Exception as e:
