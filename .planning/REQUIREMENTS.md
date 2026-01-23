@@ -10,18 +10,18 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Template Foundation
 
 - [ ] **TMPL-01**: Servicio soporta interpolación de variables (nombres, fechas, números, estados)
-- [ ] **TMPL-02**: Todos los mensajes retornan HTML formateado para Telegram (bold, italic, code, links)
-- [ ] **TMPL-03**: Mensajes centralizados en servicio (cero strings hardcodeados en handlers)
+- [x] **TMPL-02**: Todos los mensajes retornan HTML formateado para Telegram (bold, italic, code, links) ✅ Phase 1
+- [x] **TMPL-03**: Mensajes centralizados en servicio (cero strings hardcodeados en handlers) ✅ Phase 1
 - [ ] **TMPL-04**: Cada mensaje retorna tupla (text, keyboard) con botones integrados
-- [ ] **TMPL-05**: Estándares consistentes para mensajes de error y éxito
+- [x] **TMPL-05**: Estándares consistentes para mensajes de error y éxito ✅ Phase 1
 
 ### Voice Consistency
 
 - [ ] **VOICE-01**: Sistema de variaciones aleatorias (mínimo 2-3 versiones por mensaje clave)
 - [ ] **VOICE-02**: Variaciones ponderadas (comunes vs raras) usando random.choices
-- [ ] **VOICE-03**: Tone directives integradas (reglas de voz de Lucien en código)
-- [ ] **VOICE-04**: Validación automática de anti-patrones (tutear, jerga técnica, emoji incorrecto)
-- [ ] **VOICE-05**: Cada mensaje usa emoji característico de Lucien (🎩 para él, 🌸 para Diana)
+- [x] **VOICE-03**: Tone directives integradas (reglas de voz de Lucien en código) ✅ Phase 1
+- [x] **VOICE-04**: Validación automática de anti-patrones (tutear, jerga técnica, emoji incorrecto) ✅ Phase 1
+- [x] **VOICE-05**: Cada mensaje usa emoji característico de Lucien (🎩 para él, 🌸 para Diana) ✅ Phase 1
 
 ### Dynamic Content
 
@@ -32,9 +32,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Integration
 
-- [ ] **INTEG-01**: Servicio integrado en ServiceContainer con lazy loading
-- [ ] **INTEG-02**: Servicio es stateless (no acumula state entre llamadas)
-- [ ] **INTEG-03**: Servicio usa formatters existentes (bot/utils/formatters.py) para fechas/números
+- [x] **INTEG-01**: Servicio integrado en ServiceContainer con lazy loading ✅ Phase 1
+- [x] **INTEG-02**: Servicio es stateless (no acumula state entre llamadas) ✅ Phase 1
+- [x] **INTEG-03**: Servicio usa formatters existentes (bot/utils/formatters.py) para fechas/números ✅ Phase 1
 - [ ] **INTEG-04**: Migración de keyboards de bot/utils/keyboards.py al servicio
 
 ### Handler Refactoring
@@ -99,22 +99,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | TMPL-01 | Phase 2 | Pending |
-| TMPL-02 | Phase 1 | Pending |
-| TMPL-03 | Phase 1 | Pending |
+| TMPL-02 | Phase 1 | Complete ✅ |
+| TMPL-03 | Phase 1 | Complete ✅ |
 | TMPL-04 | Phase 2 | Pending |
-| TMPL-05 | Phase 1 | Pending |
+| TMPL-05 | Phase 1 | Complete ✅ |
 | VOICE-01 | Phase 2 | Pending |
 | VOICE-02 | Phase 2 | Pending |
-| VOICE-03 | Phase 1 | Pending |
-| VOICE-04 | Phase 1 | Pending |
-| VOICE-05 | Phase 1 | Pending |
+| VOICE-03 | Phase 1 | Complete ✅ |
+| VOICE-04 | Phase 1 | Complete ✅ |
+| VOICE-05 | Phase 1 | Complete ✅ |
 | DYN-01 | Phase 2 | Pending |
 | DYN-02 | Phase 3 | Pending |
 | DYN-03 | Phase 3 | Pending |
 | DYN-04 | Phase 2 | Pending |
-| INTEG-01 | Phase 1 | Pending |
-| INTEG-02 | Phase 1 | Pending |
-| INTEG-03 | Phase 1 | Pending |
+| INTEG-01 | Phase 1 | Complete ✅ |
+| INTEG-02 | Phase 1 | Complete ✅ |
+| INTEG-03 | Phase 1 | Complete ✅ |
 | INTEG-04 | Phase 2 | Pending |
 | REFAC-01 | Phase 2 | Pending |
 | REFAC-02 | Phase 2 | Pending |
@@ -129,6 +129,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 **Coverage:**
 - v1 requirements: 28 total
+- Phase 1 complete: 9/28 (32%)
 - Mapped to phases: 28
 - Unmapped: 0 ✓
 
