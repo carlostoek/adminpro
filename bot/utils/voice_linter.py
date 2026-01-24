@@ -92,6 +92,9 @@ class VoiceViolationChecker(ast.NodeVisitor):
     def visit_Str(self, node: ast.Str) -> None:
         """Visit string literal node (Python 3.7 compatibility).
 
+        Note: ast.Str is deprecated in Python 3.14 in favor of ast.Constant.
+        We keep this for compatibility with Python 3.7-3.9.
+
         Args:
             node: AST string node
         """
