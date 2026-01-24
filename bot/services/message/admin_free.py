@@ -3,7 +3,7 @@ Admin Free Messages Provider - Free channel management messages.
 
 Provides messages for Free channel setup, wait time configuration, and queue management.
 """
-from typing import Tuple
+from typing import Tuple, Optional
 import random
 from aiogram.types import InlineKeyboardMarkup
 

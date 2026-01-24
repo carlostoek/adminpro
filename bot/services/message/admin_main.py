@@ -5,7 +5,7 @@ Provides messages for main admin menu navigation and configuration status.
 All messages maintain Lucien's sophisticated mayordomo voice from docs/guia-estilo.md.
 """
 import random
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 from aiogram.types import InlineKeyboardMarkup
 

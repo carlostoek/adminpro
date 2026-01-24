@@ -277,6 +277,14 @@ class LucienVoiceService:
 
         # User flow messages
         text = container.message.user.flows.free_request_success(wait_time_minutes=30)
+
+        # Session-aware messages (prevents repetition)
+        session_history = container.message.get_session_context(container)
+        text, kb = container.message.user.start.greeting(
+            user_name="Juan",
+            user_id=user.id,  # Required for session tracking
+            session_history=session_history  # Enables context-aware selection
+        )
     """
 
     def __init__(self):
@@ -347,3 +355,28 @@ class LucienVoiceService:
         if self._user is None:
             self._user = UserMessages()
         return self._user
+
+    def get_session_context(self, container: "ServiceContainer"):
+        """
+        Get session history instance from container for passing to providers.
+
+        This is a convenience method for handlers to obtain session history
+        and pass it to message provider methods.
+
+        Args:
+            container: ServiceContainer instance (has session_history property)
+
+        Returns:
+            SessionMessageHistory: Session history service instance
+
+        Usage:
+            # In handler
+            from bot.services.container import ServiceContainer
+            session_ctx = container.message.get_session_context(container)
+            text, kb = container.message.user.start.greeting(
+                user_name="Juan",
+                user_id=user.id,
+                session_history=session_ctx
+            )
+        """
+        return container.session_history
