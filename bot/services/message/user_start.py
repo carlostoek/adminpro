@@ -168,8 +168,8 @@ class UserStartMessages(BaseMessageProvider):
 
             # Keyboard with redeem token and request free options
             keyboard = create_inline_keyboard([
-                [("🎫 Canjear Invitación VIP", "redeem_token")],
-                [("🕐 Solicitar Acceso Free", "request_free")]
+                [("🎫 Canjear Invitación VIP", "user:redeem_token")],
+                [("🕐 Solicitar Acceso Free", "user:request_free")]
             ])
 
             return (text, keyboard)
