@@ -14,9 +14,9 @@ Migrating user handlers to use centralized message service with voice-consistent
 ## Current Position
 
 **Phase:** 3 - User Flow Migration & Testing Strategy
-**Plan:** 01 (UserStartMessages) - COMPLETE
-**Status:** Phase 3 In Progress (1/4 plans complete)
-**Progress:** █████░░░░░░░░░░░░░░░ 25%
+**Plan:** 02 (UserFlowMessages) - COMPLETE
+**Status:** Phase 3 In Progress (2/4 plans complete)
+**Progress:** ██████████░░░░░░░░░░ 50%
 
 ### Phase Goal
 Migrate user handlers to use user-facing message providers (start, flows, interactions)
@@ -54,9 +54,9 @@ Migrate user handlers to use user-facing message providers (start, flows, intera
 - Overall progress: 50% (Phase 3 started)
 
 **Current phase:**
-- Plans complete: 1/4 (Phase 3 In Progress)
-- Phase progress: 25%
-- Completed: UserStartMessages provider (03-01)
+- Plans complete: 2/4 (Phase 3 In Progress)
+- Phase progress: 50%
+- Completed: UserStartMessages provider (03-01), UserFlowMessages provider (03-02)
 
 ## Accumulated Context
 
@@ -84,6 +84,10 @@ Migrate user handlers to use user-facing message providers (start, flows, intera
 - **Role-Based Adaptation:** Single greeting() method handles admin/VIP/free cases with appropriate messaging and keyboards (03-01)
 - **Deep Link Distinction:** Celebratory messaging for deep link activation intentionally different from manual redemption for UX clarity (03-01)
 - **Error Type Categorization:** 4 error types (invalid, used, expired, no_plan) with polite but clear explanations (03-01)
+- **Text-Only Returns for Async Flows:** Free flow messages return str (no keyboards) since users wait for automatic processing, no actions needed (03-02)
+- **Progress Tracking Reduces Anxiety:** Duplicate request shows both elapsed and remaining time to create sense of movement and prevent users feeling stuck (03-02)
+- **UserMessages Namespace:** Mirrors AdminMessages structure (user.start, user.flows) for consistency and discoverability (03-02)
+- **Reassuring Messaging:** Emphasizes "proceso automático" and "puede cerrar este chat" to set expectations for async Free flow (03-02)
 
 ### Current Blockers
 None
@@ -112,7 +116,8 @@ None
 - [x] Create Phase 3 execution plan for User Flow Migration
 - [x] Create UserStartMessages provider (03-01)
 - [x] Export user_start from LucienVoiceService (03-01)
-- [ ] Create UserFlowMessages provider (03-02)
+- [x] Create UserFlowMessages provider (03-02)
+- [x] Create UserMessages namespace (user.start, user.flows) (03-02)
 - [ ] Migrate user handlers to use message service (03-03, 03-04)
 
 ## Session Continuity
@@ -132,19 +137,19 @@ Service integrated into existing ServiceContainer pattern with lazy loading. Mes
   - 02-01: AdminVIP - ✅ COMPLETE
   - 02-02: AdminFree - ✅ COMPLETE
   - 02-03: AdminMain - ✅ COMPLETE
-- **Phase 3:** 🔄 User Flow Migration in progress (1/4 plans complete)
+- **Phase 3:** 🔄 User Flow Migration in progress (2/4 plans complete)
   - 03-01: UserStartMessages - ✅ COMPLETE
-  - 03-02: UserFlowMessages - ⏳ PENDING
+  - 03-02: UserFlowMessages - ✅ COMPLETE
   - 03-03: User Handlers Migration - ⏳ PENDING
   - 03-04: Testing Strategy - ⏳ PENDING
 
 ### Next Step
-Plan 03-02: UserFlowMessages provider - Create message provider for Free channel requests and VIP token redemption flows.
+Plan 03-03: User Handlers Migration - Migrate user handlers (start.py, free_flow.py) to use message service providers.
 
 ---
 
 *State initialized: 2026-01-23*
-*Last session: 2026-01-24T06:04:28Z*
-*Stopped at: Completed 03-01-PLAN.md - UserStartMessages provider COMPLETE ✅*
+*Last session: 2026-01-24T06:02:14Z*
+*Stopped at: Completed 03-02-PLAN.md - UserFlowMessages provider COMPLETE ✅*
 *Resume file: None*
-*Phase 3 Status: UserStartMessages provider created with time-of-day greetings (3 periods), role-based adaptation (admin/VIP/free), deep link celebration messaging, and 4 error types. Exported from LucienVoiceService with lazy loading. Ready for 03-02: UserFlowMessages provider.*
+*Phase 3 Status: UserFlowMessages provider created with Free request messages (success, duplicate, error). UserMessages namespace created (user.start, user.flows) mirroring AdminMessages structure. Text-only returns for async flows. Progress tracking reduces user anxiety. Ready for 03-03: Handler migration.*
