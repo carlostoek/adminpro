@@ -14,9 +14,9 @@ Phase 4 in progress. Building session-aware message history to prevent repetitio
 ## Current Position
 
 **Phase:** 4 - Advanced Voice Features
-**Plan:** 03 (Message Preview CLI Tool) - ✅ COMPLETE
-**Status:** Phase 4 In Progress (3/3 plans complete)
-**Progress:** ████████████████████ 100%
+**Plan:** 02 (Voice Linting Pre-Commit Hook) - ✅ COMPLETE
+**Status:** Phase 4 In Progress (2/3 plans complete)
+**Progress:** ██████████░░░░░░░░░░ 67%
 
 ### Phase Goal
 Implement context-aware variation selection and session history tracking for more natural conversations.
@@ -101,8 +101,13 @@ Implement context-aware variation selection and session history tracking for mor
 - **Session-Aware Variant Selection:** _choose_variant enhanced with optional user_id, method_name, session_history parameters to exclude last 2 variants (04-01)
 - **Exclusion Window of 2:** Balances repetition prevention vs variety - prevents "Buenos dias" 3x in a row while maintaining small variant set usability (04-01)
 - **In-Memory Session Storage:** No database persistence needed - session loss acceptable for convenience feature, avoids query latency (04-01)
-- **CLI Tool for Message Preview:** Standalone argparse CLI for rapid message testing without full bot startup (~500ms vs ~10s) (04-03)
-- **Subprocess Testing Pattern:** CLI tests use subprocess.run() to execute as real user would, not direct imports (04-03)
+- **AST-Based Voice Linting:** Pure stdlib ast module for voice violation detection, no external dependencies (04-02)
+- **Pre-commit Hook Pattern:** Symlink-based hook installation allows updates without re-running install script (04-02)
+- **Violation Pattern Constants:** FORBIDDEN_TUTEAR (tienes, tu , tu., haz, puedes, hagas), TECHNICAL_JARGON (database, api, exception, error code, null), LUCIEN_EMOJI (🎩) (04-02)
+- **Performance Achievement:** 5.09ms average per file vs 100ms target (20x better, 95% margin) (04-02)
+- **Length Threshold 50 chars:** Skip short strings to focus on user-facing messages only (04-02)
+- **Multi-line Detection:** Check for actual newlines (\n) not just escape sequences (04-02)
+- **Bypass Available:** git commit --no-verify documented for edge cases (04-02)
 
 ### Current Blockers
 None
@@ -142,10 +147,12 @@ None
 - [x] Implement SessionMessageHistory service (04-01)
 - [x] Enhance BaseMessageProvider._choose_variant with session context (04-01)
 - [x] Write comprehensive tests for session history (04-01)
-- [x] Integrate SessionMessageHistory into LucienVoiceService (04-02)
-- [x] Add session context to user-facing message methods (04-02)
-- [x] Create Message Preview CLI tool (04-03)
-- [x] Write tests for CLI preview tool (04-03)
+- [x] Create VoiceViolationChecker AST visitor (04-02)
+- [x] Create pre-commit hook script (04-02)
+- [x] Create git hook installation script (04-02)
+- [x] Write comprehensive tests for voice linter (04-02)
+- [ ] Create Message Preview CLI tool (04-03)
+- [ ] Write tests for CLI preview tool (04-03)
 
 ## Session Continuity
 
@@ -169,22 +176,26 @@ Service integrated into existing ServiceContainer pattern with lazy loading. Mes
   - 03-02: UserFlowMessages - ✅ COMPLETE
   - 03-03: Testing Strategy - ✅ COMPLETE
   - 03-04: Handler Migration & Cleanup - ✅ COMPLETE
-- **Phase 4:** ✅ COMPLETE (3/3 plans complete)
+- **Phase 4:** 🔄 In Progress (2/3 plans complete)
   - 04-01: Session Message History Service - ✅ COMPLETE
-  - 04-02: LucienVoiceService Integration - ✅ COMPLETE
-  - 04-03: Message Preview CLI Tool - ✅ COMPLETE
+  - 04-02: Voice Linting Pre-Commit Hook - ✅ COMPLETE
+  - 04-03: Message Preview CLI Tool - PENDING
 
 ### Next Step
-Phase 4 COMPLETE. Ready for Phase 5 planning or project completion review.
+Execute Plan 04-03: Message Preview CLI Tool - Create argparse CLI for rapid message testing without full bot startup.
 
 ---
 
 *State initialized: 2026-01-23*
-*Last session: 2026-01-24T13:48:00Z*
-*Stopped at: Phase 4, Plan 3 COMPLETE ✅*
+*Last session: 2026-01-24T13:41:30Z*
+*Stopped at: Phase 4, Plan 2 COMPLETE ✅*
 *Resume file: None*
-*Phase 4 COMPLETE ✅ - All 3 plans finished:
-  - Plan 04-01: SessionMessageHistory service (242 lines) with session-aware variant selection
-  - Plan 04-02: LucienVoiceService integration with session context tracking
-  - Plan 04-03: Message Preview CLI tool (273 lines) with argparse interface
-*Phase 4 delivers context-aware messaging, session history to prevent repetition, and developer tooling for rapid message iteration.*
+*Phase 4, Plan 2 Status: COMPLETE ✅ - Voice Linting Pre-Commit Hook (323 lines total):
+  - bot/utils/voice_linter.py (167 lines): VoiceViolationChecker AST visitor
+  - .hooks/pre-commit (111 lines): Pre-commit hook script
+  - .hooks/install.sh (46 lines): Git hook installation
+  - tests/test_voice_linter.py (315 lines): 19 comprehensive tests
+- Performance: 5.09ms average per file (20x better than 100ms target)
+- 144 violations found in existing codebase for remediation
+- Git hook installed and functional via symlink
+- All 4 violation types implemented: tutear, jargon, missing_emoji, missing_html*
