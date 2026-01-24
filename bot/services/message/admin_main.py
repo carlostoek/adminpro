@@ -40,7 +40,9 @@ class AdminMainMessages(BaseMessageProvider):
     def admin_menu_greeting(
         self,
         is_configured: bool,
-        missing_items: List[str] = None
+        missing_items: List[str] = None,
+        user_id: Optional[int] = None,
+        session_history: Optional["SessionMessageHistory"] = None
     ) -> Tuple[str, InlineKeyboardMarkup]:
         """
         Generate main admin menu greeting with weighted variations.
@@ -48,6 +50,8 @@ class AdminMainMessages(BaseMessageProvider):
         Args:
             is_configured: Whether bot is fully configured
             missing_items: List of missing configuration items (if not configured)
+            user_id: Optional Telegram user ID for session-aware selection
+            session_history: Optional SessionMessageHistory for context awareness
 
         Returns:
             Tuple of (text, keyboard) for main admin menu
@@ -80,7 +84,10 @@ class AdminMainMessages(BaseMessageProvider):
 
         greeting = self._choose_variant(
             [g[0] for g in greetings],
-            weights=[g[1] for g in greetings]
+            weights=[g[1] for g in greetings],
+            user_id=user_id,
+            method_name="admin_menu_greeting",
+            session_history=session_history
         )
 
         header = f"🎩 <b>Lucien:</b>\n\n<i>{greeting}</i>"
