@@ -58,9 +58,11 @@ class UserStartMessages(BaseMessageProvider):
     def greeting(
         self,
         user_name: str,
+        user_id: Optional[int] = None,
         is_admin: bool = False,
         is_vip: bool = False,
-        vip_days_remaining: int = 0
+        vip_days_remaining: int = 0,
+        session_history: Optional["SessionMessageHistory"] = None
     ) -> Tuple[str, Optional[InlineKeyboardMarkup]]:
         """
         Generate time-of-day greeting adapted to user role.
@@ -77,9 +79,11 @@ class UserStartMessages(BaseMessageProvider):
 
         Args:
             user_name: User's first name (will be HTML-escaped)
+            user_id: Optional Telegram user ID for session-aware selection
             is_admin: Whether user is admin (redirects to /admin)
             is_vip: Whether user has active VIP subscription
             vip_days_remaining: Days remaining in VIP subscription
+            session_history: Optional SessionMessageHistory for context awareness
 
         Returns:
             Tuple of (message_text, keyboard)
@@ -134,7 +138,13 @@ class UserStartMessages(BaseMessageProvider):
             ]
             greeting_weights = [0.5, 0.3, 0.2]
 
-        greeting = self._choose_variant(greeting_variants, greeting_weights)
+        greeting = self._choose_variant(
+            greeting_variants,
+            greeting_weights,
+            user_id=user_id,
+            method_name="greeting",
+            session_history=session_history
+        )
 
         # Role-based adaptation
         if is_admin:
@@ -181,7 +191,9 @@ class UserStartMessages(BaseMessageProvider):
         duration_days: int,
         price: str,
         days_remaining: int,
-        invite_link: str
+        invite_link: str,
+        user_id: Optional[int] = None,
+        session_history: Optional["SessionMessageHistory"] = None
     ) -> Tuple[str, InlineKeyboardMarkup]:
         """
         Generate celebratory message for successful deep link activation.
@@ -190,11 +202,13 @@ class UserStartMessages(BaseMessageProvider):
 
         Args:
             user_name: User's first name (will be HTML-escaped)
+            user_id: Optional Telegram user ID for session-aware selection
             plan_name: Name of subscription plan (e.g., "Plan Mensual")
             duration_days: Duration of plan in days
             price: Formatted price string (e.g., "$9.99")
             days_remaining: Total days remaining after activation
             invite_link: URL for joining VIP channel (expires in 5 hours)
+            session_history: Optional SessionMessageHistory for context awareness
 
         Returns:
             Tuple of (message_text, keyboard with join button)
@@ -225,7 +239,12 @@ class UserStartMessages(BaseMessageProvider):
             "¡Excelente! Su suscripción VIP ha sido activada.",
             "¡Bienvenido al círculo exclusivo! Todo está listo."
         ]
-        celebration = self._choose_variant(celebration_variants)
+        celebration = self._choose_variant(
+            celebration_variants,
+            user_id=user_id,
+            method_name="deep_link_activation_success",
+            session_history=session_history
+        )
 
         text = self._compose(
             f"🎩 {celebration}",
