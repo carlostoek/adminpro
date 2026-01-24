@@ -168,8 +168,8 @@ class UserStartMessages(BaseMessageProvider):
 
             # Keyboard with redeem token and request free options
             keyboard = create_inline_keyboard([
-                [("🎫 Canjear Invitación VIP", "user:redeem_token")],
-                [("🕐 Solicitar Acceso Free", "user:request_free")]
+                [{"text": "🎫 Canjear Invitación VIP", "callback_data": "user:redeem_token"}],
+                [{"text": "🕐 Solicitar Acceso Free", "callback_data": "user:request_free"}]
             ])
 
             return (text, keyboard)
@@ -239,7 +239,7 @@ class UserStartMessages(BaseMessageProvider):
 
         # Single button with URL to VIP channel
         keyboard = create_inline_keyboard([
-            [("⭐ Unirse al Canal VIP", invite_link, "url")]
+            [{"text": "⭐ Unirse al Canal VIP", "url": invite_link}]
         ])
 
         return (text, keyboard)
