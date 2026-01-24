@@ -88,9 +88,11 @@ Migrate user handlers to use user-facing message providers (start, flows, intera
 - **Progress Tracking Reduces Anxiety:** Duplicate request shows both elapsed and remaining time to create sense of movement and prevent users feeling stuck (03-02)
 - **UserMessages Namespace:** Mirrors AdminMessages structure (user.start, user.flows) for consistency and discoverability (03-02)
 - **Reassuring Messaging:** Emphasizes "proceso automático" and "puede cerrar este chat" to set expectations for async Free flow (03-02)
+- **Semantic Testing Pattern:** assert_greeting_present, assert_lucien_voice, assert_time_aware fixtures test INTENT not exact wording, making tests variation-safe (03-03)
+- **HTML Formatting Leniency:** >400 chars threshold allows simple error messages to be plain text while validating complex messages (03-03)
+- **Variation Distribution Pragmatism:** Use >=2 not ==3 for variation tests to handle <1% randomness in 30 iterations (03-03)
 - **Manual Token Redemption Deprecated:** Deep link activation provides better UX (one-click vs manual typing), removed vip_flow.py (188 lines), faster and less error-prone (03-04)
 - **Keyboard Format Standardization:** Dict format {"text": "...", "callback_data": "..."} required by create_inline_keyboard() for type safety and consistency (03-04)
-- **Semantic Testing Over Exact Matching:** assert_contains_any() allows message variations without breaking tests, validates voice characteristics not exact strings (03-04)
 
 ### Current Blockers
 None
@@ -156,7 +158,7 @@ Plan Phase 4: Advanced Voice Features - Context-aware variation selection, user 
 ---
 
 *State initialized: 2026-01-23*
-*Last session: 2026-01-24T06:19:26Z*
-*Stopped at: Completed 03-04-PLAN.md - Handler Migration & Cleanup COMPLETE ✅*
+*Last session: 2026-01-24T06:21:03Z*
+*Stopped at: Completed 03-03-PLAN.md - Semantic Test Helpers COMPLETE ✅*
 *Resume file: None*
-*Phase 3 Status: COMPLETE ✅ - All user handlers migrated to centralized message service. Manual token redemption deprecated (vip_flow.py removed). TokenRedemptionStates removed. 188 lines of hardcoded messages eliminated. E2E tests validated (4/5 core flows passing). Voice consistency achieved across all user-facing messages. Ready for Phase 4: Advanced Voice Features.*
+*Phase 3 Status: Testing Strategy COMPLETE ✅ - Created 3 semantic assertion fixtures (greeting, voice, time_aware) preventing test brittleness. 26 comprehensive tests for UserStartMessages and UserFlowMessages. Tests are variation-safe (test INTENT not exact wording). Integrated semantic helpers into Phase 1 tests. 154 total tests passing (26 new + 2 integrated + 126 existing). Ready for advanced voice features and continued development.*
