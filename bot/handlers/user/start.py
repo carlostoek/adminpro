@@ -118,6 +118,9 @@ async def _activate_token_from_deeplink(
         user: Usuario del sistema
         token_string: String del token a activar
     """
+    # Extraer nombre de usuario
+    user_name = message.from_user.first_name or "Usuario"
+
     try:
         # Validar token
         is_valid, msg_result, token = await container.subscription.validate_token(token_string)
