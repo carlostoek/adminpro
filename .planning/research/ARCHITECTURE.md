@@ -1,7 +1,7 @@
-# Architecture Research: Message Service Integration
+# Architecture Research: Menu System for Role-Based Bot Experience
 
-**Domain:** Centralized Message Templating for Telegram Bot
-**Researched:** 2026-01-23
+**Domain:** Role-Based Menu System with Content Management
+**Researched:** 2026-01-24
 **Confidence:** HIGH
 
 ## Standard Architecture
@@ -12,29 +12,40 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                     HANDLER LAYER                            │
 │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │
-│  │ /admin  │  │  /start │  │VIP Flow │  │Free Flow│        │
+│  │ /start  │  │  /menu  │  │ Callback│  │ Admin   │        │
 │  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘        │
 │       │            │            │            │              │
 │       └────────────┴────────────┴────────────┘              │
 │                         ↓                                    │
+│  ┌──────────────────────────────────────────────────┐      │
+│  │          ROLE-BASED ROUTER FILTERS                │      │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐       │      │
+│  │  │AdminMenu │  │ VIPMenu  │  │ FreeMenu │       │      │
+│  │  │ Router   │  │ Router   │  │ Router   │       │      │
+│  │  └────┬─────┘  └────┬─────┘  └────┬─────┘       │      │
+│  └───────┼────────────┼────────────┼───────────────┘      │
+│          ↓            ↓            ↓                       │
+├──────────┴────────────┴────────────┴─────────────────────┤
+│                    FSM STATE LAYER                        │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │  MenuStates: MAIN → CONTENT_LIST → CONTENT_DETAIL   │  │
+│  │  USER_MGMT → CONTENT_MGMT                          │  │
+│  └─────────────────────────────────────────────────────┘  │
+│                         ↓                                    │
 ├─────────────────────────────────────────────────────────────┤
 │                    SERVICE CONTAINER (DI)                    │
 │  ┌────────────┐  ┌────────────┐  ┌────────────┐            │
-│  │ Message    │  │Subscription│  │  Channel   │            │
-│  │ Service    │  │  Service   │  │  Service   │  ...       │
+│  │ Menu       │  │ Subscription│ │ Channel    │            │
+│  │ Service    │  │  Service    │  │ Service   │            │
 │  └────┬───────┘  └────┬───────┘  └────┬───────┘            │
 │       │               │               │                     │
 │       └───────────────┴───────────────┘                     │
 │                         ↓                                    │
 ├─────────────────────────────────────────────────────────────┤
-│                     UTILS LAYER                              │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │  Keyboards  │  Formatters  │  Validators  │         │    │
-│  └─────────────────────────────────────────────────────┘    │
-├─────────────────────────────────────────────────────────────┤
 │                     DATA ACCESS LAYER                        │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
-│  │  Models  │  │  Engine  │  │ Session  │                   │
+│  │ Content  │  │ Interest │  │ User     │                   │
+│  │ Package  │  │ Notify   │  │ Models   │                   │
 │  └──────────┘  └──────────┘  └──────────┘                   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -43,773 +54,701 @@
 
 | Component | Responsibility | Typical Implementation |
 |-----------|----------------|------------------------|
-| **MessageService** | Provides localized message text with dynamic data injection. Owns all message templates organized by navigation flow. | Service class with methods returning formatted strings. Integrates with i18n middleware for multi-language support. |
-| **KeyboardFactory** | Creates InlineKeyboardMarkup objects. May integrate with MessageService for consistent message+keyboard pairing. | Factory functions or class methods. Currently in utils/keyboards.py. |
-| **Formatters** | Format data types (dates, currency, numbers) for display. Reusable across messages. | Pure functions in utils/formatters.py. No business logic. |
-| **Handlers** | Orchestrate user interactions. Delegate message composition to MessageService, keyboard creation to factory, and business logic to services. | Async functions decorated with router filters. Thin layer - mostly coordination. |
-| **ServiceContainer** | Manages service lifecycle with lazy loading and dependency injection. | Property-based lazy loading. Injects session and bot into all services. |
+| **Role-Based Router** | Route menu callbacks to appropriate handlers based on user role | Separate Router instances per role with F.role filters |
+| **FSM Menu States** | Track user's position in menu hierarchy | StatesGroup with MAIN, CONTENT_LIST, CONTENT_DETAIL, etc. |
+| **MenuService** | Render menus, handle navigation, permission checks | Service class with get_main_menu(), get_content_list(), etc. |
+| **Content Package Model** | Store content with type, title, description, media | SQLAlchemy model with is_active flag |
+| **InterestNotification Model** | Track "Me interesa" clicks for admin alerts | SQLAlchemy model linking user_id → package_id |
+| **Admin Menu Handlers** | Content CRUD, user management, interest viewer | CallbackQuery handlers in admin.py router |
+| **VIP/Free Menu Handlers** | Content browsing, "Me interesa" button | CallbackQuery handlers in vip.py, free.py routers |
 
 ## Recommended Project Structure
 
-### Current Structure (Before Message Service)
+### Current Structure (Before Menu System)
 
 ```
 bot/
 ├── handlers/
-│   ├── admin/           # Hardcoded messages inline
-│   │   ├── main.py      # "📺 Gestión Canal VIP\n\n✅ Canal configurado..."
-│   │   ├── vip.py       # "⚠️ Canal VIP no configurado..."
-│   │   └── free.py      # Messages scattered in handlers
+│   ├── admin/           # Existing admin command handlers
+│   │   ├── main.py      # /admin command
+│   │   ├── vip.py       # VIP management
+│   │   └── free.py      # Free channel management
 │   └── user/
-│       ├── start.py     # "👋 Hola <b>{user_name}</b>!..."
-│       └── vip_flow.py  # More hardcoded messages
+│       ├── start.py     # /start welcome
+│       └── *_flow.py    # VIP/Free flows
 ├── services/
 │   ├── container.py     # DI container (EXISTING)
 │   ├── subscription.py  # VIP/Free logic
-│   └── channel.py       # Channel management
+│   ├── channel.py       # Channel management
+│   ├── config.py        # Config management
+│   └── voice.py         # LucienVoiceService (v1.0)
+├── database/
+│   └── models.py        # Existing: BotConfig, VIPSubscriber, etc.
+├── states/
+│   ├── admin.py         # Admin FSM states
+│   └── user.py          # User FSM states
 ├── utils/
-│   ├── keyboards.py     # Keyboard factory (EXISTING)
-│   └── formatters.py    # Data formatters (EXISTING)
+│   ├── keyboards.py     # Keyboard factory
+│   └── formatters.py    # Data formatters
 ```
 
-### Proposed Structure (With Message Service)
+### Proposed Structure (With Menu System)
 
 ```
 bot/
 ├── handlers/
-│   ├── admin/           # Delegates to MessageService
-│   │   ├── main.py      # await msg.admin.main_menu(is_configured=True)
-│   │   ├── vip.py       # await msg.admin.vip.channel_configured(channel_name, id)
-│   │   └── free.py      # await msg.admin.free.not_configured()
-│   └── user/
-│       ├── start.py     # await msg.user.welcome(user_name, role)
-│       └── vip_flow.py  # await msg.user.vip.token_activated(days)
+│   ├── admin/           # Existing admin command handlers
+│   │   └── ...          # Keep existing commands
+│   ├── user/            # Existing user command handlers
+│   │   └── ...          # Keep existing commands
+│   └── menu/            # NEW: Menu system handlers
+│       ├── __init__.py  # Export all routers
+│       ├── admin.py     # Admin menu router
+│       ├── vip.py       # VIP menu router
+│       ├── free.py      # Free menu router
+│       └── common.py    # Shared menu handlers (back, pagination)
 ├── services/
-│   ├── container.py     # Adds .message property
-│   ├── message.py       # NEW: MessageService (core)
-│   ├── subscription.py
-│   └── channel.py
-├── messages/            # NEW: Template organization
-│   ├── __init__.py      # Exports
-│   ├── base.py          # BaseMessageProvider abstract class
-│   ├── admin/           # Admin flow messages
-│   │   ├── __init__.py
-│   │   ├── main.py      # MainMenuMessages class
-│   │   ├── vip.py       # VIPMessages class
-│   │   └── free.py      # FreeMessages class
-│   └── user/            # User flow messages
-│       ├── __init__.py
-│       ├── common.py    # WelcomeMessages class
-│       ├── vip.py       # VIPFlowMessages class
-│       └── free.py      # FreeFlowMessages class
+│   ├── container.py     # Add .menu property
+│   ├── menu.py          # NEW: MenuService
+│   └── ...              # Existing services unchanged
+├── database/
+│   ├── models.py        # Add: ContentPackage, InterestNotification
+│   └── ...
+├── states/
+│   ├── menu.py          # NEW: MenuStates FSM group
+│   └── ...              # Existing states unchanged
 ├── utils/
-│   ├── keyboards.py     # May integrate with message service
-│   └── formatters.py    # Used BY message providers
+│   ├── keyboards.py     # Add menu keyboard builders
+│   └── ...
+└── middlewares/
+    └── role.py          # NEW: RoleMiddleware (injects user.role)
 ```
 
 ### Structure Rationale
 
-**Why `bot/messages/` directory:**
-- **Separation of concerns:** Messages are content, not business logic. Separate folder clarifies this boundary.
-- **Navigation-based organization:** Mirrors handler structure (admin/, user/). Developers navigate intuitively.
-- **Discoverability:** All templates in one place. Easy to find and modify without hunting through handlers.
+**Why `bot/handlers/menu/` directory:**
+- **Separation of concerns:** Menus are navigation layer, distinct from command handlers
+- **Router-based organization:** Each role gets its own router for clean filtering
+- **Discoverability:** All menu logic in one place, easy to navigate
 
-**Why message providers (not raw templates):**
-- **Type safety:** Methods with type hints. IDEs autocomplete message signatures.
-- **Dynamic composition:** Methods can accept parameters, format data, inject keyboard references.
-- **Testability:** Easy to unit test message generation without running handlers.
+**Why MenuService (not inline in handlers):**
+- **Centralized rendering:** All menu generation in one service
+- **Reusable logic:** Content list pagination, detail view used across roles
+- **Testability:** Easy to unit test menu rendering independently
 
-**Why keep keyboards separate (initially):**
-- **Gradual migration:** Keyboards already work. Don't force refactor until needed.
-- **Cross-cutting concern:** Keyboards may be reused across multiple messages. Utils layer appropriate.
-- **Future integration:** Can later add `with_keyboard()` pattern if keyboard+message coupling emerges.
+**Why FSM States (not stateless callbacks):**
+- **Natural navigation:** FSM tracks user's position, back button just transitions state
+- **State persistence:** User can leave and return to same menu level
+- **Context storage:** Store page number, filters, selected item in FSMContext
 
 ## Architectural Patterns
 
-### Pattern 1: Service-Based Message Providers
+### Pattern 1: Role-Based Router with Filters
 
-**What:** Message templates organized into provider classes accessible via MessageService. Each provider corresponds to a navigation flow or feature area.
+**What:** Separate Router instances for each role with aiogram's Magic F filters.
 
-**When to use:** When migrating from hardcoded messages to centralized templates without rewriting entire application.
+**When to use:** When different user roles need completely different menu experiences.
 
 **Trade-offs:**
-- **Pro:** Type-safe, IDE-friendly, gradual migration path
-- **Pro:** Encapsulates message logic and formatting
-- **Con:** Slightly more boilerplate than raw string templates
-- **Con:** Not true i18n (but can evolve into it)
+- **Pro:** Clean separation, each router has its own handlers
+- **Pro:** Automatic role filtering at router level
+- **Con:** More boilerplate (separate router file per role)
+- **Con:** Cannot easily share handlers between roles
 
 **Example:**
 ```python
-# bot/messages/admin/vip.py
-from bot.messages.base import BaseMessageProvider
-from bot.utils.formatters import format_datetime
+# bot/handlers/menu/admin.py
+from aiogram import Router, F
+from bot.services.subscription import SubscriptionService
+from bot.database.models import BotConfig
 
-class VIPMessages(BaseMessageProvider):
-    """Message templates for VIP management flow."""
+admin_menu_router = Router()
 
-    def channel_configured(self, channel_name: str, channel_id: str) -> str:
-        """Message shown when VIP channel is configured."""
-        return (
-            f"📺 <b>Gestión Canal VIP</b>\n\n"
-            f"✅ Canal configurado: <b>{channel_name}</b>\n"
-            f"ID: <code>{channel_id}</code>\n\n"
-            f"Selecciona una opción:"
-        )
+# Role filter: only admins
+async def admin_filter(callback: CallbackQuery, **kwargs) -> bool:
+    config = await BotConfig.get_config(kwargs['session'])
+    return config.is_admin(callback.from_user.id)
 
-    def channel_not_configured(self) -> str:
-        """Message shown when VIP channel is not configured."""
-        return (
-            "📺 <b>Gestión Canal VIP</b>\n\n"
-            "⚠️ Canal VIP no configurado\n\n"
-            "Configura el canal para comenzar a generar tokens."
-        )
+admin_menu_router.callback_query.filter(admin_filter)
 
-    def token_generated(self, token: str, deep_link: str, plan_name: str, duration_hours: int) -> str:
-        """Message shown after generating VIP token."""
-        return (
-            f"🎟️ <b>Token VIP Generado</b>\n\n"
-            f"Plan: <b>{plan_name}</b>\n"
-            f"Duración: {duration_hours}h\n\n"
-            f"Token: <code>{token}</code>\n"
-            f"Deep Link: {deep_link}\n\n"
-            f"Envía el deep link al usuario. Al hacer click, su suscripción se activará automáticamente."
-        )
+@admin_menu_router.callback_query(F.data == "menu:main")
+async def admin_main_menu(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(MenuStates.MAIN)
+    text, keyboard = await container.menu.get_admin_main_menu()
+    await callback.message.edit_text(text, reply_markup=keyboard)
 
-# bot/services/message.py
-class MessageService:
-    """Centralized message service with lazy-loaded providers."""
+# bot/handlers/menu/vip.py
+vip_menu_router = Router()
+
+async def vip_filter(callback: CallbackQuery, **kwargs) -> bool:
+    user_id = callback.from_user.id
+    return await SubscriptionService.is_vip_active(kwargs['session'], user_id)
+
+vip_menu_router.callback_query.filter(vip_filter)
+
+@vip_menu_router.callback_query(F.data == "menu:main")
+async def vip_main_menu(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(MenuStates.MAIN)
+    text, keyboard = await container.menu.get_vip_main_menu()
+    await callback.message.edit_text(text, reply_markup=keyboard)
+```
+
+### Pattern 2: FSM State per Menu Level
+
+**What:** Define FSM State for each menu level in hierarchy. State transitions handle navigation.
+
+**When to use:** When you have multi-level menus (main → list → detail) with back buttons.
+
+**Trade-offs:**
+- **Pro:** Natural navigation model (back = previous state)
+- **Pro:** State persists across sessions (user can leave and return)
+- **Pro:** Context storage in FSMContext (page, filters)
+- **Con:** FSM state diagram can get complex with many levels
+
+**Example:**
+```python
+# bot/states/menu.py
+from aiogram.fsm.state import State, StatesGroup
+
+class MenuStates(StatesGroup):
+    """Menu navigation states."""
+    MAIN = State()                      # Main menu
+    CONTENT_LIST = State()              # Content list (paginated)
+    CONTENT_DETAIL = State()            # Single content detail
+    USER_MANAGEMENT = State()           # User list, user detail
+    CONTENT_MANAGEMENT = State()        # Content CRUD
+
+# Navigation handler
+@admin_menu_router.callback_query(MenuStates.CONTENT_LIST, F.data == "back")
+async def back_to_main(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(MenuStates.MAIN)
+    text, keyboard = await container.menu.get_admin_main_menu()
+    await callback.message.edit_text(text, reply_markup=keyboard)
+```
+
+### Pattern 3: MenuService with Render Methods
+
+**What:** Central service for all menu rendering. Methods return (text, keyboard) tuples.
+
+**When to use:** When multiple roles need similar menus with small variations.
+
+**Trade-offs:**
+- **Pro:** Single source of truth for menu structure
+- **Pro:** Reusable logic (pagination, filtering)
+- **Pro:** Easy to test (mock service, assert return values)
+- **Con:** Service can become large (many menu methods)
+- **Con:** Need to keep service and handlers in sync
+
+**Example:**
+```python
+# bot/services/menu.py
+from aiogram.types import InlineKeyboardMarkup
+from bot.database.models import ContentPackage
+
+class MenuService:
+    """Centralized menu rendering service."""
 
     def __init__(self, session: AsyncSession, bot: Bot):
         self._session = session
         self._bot = bot
-        self._admin_vip = None
-        self._admin_free = None
-        self._user_common = None
-        # ... etc
 
-    @property
-    def admin(self):
-        """Namespace for admin messages."""
-        if self._admin_namespace is None:
-            self._admin_namespace = AdminNamespace(self)
-        return self._admin_namespace
+    async def get_admin_main_menu(self) -> tuple[str, InlineKeyboardMarkup]:
+        """Render admin main menu."""
+        text = await self._render_admin_main_text()
+        keyboard = await self._build_admin_main_keyboard()
+        return text, keyboard
 
-class AdminNamespace:
-    """Namespace for admin message providers."""
+    async def get_content_list(
+        self,
+        package_type: str,
+        page: int = 0,
+        page_size: int = 10
+    ) -> tuple[str, InlineKeyboardMarkup]:
+        """Render paginated content list."""
+        offset = page * page_size
 
-    def __init__(self, message_service):
-        self._msg_service = message_service
-        self._vip = None
-        self._free = None
-
-    @property
-    def vip(self):
-        if self._vip is None:
-            from bot.messages.admin.vip import VIPMessages
-            self._vip = VIPMessages(self._msg_service._session, self._msg_service._bot)
-        return self._vip
-
-    @property
-    def free(self):
-        if self._free is None:
-            from bot.messages.admin.free import FreeMessages
-            self._free = FreeMessages(self._msg_service._session, self._msg_service._bot)
-        return self._free
-
-# Usage in handler:
-async def callback_vip_menu(callback: CallbackQuery, session: AsyncSession):
-    container = ServiceContainer(session, callback.bot)
-    is_configured = await container.channel.is_vip_channel_configured()
-
-    if is_configured:
-        vip_channel_id = await container.channel.get_vip_channel_id()
-        channel_info = await container.channel.get_channel_info(vip_channel_id)
-        channel_name = channel_info.title if channel_info else "Canal VIP"
-
-        text = container.message.admin.vip.channel_configured(channel_name, vip_channel_id)
-    else:
-        text = container.message.admin.vip.channel_not_configured()
-
-    await callback.message.edit_text(text, parse_mode="HTML", ...)
-```
-
-### Pattern 2: Formatter Integration
-
-**What:** Message providers use formatter utilities for consistent data display. Formatters remain in utils/ but are called by message providers.
-
-**When to use:** When messages need to display dates, currency, percentages, or other formatted data.
-
-**Trade-offs:**
-- **Pro:** Consistent formatting across all messages
-- **Pro:** Single source of truth for format rules
-- **Pro:** Formatters testable independently
-- **Con:** Message providers must know which formatter to use
-
-**Example:**
-```python
-from bot.utils.formatters import format_currency, format_datetime
-
-class VIPMessages(BaseMessageProvider):
-    def subscription_details(self, subscriber: VIPSubscriber, plan: SubscriptionPlan) -> str:
-        expires_at = format_datetime(subscriber.expiry_date)
-        price = format_currency(plan.price_usd, "USD")
-
-        return (
-            f"👤 <b>Suscripción VIP</b>\n\n"
-            f"Plan: {plan.name}\n"
-            f"Precio: {price}\n"
-            f"Expira: {expires_at}\n"
+        # Query active content of this type
+        result = await self._session.execute(
+            select(ContentPackage)
+            .where(
+                ContentPackage.package_type == package_type,
+                ContentPackage.is_active == True
+            )
+            .order_by(ContentPackage.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
         )
+        packages = result.scalars().all()
+
+        text = self._render_content_list_text(packages, page)
+        keyboard = await self._build_content_list_keyboard(
+            packages, page, package_type
+        )
+        return text, keyboard
+
+    async def get_content_detail(
+        self,
+        package_id: int,
+        user_id: int
+    ) -> tuple[str, InlineKeyboardMarkup]:
+        """Render content detail with 'Me interesa' button."""
+        package = await self._session.get(ContentPackage, package_id)
+
+        if not package or not package.is_active:
+            return self._content_not_found(), InlineKeyboardMarkup()
+
+        text = await self._render_content_detail(package)
+        keyboard = await self._build_content_detail_keyboard(
+            package_id, user_id
+        )
+        return text, keyboard
+
+    async def handle_interest(
+        self,
+        user_id: int,
+        package_id: int
+    ) -> bool:
+        """Record 'Me interesa' click and notify admins."""
+        # Check for duplicate
+        existing = await self._session.execute(
+            select(InterestNotification).where(
+                InterestNotification.user_id == user_id,
+                InterestNotification.package_id == package_id
+            )
+        )
+        if existing.scalar_one_or_none():
+            return False  # Already expressed interest
+
+        # Create notification
+        notification = InterestNotification(
+            user_id=user_id,
+            package_id=package_id,
+            notified=False
+        )
+        self._session.add(notification)
+        await self._session.commit()
+
+        # Notify admins
+        await self._notify_admins(notification)
+
+        return True
+
+    async def _notify_admins(self, notification: InterestNotification):
+        """Send real-time notification to all admins."""
+        config = await BotConfig.get_config(self._session)
+        admins = await config.get_admin_ids(self._session)
+
+        package = await self._session.get(
+            ContentPackage,
+            notification.package_id
+        )
+
+        for admin_id in admins:
+            try:
+                await self._bot.send_message(
+                    admin_id,
+                    f"🔔 Nuevo interés en: {package.title}\n"
+                    f"Usuario: {notification.user_id}",
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logger.error(f"Failed to notify admin {admin_id}: {e}")
+
+        notification.notified = True
+        await self._session.commit()
 ```
 
-### Pattern 3: Lazy-Loaded Namespaces
+### Pattern 4: Callback Data Encoding
 
-**What:** MessageService uses property-based lazy loading for message provider namespaces, mirroring the existing ServiceContainer pattern.
+**What:** Encode menu actions and payloads into callback_data strings using format `action:payload`.
 
-**When to use:** When you want memory efficiency and fast bot startup. Only load message providers that are actually used.
-
-**Trade-offs:**
-- **Pro:** Memory efficient (Termux environment)
-- **Pro:** Fast startup (no upfront loading)
-- **Pro:** Consistent with existing architecture
-- **Con:** Slightly more complex implementation
-- **Con:** First access has small overhead (negligible)
-
-**Example:** See Pattern 1 above (AdminNamespace with lazy loading).
-
-### Pattern 4: Message+Keyboard Coupling (Future)
-
-**What:** Some messages always appear with specific keyboards. Message providers can optionally return (message, keyboard) tuples.
-
-**When to use:** When certain messages ALWAYS have the same keyboard (e.g., main menu). Reduces handler boilerplate.
+**When to use:** When menu buttons need to pass data to callback handlers.
 
 **Trade-offs:**
-- **Pro:** Reduces duplication (message and keyboard always together)
-- **Pro:** Enforces consistency (can't send message without keyboard)
-- **Con:** Less flexibility (what if keyboard needs dynamic parameters?)
-- **Con:** More complex return types
+- **Pro:** Simple parsing with split(':')
+- **Pro:** Human-readable callback data for debugging
+- **Pro:** No database lookup needed for simple actions
+- **Con:** Limited to ~64 bytes (Telegram limit)
+- **Con:** Complex payloads need serialization
 
 **Example:**
 ```python
-# Future enhancement (not MVP):
-class MainMenuMessages(BaseMessageProvider):
-    def main_menu(self, is_configured: bool) -> MessageWithKeyboard:
-        """Returns message AND keyboard together."""
-        text = "..."
-        keyboard = admin_main_menu_keyboard(is_configured)
-        return MessageWithKeyboard(text=text, keyboard=keyboard, parse_mode="HTML")
+# Build callback data
+def content_item_button(package_id: int) -> InlineKeyboardButton:
+    return InlineKeyboardButton(
+        text="Ver detalles",
+        callback_data=f"content:detail:{package_id}"
+    )
 
-# Handler usage (future):
-async def cmd_admin(message: Message, session: AsyncSession):
-    container = ServiceContainer(session, message.bot)
-    msg_kb = container.message.admin.main.main_menu(is_configured=True)
-    await message.answer(**msg_kb.as_kwargs())
+# Parse callback data
+@admin_menu_router.callback_query(F.data.startswith("content:detail:"))
+async def content_detail(callback: CallbackQuery, state: FSMContext):
+    # Parse: "content:detail:123" -> package_id = 123
+    _, _, package_id_str = callback.data.split(':')
+    package_id = int(package_id_str)
+
+    await state.set_state(MenuStates.CONTENT_DETAIL)
+    text, keyboard = await container.menu.get_content_detail(
+        package_id,
+        callback.from_user.id
+    )
+    await callback.message.edit_text(text, reply_markup=keyboard)
 ```
-
-**Recommendation:** Start with Pattern 1-3 (separate messages and keyboards). Add Pattern 4 only if duplication becomes pain point.
 
 ## Data Flow
 
-### Request Flow (Handler → MessageService → Response)
+### Menu Navigation Flow
 
 ```
-[User Action: /admin]
+[User clicks menu button]
     ↓
-[Handler: cmd_admin]
+[CallbackQuery with role_filter]
     ↓
-[ServiceContainer: container.message.admin.main]
-    ↓ (lazy loads)
-[MessageProvider: MainMenuMessages.main_menu(is_configured)]
-    ↓ (uses)
-[Formatters: format_datetime, etc]
-    ↓ (returns)
-[Formatted Message String: "📺 <b>Panel Admin</b>..."]
+[Router filters by user role]
     ↓
-[Handler: message.answer(text, keyboard, parse_mode="HTML")]
+[Handler matches callback_data]
     ↓
-[Response: Telegram sends message to user]
+[Set FSM state (e.g., MenuStates.CONTENT_LIST)]
+    ↓
+[Call MenuService.render method]
+    ↓
+[Query database for content]
+    ↓
+[Build InlineKeyboardMarkup]
+    ↓
+[Edit message with new text + keyboard]
+    ↓
+[Response: Telegram updates user's menu]
 ```
 
-### Message Composition Flow
+### Interest Notification Flow
 
 ```
-Handler needs message
+[User clicks "Me interesa" button]
     ↓
-Accesses container.message.[namespace].[provider].[method]()
+[Callback handler: content_interest]
     ↓
-Method receives parameters (user_name, channel_id, etc)
+[Parse package_id from callback_data]
     ↓
-Method formats using utils/formatters if needed
+[Call MenuService.handle_interest(user_id, package_id)]
     ↓
-Method composes HTML string with <b>, <code> tags
+[Check for duplicate interest]
     ↓
-Returns string to handler
+[Create InterestNotification record]
     ↓
-Handler pairs with keyboard from utils/keyboards.py
+[Query all admin users]
     ↓
-Handler sends to Telegram with parse_mode="HTML"
+[Send notification message to each admin]
+    ↓
+[Update notification.notified = True]
+    ↓
+[Update button: "Me interesa" → "¡Registrado!"]
 ```
 
-### Integration with i18n (Future Enhancement)
+### Content CRUD Flow (Admin)
 
 ```
-[MessageProvider method called]
+[Admin selects "Crear contenido"]
     ↓
-Accesses self._i18n context (if available)
+[Set FSM state: ContentCreation.title]
     ↓
-Uses gettext/_() for translatable strings
+[Message handler: receive title]
     ↓
-Injects dynamic data into translated template
+[Set FSM state: ContentCreation.description]
     ↓
-Returns localized message
+[Message handler: receive description]
+    ↓
+[Set FSM state: ContentCreation.media]
+    ↓
+[Message handler: receive photo/video]
+    ↓
+[Save ContentPackage to database]
+    ↓
+[Clear FSM state]
+    ↓
+[Return to content management menu]
+    ↓
+[Show new content in list]
 ```
-
-**Current:** All messages in Spanish hardcoded.
-**Future:** When i18n needed, message providers can integrate aiogram's built-in i18n middleware.
 
 ## Integration Points
 
 ### ServiceContainer Integration
 
-**How to integrate:**
-1. Add `_message_service = None` to ServiceContainer.__init__
-2. Add `@property def message(self):` with lazy loading
-3. MessageService constructor takes `(session, bot)` like other services
-4. Handlers access via `container.message.admin.vip.method()`
-
-**Why this way:**
-- Consistent with existing service pattern
-- Lazy loading maintains Termux memory efficiency
-- Natural API for handlers (namespace mirrors handler structure)
-
-### Keyboard Factory Integration
-
-**Current state:** Keyboards in utils/keyboards.py with factory functions.
-
-**Integration approach (MVP):**
-1. **Keep keyboards separate** - Handlers call keyboard factory and message service independently
-2. Message service focuses ONLY on text
-3. Handler coordinates: `text = container.message...` and `keyboard = vip_menu_keyboard(...)`
-
-**Future enhancement:**
-- Add `with_keyboard()` helper method to message providers if pattern emerges
-- Or migrate keyboard factory INTO message service if tight coupling needed
-
-**Example (MVP approach):**
 ```python
-# Handler (current approach, MVP):
-text = container.message.admin.vip.channel_configured(channel_name, channel_id)
-keyboard = vip_menu_keyboard(is_configured=True)
-await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+# bot/services/container.py
+class ServiceContainer:
+    # ... existing properties ...
 
-# Future enhancement IF needed:
-msg_kb = container.message.admin.vip.channel_configured_with_keyboard(channel_name, channel_id, is_configured=True)
-await callback.message.edit_text(**msg_kb.as_kwargs())
-```
-
-### Formatter Integration
-
-**Current state:** utils/formatters.py has 19 formatting functions (dates, currency, etc).
-
-**Integration approach:**
-1. Message providers IMPORT formatters at top of file
-2. Use formatters in message methods when displaying data
-3. No changes to formatters themselves
-
-**Example:**
-```python
-from bot.utils.formatters import format_currency, format_datetime, format_relative_time
-
-class VIPMessages(BaseMessageProvider):
-    def token_details(self, token: InvitationToken, plan: SubscriptionPlan) -> str:
-        created = format_datetime(token.created_at)
-        expires = format_relative_time(token.expires_at)
-        price = format_currency(plan.price_usd, "USD")
-
-        return f"Token: {token.token}\nCreado: {created}\nExpira: {expires}\nPrecio: {price}"
-```
-
-### Database Access (Rare)
-
-**Question:** Should message providers access database?
-
-**Answer:** Generally NO, but exceptions exist.
-
-**Guideline:**
-- **Prefer:** Handlers fetch data, pass to message provider as parameters
-- **Exception:** Message provider may query simple config/lookup data if it avoids parameter explosion
-
-**Example (preferred):**
-```python
-# Handler fetches data:
-subscriber = await container.subscription.get_vip_subscriber(user_id)
-plan = await container.pricing.get_plan(subscriber.plan_id)
-
-# Message provider receives data:
-text = container.message.admin.vip.subscriber_details(subscriber, plan)
-```
-
-**Example (exception allowed):**
-```python
-# Message provider internally queries emoji config:
-class BaseMessageProvider:
-    def __init__(self, session, bot):
+    def __init__(self, session: AsyncSession, bot: Bot):
         self._session = session
         self._bot = bot
+        self._menu_service = None  # NEW
+        # ... existing service refs ...
 
-    async def _get_status_emoji(self, status: str) -> str:
-        """Internal helper can query DB for simple lookups."""
-        emoji_config = await self._session.execute(...)
-        return emoji_config.get(status, "❓")
+    @property
+    def menu(self) -> 'MenuService':
+        """Lazy-loaded menu service."""
+        if self._menu_service is None:
+            from bot.services.menu import MenuService
+            self._menu_service = MenuService(self._session, self._bot)
+        return self._menu_service
+```
+
+### Router Registration in Main
+
+```python
+# main.py
+from bot.handlers.menu import admin_menu_router, vip_menu_router, free_menu_router
+
+# Register menu routers with appropriate priority
+# Admin router first (more specific filters)
+dp.include_router(admin_menu_router)
+dp.include_router(vip_menu_router)
+dp.include_router(free_menu_router)
+```
+
+### Integration with LucienVoiceService
+
+```python
+# bot/services/menu.py
+from bot.services.voice import LucienVoiceService
+
+class MenuService:
+    def __init__(self, session: AsyncSession, bot: Bot):
+        self._session = session
+        self._bot = bot
+        self._voice = LucienVoiceService()  # Or inject via container
+
+    async def get_admin_main_menu(self) -> tuple[str, InlineKeyboardMarkup]:
+        # Use voice service for consistent messaging
+        text = self._voice.admin.menu.main_menu_greeting()
+        keyboard = self._build_admin_main_keyboard()
+        return text, keyboard
 ```
 
 ## Build Order and Dependencies
 
-### Phase 1: Foundation (No Dependencies)
+### Phase 1: Database Models (No Dependencies)
 
-**Goal:** Create infrastructure without disrupting existing handlers.
+**Goal:** Add new models for content and notifications.
 
-1. **Create base classes:**
-   - `bot/messages/base.py` - BaseMessageProvider abstract class
-   - `bot/services/message.py` - MessageService shell with namespace structure
+1. **Add ContentPackage model** to `bot/database/models.py`
+2. **Add InterestNotification model** to `bot/database/models.py`
+3. **Create database migration** (or let SQLAlchemy create table)
 
-2. **Integrate with ServiceContainer:**
-   - Add `.message` property to ServiceContainer
-   - Test that lazy loading works
+**Deliverable:** New tables in database, no handlers changed.
 
-**Deliverable:** Infrastructure ready, no handlers changed yet.
+### Phase 2: FSM States and MenuService (Depends on Phase 1)
 
-### Phase 2: Admin Messages (Depends on Phase 1)
+**Goal:** Create menu infrastructure.
 
-**Goal:** Migrate admin handler messages to MessageService.
+1. **Create MenuStates** in `bot/states/menu.py`
+2. **Create MenuService** in `bot/services/menu.py`
+3. **Add .menu property** to ServiceContainer
 
-1. **Create admin message providers:**
-   - `bot/messages/admin/main.py` - MainMenuMessages
-   - `bot/messages/admin/vip.py` - VIPMessages
-   - `bot/messages/admin/free.py` - FreeMessages
+**Deliverable:** MenuService ready for use, FSM states defined.
 
-2. **Refactor admin handlers:**
-   - Replace hardcoded messages with `container.message.admin.*` calls
-   - One handler at a time (gradual migration)
+### Phase 3: Admin Menu Handlers (Depends on Phase 2)
 
-**Deliverable:** All admin handlers use MessageService.
+**Goal:** Build admin-only menu with content CRUD.
 
-### Phase 3: User Messages (Depends on Phase 1)
+1. **Create admin_menu_router** in `bot/handlers/menu/admin.py`
+2. **Implement admin main menu**
+3. **Implement content list (paginated)**
+4. **Implement content detail view**
+5. **Implement content CRUD (create, edit, delete, toggle)**
 
-**Goal:** Migrate user handler messages to MessageService.
+**Deliverable:** Admin can manage content via menu.
 
-1. **Create user message providers:**
-   - `bot/messages/user/common.py` - WelcomeMessages
-   - `bot/messages/user/vip.py` - VIPFlowMessages
-   - `bot/messages/user/free.py` - FreeFlowMessages
+### Phase 4: VIP/Free Menu Handlers (Depends on Phase 2)
 
-2. **Refactor user handlers:**
-   - Replace hardcoded messages with `container.message.user.*` calls
-   - Handle deep link activation messages
+**Goal:** Build user-facing menus.
 
-**Deliverable:** All user handlers use MessageService.
+1. **Create vip_menu_router** in `bot/handlers/menu/vip.py`
+2. **Create free_menu_router** in `bot/handlers/menu/free.py`
+3. **Implement role-based main menus**
+4. **Implement content browsing**
+5. **Implement "Me interesa" button**
 
-### Phase 4: Edge Cases and Polish (Depends on Phase 2, 3)
+**Deliverable:** VIP and Free users can browse content and express interest.
 
-**Goal:** Handle remaining messages and improve API.
+### Phase 5: Interest Notification System (Depends on Phase 4)
 
-1. **Migrate remaining handlers:**
-   - Broadcast messages
-   - Dashboard messages
-   - Error messages
+**Goal:** Real-time admin notifications.
 
-2. **API improvements:**
-   - Add helper methods for common patterns
-   - Improve type hints and docstrings
+1. **Implement MenuService.handle_interest()**
+2. **Implement admin notification sender**
+3. **Add interest list viewer for admins**
 
-**Deliverable:** 100% messages centralized.
+**Deliverable:** Admins see real-time interest notifications.
+
+### Phase 6: User Management Features (Depends on Phase 2)
+
+**Goal:** Admin can manage users from menu.
+
+1. **Implement user info viewer**
+2. **Implement role change functionality**
+3. **Implement block/expel user**
+4. **Add UserRoleChangeLog model for audit**
+
+**Deliverable:** Full user management from menu.
 
 ### Dependency Graph
 
 ```
-Phase 1 (Foundation)
+Phase 1 (Models)
     ↓
-    ├─→ Phase 2 (Admin Messages)
+    ├─→ Phase 2 (FSM + MenuService)
     │       ↓
-    └─→ Phase 3 (User Messages)
-            ↓
-        Phase 4 (Edge Cases)
+    │       ├─→ Phase 3 (Admin Menu)
+    │       │       ↓
+    │       └─→ Phase 4 (User Menus)
+    │               ↓
+    │           Phase 5 (Notifications)
+    │
+    └─→ Phase 6 (User Management)
 ```
 
-**Critical path:** Foundation must be complete before any migration.
+**Critical path:** Models must be added before any menu functionality.
 
-**Parallel work:** Phase 2 and 3 can be done simultaneously (different handler namespaces).
-
-## Template Organization Strategy
-
-### Question: How to organize templates internally?
-
-**Options Evaluated:**
-1. **By navigation flow** (admin/, user/) - Mirrors handler structure
-2. **By feature** (vip/, free/, broadcast/) - Mirrors service structure
-3. **By message type** (menus/, confirmations/, errors/) - Mirrors UI patterns
-
-**Recommendation:** **By navigation flow** (Option 1)
-
-**Rationale:**
-- **Developer mental model:** Handlers are organized by navigation. Message providers mirror this. "Where's the VIP menu message?" → "Same place as VIP menu handler" → `bot/messages/admin/vip.py`
-- **Discoverability:** When editing a handler, the corresponding message provider is in the parallel directory structure.
-- **Refactoring simplicity:** Migrate handler by handler, not scattered across feature boundaries.
-- **Existing pattern:** Current architecture already uses handler-based organization. Don't fight it.
-
-**Alternative considered:** Feature-based organization might be better IF services generate messages (e.g., SubscriptionService generates confirmation messages). But in this architecture, handlers compose messages, so navigation flow wins.
-
-### Internal Class Organization (Within Provider File)
-
-**Strategy:** Group methods by user journey within that flow.
-
-**Example structure for VIPMessages:**
-```python
-class VIPMessages(BaseMessageProvider):
-    # Menu messages:
-    def channel_configured(self, ...) -> str: ...
-    def channel_not_configured(self) -> str: ...
-
-    # Setup flow:
-    def setup_prompt(self) -> str: ...
-    def setup_success(self, channel_name) -> str: ...
-    def setup_error(self, error_msg) -> str: ...
-
-    # Token generation:
-    def token_generated(self, token, deep_link) -> str: ...
-    def select_plan_prompt(self, plans: List) -> str: ...
-
-    # Subscriber management:
-    def subscriber_list_header(self, total) -> str: ...
-    def subscriber_details(self, subscriber) -> str: ...
-```
-
-**Benefits:**
-- Methods grouped by journey phase
-- Docstrings explain context ("shown when...", "sent after...")
-- Easy to find message for specific handler state
+**Parallel work:** Phase 3 (Admin) and Phase 6 (User Management) can be developed simultaneously.
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Message Providers with Business Logic
+### Anti-Pattern 1: Stateful MenuService
 
-**What people do:** Put business logic (validation, calculations, database writes) inside message providers.
+**What people do:** Store navigation state in MenuService instance variables.
+
+```python
+# BAD: Stateful service
+class MenuService:
+    def __init__(self):
+        self.current_page = {}  # DANGER
+        self.user_filters = {}  # DANGER
+```
 
 **Why it's wrong:**
-- Violates separation of concerns (messages are presentation, not logic)
-- Hard to test business logic (coupled to message generation)
-- Creates circular dependencies (messages depend on services, services depend on messages)
+- Service is singleton (one instance for all users)
+- Concurrency issues (two users navigating simultaneously)
+- Memory leaks (data never cleaned up)
 
 **Do this instead:**
-- Handlers orchestrate: call services for logic, pass results to message providers
-- Message providers are pure functions: data in, string out
-- Complex formatting (like relative time) is OK, but decision-making is NOT
-
-**Example (WRONG):**
 ```python
-class VIPMessages(BaseMessageProvider):
-    async def subscriber_status(self, user_id: int) -> str:
-        # ❌ BAD: Querying database in message provider
-        subscriber = await self._session.execute(...)
-        # ❌ BAD: Business logic (calculating expiration)
-        if subscriber.expiry_date < datetime.now():
-            return "Expired"
-        return "Active"
+# GOOD: Use FSMContext
+# Handler stores state in FSMContext
+async def content_list_page(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(page=2, filters={'type': 'vip'})
+
+# Handler retrieves state
+data = await state.get_data()
+page = data.get('page', 0)
 ```
 
-**Example (CORRECT):**
+### Anti-Pattern 2: Hardcoded Menu Keyboards
+
+**What people do:** Build keyboard inline in handler with hardcoded buttons.
+
 ```python
-# Handler:
-subscriber = await container.subscription.get_vip_subscriber(user_id)
-is_active = await container.subscription.is_vip_active(user_id)
-text = container.message.admin.vip.subscriber_status(subscriber, is_active)
-
-# Message provider:
-def subscriber_status(self, subscriber: VIPSubscriber, is_active: bool) -> str:
-    # ✅ GOOD: Just formatting, no logic
-    status = "Activo" if is_active else "Expirado"
-    expires = format_datetime(subscriber.expiry_date)
-    return f"Estado: {status}\nExpira: {expires}"
+# BAD: Hardcoded keyboard
+@router.callback_query(F.data == "menu:main")
+async def main_menu(callback: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Contenido", callback_data="content:list")],
+        [InlineKeyboardButton(text="Usuarios", callback_data="user:list")]
+    ])
+    await callback.message.edit_text("Menú principal", reply_markup=keyboard)
 ```
-
-### Anti-Pattern 2: Passing Raw Database Models
-
-**What people do:** Pass entire database models (VIPSubscriber, InvitationToken) to message methods.
 
 **Why it's wrong:**
-- Couples messages to database schema (schema change breaks messages)
-- Tempts message provider to access relationships (subscriber.plan.name → DB query)
-- Hard to test (must create full model instances)
+- Cannot render dynamic content lists
+- Duplicated keyboard logic across handlers
+- Hard to maintain (change in one place, not others)
 
 **Do this instead:**
-- Pass primitive types or simple dataclasses
-- Handler extracts needed fields from models
-- Message provider receives exactly what it needs
-
-**Example (WRONG):**
 ```python
-# ❌ BAD: Passing full model
-text = container.message.admin.vip.subscriber_details(subscriber)
-
-# Message provider:
-def subscriber_details(self, subscriber: VIPSubscriber) -> str:
-    # ❌ BAD: Coupled to model structure
-    # ❌ BAD: What if relationship not loaded?
-    plan_name = subscriber.plan.name
-    ...
-```
-
-**Example (CORRECT):**
-```python
-# ✅ GOOD: Handler extracts needed data
-plan = await container.pricing.get_plan(subscriber.plan_id)
-text = container.message.admin.vip.subscriber_details(
-    user_id=subscriber.user_id,
-    plan_name=plan.name,
-    expiry_date=subscriber.expiry_date,
-    is_active=subscriber.status == "active"
-)
-
-# Message provider:
-def subscriber_details(
-    self,
-    user_id: int,
-    plan_name: str,
-    expiry_date: datetime,
-    is_active: bool
-) -> str:
-    # ✅ GOOD: Simple parameters, no coupling
-    ...
-```
-
-**Exception:** It's OK to pass models if message provider ONLY accesses simple scalar fields (no relationships, no methods).
-
-### Anti-Pattern 3: Keyboard Logic in Message Providers
-
-**What people do:** Message providers construct InlineKeyboardMarkup inside message methods.
-
-**Why it's wrong:**
-- Mixes concerns (message text vs. keyboard structure)
-- Duplicates keyboard factory logic
-- Hard to change keyboard layout (scattered across message providers)
-
-**Do this instead:**
-- Keep keyboard factory in utils/keyboards.py (or move to MessageService later)
-- Message providers return ONLY text
-- Handler coordinates message + keyboard
-
-**Example (WRONG):**
-```python
-def channel_configured_with_keyboard(self, channel_name: str) -> tuple[str, InlineKeyboardMarkup]:
-    # ❌ BAD: Message provider building keyboard
-    text = f"Canal: {channel_name}"
-    keyboard = InlineKeyboardMarkup(...)
-    return text, keyboard
-```
-
-**Example (CORRECT):**
-```python
-# Message provider:
-def channel_configured(self, channel_name: str) -> str:
-    # ✅ GOOD: Only text
-    return f"Canal: {channel_name}"
-
-# Handler:
-text = container.message.admin.vip.channel_configured(channel_name)
-keyboard = vip_menu_keyboard(is_configured=True)
+# GOOD: MenuService builds keyboard dynamically
+text, keyboard = await container.menu.get_admin_main_menu()
 await callback.message.edit_text(text, reply_markup=keyboard)
 ```
 
-**Future enhancement:** If message+keyboard coupling is ALWAYS the same, add optional `with_keyboard()` pattern (Pattern 4 above). But start simple.
+### Anti-Pattern 3: Business Logic in Handlers
 
-### Anti-Pattern 4: String Concatenation Hell
+**What people do:** Put database queries, permission checks, validation in handlers.
 
-**What people do:** Build messages with many small string concatenations or format calls.
-
-**Why it's wrong:**
-- Hard to read (what does final message look like?)
-- Error-prone (missing spaces, newlines)
-- Hard to translate (i18n needs whole template, not fragments)
-
-**Do this instead:**
-- Use multi-line f-strings or textwrap.dedent
-- Keep entire message template visible in one place
-- Use named placeholders for clarity
-
-**Example (WRONG):**
 ```python
-def subscriber_details(self, name, plan, expires):
-    # ❌ BAD: Concatenation hell
-    text = "👤 " + name + "\n"
-    text += "Plan: " + plan + "\n"
-    text += "Expira: " + expires
-    return text
+# BAD: Handler does everything
+@router.callback_query(F.data.startswith("content:delete:"))
+async def delete_content(callback: CallbackQuery):
+    # Business logic in handler
+    package_id = int(callback.data.split(':')[2])
+    package = await session.get(ContentPackage, package_id)
+
+    if not package:
+        await callback.answer("Contenido no encontrado", show_alert=True)
+        return
+
+    # More logic...
+    await session.delete(package)
+    await session.commit()
 ```
 
-**Example (CORRECT):**
+**Why it's wrong:**
+- Handler is doing service's job
+- Hard to test (must run full handler)
+- Cannot reuse logic (other handlers need same logic)
+
+**Do this instead:**
 ```python
-def subscriber_details(self, name: str, plan: str, expires: str) -> str:
-    # ✅ GOOD: Full template visible
-    return (
-        f"👤 <b>{name}</b>\n\n"
-        f"Plan: {plan}\n"
-        f"Expira: {expires}\n"
-    )
+# GOOD: Handler delegates to service
+@router.callback_query(F.data.startswith("content:delete:"))
+async def delete_content(callback: CallbackQuery, session: AsyncSession):
+    package_id = int(callback.data.split(':')[2])
+    container = ServiceContainer(session, callback.bot)
+
+    success, message = await container.menu.delete_content(package_id)
+
+    if success:
+        await callback.answer(message)
+        # Refresh menu
+    else:
+        await callback.answer(message, show_alert=True)
 ```
 
 ## Scalability Considerations
 
 | Scale | Architecture Adjustments |
 |-------|--------------------------|
-| **Current (single language, <10k users)** | Service-based providers with hardcoded Spanish messages. Lazy loading for memory efficiency. No caching needed. |
-| **Multi-language (i18n needed)** | Integrate aiogram's i18n middleware. Message providers use gettext/_() for strings. Template structure stays same, just wrap strings. Load .po files in bot startup. |
-| **10k+ active users** | Add Redis caching for frequently accessed messages if message generation becomes bottleneck (unlikely). Lazy loading already handles memory. Monitor message provider instantiation overhead. |
-| **Complex personalization** | If messages need per-user customization beyond simple parameters, consider template engine (Jinja2). But ONLY if simple f-strings become unmaintainable. Premature optimization otherwise. |
+| **Current (<1k users, <100 content)** | Simple FSM + SQLAlchemy, no caching needed. |
+| **Medium (1k-10k users, 100-1k content)** | Add Redis caching for frequently accessed content. Index on (package_type, is_active, created_at). |
+| **Large (10k+ users, 1k+ content)** | Separate read replica for content queries. Consider message queue for admin notifications (Celery/ARQ). |
+| **Very Large (100k+ users)** | Shard database by user_id. CDN for media content. Background job for batch notifications. |
 
 ### Scaling Priorities
 
-1. **First bottleneck:** Database queries in handlers (already addressed by service layer). Message providers are pure functions, won't bottleneck.
-
-2. **Second bottleneck:** If i18n needed, loading .po files is I/O. Solution: Load at startup, cache in memory. aiogram's i18n middleware handles this.
-
-3. **Non-bottleneck:** Message generation itself is fast (string formatting). Don't optimize unless profiling shows problem.
+1. **First bottleneck:** Content list queries as packages grow. Solution: Indexing, then caching.
+2. **Second bottleneck:** Admin notification spam. Solution: Batch notifications, rate limiting.
+3. **Non-bottleneck:** Menu rendering (fast string formatting + keyboard building). Don't optimize prematurely.
 
 ## Sources
 
 ### Telegram Bot Architecture
-- [Telegram Bot Design Patterns (GitHub)](https://github.com/lucaoflaif/telegram-bot-design-pattern) - Clean structure and middlewares
-- [python-telegram-bot Architecture Wiki](https://github.com/python-telegram-bot/python-telegram-bot/wiki/Architecture) - Official architecture documentation
-- [Scalable Telegram Bot Architecture (Medium)](https://medium.com/wearewaes/how-to-build-a-reliable-scalable-and-cost-effective-telegram-bot-58ae2d6684b1) - Serverless and event-driven patterns
-- [Developer's Guide to Building Telegram Bots in 2025](https://stellaray777.medium.com/a-developers-guide-to-building-telegram-bots-in-2025-dbc34cd22337) - Modern best practices
+- [aiogram Router Documentation](https://docs.aiogram.dev/en/latest/dispatcher/router.html) — Router patterns (HIGH confidence)
+- [aiogram FSM Documentation](https://docs.aiogram.dev/en/latest/dispatcher/finite_state_machine.html) — State management (HIGH confidence)
+- [Building Menu Systems in aiogram](https://mastergroosha.github.io/telegram-tutorial-2/levelup/) — Menu patterns (MEDIUM confidence)
 
-### Message Service and Bot Framework Architecture
-- [Azure Bot Service Architecture (2025)](https://moimhossain.com/2025/05/22/azure-bot-service-microsoft-teams-architecture-and-message-flow/) - Centralized message routing
-- [Bot Framework Architecture (Microsoft)](https://learn.microsoft.com/en-us/azure/bot-service/bot-builder-basics?view=azure-bot-service-4.0) - Bot Connector Service patterns
-- [Claudia Bot Builder - Telegram Custom Messages](https://github.com/claudiajs/claudia-bot-builder/blob/master/docs/TELEGRAM_CUSTOM_MESSAGES.md) - Template builders
-- [Rocket.Chat Bots Architecture](https://developer.rocket.chat/docs/bots-architecture) - Message routing patterns
+### Role-Based Access
+- [Role-Based Access Control Patterns](https://auth0.com/docs/manage-users/access-control) — RBAC design (HIGH confidence)
+- [Magic Filters in aiogram](https://docs.aiogram.dev/en/latest/faq/filters.html) — F.filter usage (HIGH confidence)
 
-### Dependency Injection and Service Container
-- [Dependency Injection in .NET (Microsoft)](https://learn.microsoft.com/en-us/dotnet/core/extensions/dependency-injection) - Official DI patterns
-- [Martin Fowler - Inversion of Control Containers](https://martinfowler.com/articles/injection.html) - Foundational DI concepts
-- [Symfony Service Container](https://symfony.com/doc/current/service_container.html) - Advanced service container patterns
-- [Service Container Pattern in React/Rails (DEV)](https://dev.to/abdelrahmanallam/simplifying-dependency-injection-with-the-service-container-pattern-in-reactjs-and-ruby-on-rails-525m) - Cross-framework patterns
+### Content Management
+- [SQLAlchemy Async Patterns](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html) — Async ORM (HIGH confidence)
+- [Database-Driven Content Systems](https://dev.to/codesphere/building-a-telegram-bot-with-database-driven-content-3m1a) — Content CRUD (MEDIUM confidence)
 
-### i18n and Message Catalogs
-- [aiogram i18n Documentation](https://docs.aiogram.dev/en/latest/utils/i18n.html) - Official aiogram translation utilities
-- [aiogram/i18n GitHub](https://github.com/aiogram/i18n) - Translation middleware implementation
-- [What is i18n? (2026 Edition - Locize)](https://www.locize.com/blog/what-is-i18n/) - Modern i18n trends
-- [Rails I18n API Guide](https://guides.rubyonrails.org/i18n.html) - Message catalog patterns
-
-### Keyboard and Template Patterns
-- [grammY Inline Keyboards](https://grammy.dev/plugins/keyboard) - Built-in keyboard patterns
-- [Telegram.Bot Reply Markup](https://telegrambots.github.io/book/2/reply-markup.html) - Keyboard integration
-- [Telegram Bot Inline Keyboard with Dynamic Menus (n8n)](https://n8n.io/workflows/7664-telegram-bot-inline-keyboard-with-dynamic-menus-and-rating-system/) - Dynamic keyboard patterns
-
-### Separation of Concerns and Clean Architecture
-- [Separation of Concerns - Fundamental Principle (Medium)](https://medium.com/@shelvindatt02/separation-of-concerns-a-fundamental-principle-in-software-architecture-22dc61f60098) - Architectural principles
-- [Go Clean Architecture (Level Up Coding)](https://levelup.gitconnected.com/go-clean-architecture-structuring-go-applications-with-clear-separation-of-concerns-70db67ce943c) - Separation patterns
-- [Clean Architecture in Node.js APIs (DEV)](https://dev.to/crit3cal/clean-architecture-in-nodejs-apis-mastering-separation-of-concerns-5cha) - Service layer patterns
+### Menu Navigation
+- [Nested Menu Best Practices](https://surikov.dev/telegram-bot-nested-menus/) — State hierarchy (MEDIUM confidence)
+- [Callback Data Patterns](https://core.telegram.org/bots/api#inlinekeyboardbutton) — Callback encoding (HIGH confidence)
 
 ---
-*Architecture research for: Centralized Message Service Integration*
-*Researched: 2026-01-23*
+*Architecture research for: Menu System (v1.1)*
+*Researched: 2026-01-24*

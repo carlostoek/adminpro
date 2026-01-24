@@ -1,377 +1,596 @@
-# Pitfalls Research: Message Templating Service
+# Pitfalls Research: Menu System for Role-Based Bot Experience
 
-**Domain:** Telegram Bot Message Service Refactoring
-**Researched:** 2026-01-23
+**Domain:** Telegram Bot Menu System with Role-Based Routing
+**Researched:** 2026-01-24
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Refactoring 10+ handlers to use a centralized message service (LucienVoiceService) introduces critical risks around voice consistency, test brittleness, and template bloat. This research identifies pitfalls from real-world bot refactoring projects and message service implementations.
+Implementing a role-based menu system with FSM navigation, content CRUD, and user management introduces critical risks around state management complexity, permission escalation, and notification spam. This research identifies pitfalls from real-world bot menu implementations and FSM-based navigation systems.
 
-**Key Risk:** Message services start simple but become "message junk drawers" where every handler dumps strings without organization, leading to inconsistent voice, duplicated templates, and handlers that still contain presentation logic.
+**Key Risk:** Menu systems start simple but accumulate state complexity ("FSM state soup"), permission bugs (users accessing wrong menus), and notification fatigue that make the bot unusable or insecure.
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Hardcoded Presentation Logic Leaking into Handlers
+### Pitfall 1: FSM State Soup (Unmanageable State Transitions)
 
 **What goes wrong:**
-Handlers continue to contain formatting logic, emoji selection, and conditional message assembly even after introducing a message service. Example:
-```python
-# BAD: Handler still contains presentation logic
-if is_vip:
-    emoji = "🟢"
-    text = f"{emoji} Usuario VIP activo\n"
-    text += f"Días restantes: {days}\n"
-else:
-    emoji = "⚪"
-    text = f"{emoji} Usuario normal\n"
-```
-
-The message service becomes a simple string store instead of encapsulating voice and presentation rules.
-
-**Why it happens:**
-- Developers refactor incrementally, moving strings first but keeping formatting logic
-- "Just this one dynamic part" exceptions multiply across handlers
-- No clear boundary between business logic and presentation
-- Existing formatters (like `bot/utils/formatters.py`) remain unused
-
-**How to avoid:**
-1. **Context-based templating:** Message service receives context objects, not assembled strings
-2. **Encapsulate variation logic:** Voice service decides emoji/tone based on context, not handler
-3. **Single formatting responsibility:** All HTML tags, emojis, and formatting in service layer only
-
-```python
-# GOOD: Handler passes context, service handles presentation
-await message_service.send_user_status(
-    context={"user_id": user_id, "is_vip": is_vip, "days_remaining": days},
-    channel=message.chat.id
-)
-```
-
-**Warning signs:**
-- Handlers still use f-strings for messages
-- Multiple `if/else` blocks in handlers for message assembly
-- Emoji constants defined in handlers
-- formatters.py functions called from handlers instead of service
-
-**Phase to address:** Phase 1 (Service Foundation)
-
-**Impact if ignored:** CRITICAL - Voice consistency impossible, refactor becomes cosmetic
-
----
-
-### Pitfall 2: Template Explosion Without Hierarchy
-
-**What goes wrong:**
-Message service grows 100+ template methods without organization:
+Menu navigation grows into dozens of FSM states with unclear transitions:
 ```python
 # 6 months later...
-class MessageService:
-    def vip_welcome(self) -> str: ...
-    def vip_welcome_returning(self) -> str: ...
-    def vip_welcome_expired_recently(self) -> str: ...
-    def vip_welcome_first_time(self) -> str: ...
-    def vip_welcome_extended(self) -> str: ...
-    # ... 95 more methods
+class MenuStates(StatesGroup):
+    MAIN = State()
+    CONTENT_LIST = State()
+    CONTENT_DETAIL = State()
+    CONTENT_EDIT_TITLE = State()
+    CONTENT_EDIT_DESC = State()
+    CONTENT_EDIT_MEDIA = State()
+    USER_LIST = State()
+    USER_DETAIL = State()
+    USER_CHANGE_ROLE = State()
+    # ... 20 more states
+
+# Back button logic becomes spaghetti
+async def handle_back(callback: CallbackQuery, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state == MenuStates.CONTENT_DETAIL:
+        await state.set_state(MenuStates.CONTENT_LIST)
+    elif current_state == MenuStates.CONTENT_EDIT_TITLE:
+        await state.set_state(MenuStates.CONTENT_DETAIL)
+    # ... 20 more if/else branches
 ```
 
-Every edge case gets a new template method. No composition, no hierarchy, just a flat namespace of similar templates.
-
 **Why it happens:**
-- Easiest solution is "add another method"
-- No template composition patterns established upfront
-- Fear of breaking existing messages by refactoring
-- WhatsApp's 2026 policy shift away from general-purpose bots encourages structured, business-specific templates (see [respond.io](https://respond.io/blog/whatsapp-general-purpose-chatbots-ban)), but without proper architecture this leads to copy-paste
+- Every new feature adds new states without refactoring
+- No clear state hierarchy or grouping
+- Back button implemented incrementally (one case at a time)
+- Developers add "just one more state" instead of rethinking structure
 
 **How to avoid:**
-1. **Template composition:** Base templates + variation layers
-2. **Context-driven selection:** One method with variant logic inside
-3. **Template inheritance:** YAML/JSON template files with parent/child relationships
-4. **Limit by persona/context:** Group by actor (admin/vip/free) and action, not by edge cases
+1. **Limit depth to 3 levels maximum:** Main → List → Detail
+2. **Group related states:** Use state data, not separate states
+3. **Explicit state transitions:** Document allowed transitions in code
+4. **Back button pattern:** Store previous state in FSMContext
 
 ```python
-# GOOD: Compositional approach
-def user_welcome(self, context: WelcomeContext) -> str:
-    base = self._base_welcome(context.user_name)
+# GOOD: Shallow hierarchy with context storage
+class MenuStates(StatesGroup):
+    MAIN = State()              # Level 1
+    BROWSE = State()            # Level 2 (all lists use this)
+    DETAIL = State()            # Level 3 (all details use this)
 
-    if context.returning_vip:
-        variation = self._vip_returning_variant(context.days_remaining)
-    elif context.new_vip:
-        variation = self._vip_first_time_variant()
-    else:
-        variation = self._standard_user_variant()
+# Store what we're browsing in context
+async def content_list(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(MenuStates.BROWSE)
+    await state.update_data(browse_type='content', page=0)
 
-    return self._compose(base, variation, context.footer)
+async def user_list(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(MenuStates.BROWSE)
+    await state.update_data(browse_type='users', page=0)
+
+# Universal back button
+async def handle_back(callback: CallbackQuery, state: FSMContext):
+    current = await state.get_state()
+    if current == MenuStates.DETAIL:
+        await state.set_state(MenuStates.BROWSE)  # Always go back to browse
+    elif current == MenuStates.BROWSE:
+        await state.set_state(MenuStates.MAIN)    # Always go back to main
 ```
 
 **Warning signs:**
-- More than 30 public methods in message service
-- Method names with 3+ qualifiers (`vip_token_generation_with_plan_error_retry`)
-- Copy-pasted template strings with minor variations
-- Developers unsure where to add new messages
+- More than 8 FSM states in total
+- Nested if/else for state transitions
+- Back button handler >20 lines
+- Developers unsure which state handles which callback
 
-**Phase to address:** Phase 2 (Template Organization)
+**Phase to address:** Phase 2 (FSM States Definition)
 
-**Impact if ignored:** HIGH - Maintenance nightmare, inconsistent voice, slow feature velocity
+**Impact if ignored:** CRITICAL - Unmaintainable navigation, bugs in back button, impossible to add features
 
 ---
 
-### Pitfall 3: Voice Inconsistency from Multiple Contributors
+### Pitfall 2: Role Detection Race Conditions
 
 **What goes wrong:**
-Lucien's personality degrades over time as different developers add messages:
-- Admin panel: Formal, technical ("Configuration updated successfully")
-- User flow: Casual, friendly ("¡Suscripción VIP Activada! 🎉")
-- Error messages: Robotic ("Error code: INVALID_TOKEN")
+User's role changes (VIP expires, admin demoted) but menu still shows old role's options:
+```python
+# BAD: Role checked once, never rechecked
+@vip_menu_router.callback_query(F.data == "menu:main")
+async def vip_menu(callback: CallbackQuery, state: FSMContext):
+    # Role checked at router level, but state persists for hours
+    text = "Contenido VIP exclusivo"
+    await callback.message.edit_text(text, reply_markup=vip_keyboard)
 
-No single source of truth for tone, pacing, emoji usage, or formality level.
+# User's VIP expires 5 minutes later
+# But they still see VIP menu because they're in VIP FSM state
+```
 
 **Why it happens:**
-- Voice guide exists but isn't enforced by code
-- Different developers interpret "Lucien's voice" differently
-- Urgency leads to copy-paste from other handlers
-- No review process for voice consistency
-- Research shows "varying tone, pacing, and formality to match brand guidelines" is a known challenge requiring systematic approaches (see [Danish Lead Co.](https://danishleadco.io/blog?p=brand-voice-consistency-in-ai-b2b-outreach-2026-guide))
+- Role filters applied at router level, not rechecked on each action
+- FSM state persists across role changes
+- Caching of role status (optimization) becomes stale
+- No role revalidation on state transitions
 
 **How to avoid:**
-1. **Voice rules as code:** Automated linting for emoji usage, sentence length, formality markers
-2. **Message templates with voice annotations:** Each template tagged with intended tone/emotion
-3. **Single voice author:** One person reviews all message PRs for voice consistency
-4. **Examples in code:** Every template method includes voice rationale in docstring
+1. **Check role on every action:** Don't rely solely on router filters
+2. **Invalidate state on role change:** Clear FSM when role changes
+3. **Use fresh role queries:** Always check database, not cached values
+4. **Role change hooks:** When role changes, clear user's FSM state
 
 ```python
-def token_generation_success(self, plan_name: str, deep_link: str) -> str:
-    """
-    VOICE: Celebratory but professional. User accomplished something valuable.
-    TONE: Warm congratulations without being overly casual.
-    EMOJI: Moderate (1-2 per section). 🎟️ for token, 🔗 for link.
-    LENGTH: Medium. Include clear next steps.
-    """
-    return f"""🎟️ <b>Token VIP Generado</b>
+# GOOD: Recheck role on sensitive actions
+@vip_menu_router.callback_query(F.data.startswith("vip:content:"))
+async def vip_content_access(callback: CallbackQuery, session: AsyncSession):
+    # Recheck role (not just router filter)
+    user_id = callback.from_user.id
+    is_vip = await SubscriptionService.is_vip_active(session, user_id)
 
-<b>Plan:</b> {plan_name}
-<b>Link:</b> <code>{deep_link}</code>
+    if not is_vip:
+        await state.clear()
+        await callback.answer("Tu suscripción VIP ha expirado", show_alert=True)
+        return await render_free_menu(callback)
 
-El link expira en 24 horas. Envíalo al usuario para activar su suscripción."""
+    # Proceed with VIP content
+    ...
+
+# GOOD: Clear state on role change
+async def expire_vip_subscriber(user_id: int):
+    # ... expiration logic ...
+    # Clear FSM state so user sees updated menu
+    await fsm_storage.set_state(user_id, None)
 ```
 
 **Warning signs:**
-- Comments like "not sure what tone to use here"
-- Same event type uses different emojis across messages
-- Sentence length varies wildly (3 words vs 40 words)
-- Users comment on "bot feels different today"
-- Failed PRs with feedback "this doesn't sound like Lucien"
+- Users report "I still see VIP menu after expiring"
+- Role change doesn't affect menu until bot restart
+- Router filters are the only role check
 
-**Phase to address:** Phase 1 (Service Foundation) + Ongoing
+**Phase to address:** Phase 1 (Service Design) + Phase 3 (Handler Implementation)
 
-**Impact if ignored:** CRITICAL - Brand identity erosion, user confusion
+**Impact if ignored:** HIGH - Security vulnerability, unauthorized access, confused users
 
 ---
 
-### Pitfall 4: Test Brittleness from String Matching
+### Pitfall 3: Admin Notification Spam
 
 **What goes wrong:**
-100+ tests break when you change "Token VIP" to "Token de Acceso VIP":
-
+"Me interesa" feature sends notification to ALL admins for EVERY click:
 ```python
-# BRITTLE TEST
-assert "Token VIP Generado" in message.text
-assert "días" in message.text
-assert "🎟️" in message.text
+# BAD: Spam every admin on every interest
+async def notify_admins(package: ContentPackage, user_id: int):
+    admins = await get_all_admins()  # 50 admins
+    for admin_id in admins:
+        await bot.send_message(
+            admin_id,
+            f"🔔 Interés en: {package.title}\nUsuario: {user_id}"
+        )
+    # 50 notifications sent per interest click
 ```
 
-Every message change requires updating dozens of test assertions. Developers stop improving messages to avoid test churn.
-
 **Why it happens:**
-- Tests assert on final rendered strings instead of semantic meaning
-- No test helpers for message validation
-- Copy-paste test patterns from handler to handler
-- Existing tests (see `tests/test_e2e_flows.py`) likely use string matching
+- No notification batching or rate limiting
+- All admins treated equally (no notification preferences)
+- No deduplication (user clicks "Me interesa" 5 times = 5 notifications)
+- Real-time urgency applied to non-urgent events
 
 **How to avoid:**
-1. **Semantic assertions:** Test for message components, not exact strings
-2. **Test message contracts:** Verify required information present, not specific wording
-3. **Message test helpers:** Reusable validators for message structure
-4. **Snapshot testing:** Accept message changes in bulk, review diffs
+1. **Deduplicate interests:** One notification per (user, package) pair
+2. **Batch notifications:** Collect interests, send periodic digest
+3. **Notification preferences:** Let admins opt-in/out of real-time
+4. **Rate limiting:** Max 1 notification per minute per admin
 
 ```python
-# GOOD: Semantic test
-result = parse_token_success_message(message.text)
-assert result.has_token
-assert result.has_deep_link
-assert result.has_expiration
-assert result.tone == "celebratory"
+# GOOD: Deduplicated + batched notifications
+async def handle_interest(user_id: int, package_id: int):
+    # Check for duplicate
+    existing = await session.execute(
+        select(InterestNotification).where(
+            InterestNotification.user_id == user_id,
+            InterestNotification.package_id == package_id
+        )
+    )
+    if existing.scalar_one_or_none():
+        return False  # Already notified
 
-# ACCEPTABLE: Component test
-assert_contains_token_format(message.text)  # Checks <code>...</code> pattern
-assert_contains_deep_link(message.text)     # Checks https://t.me/...
-assert_valid_html(message.text)             # Checks HTML structure
+    # Create notification record
+    notification = InterestNotification(user_id=user_id, package_id=package_id)
+    session.add(notification)
+    await session.commit()
+
+    # Don't send immediately, queue for batching
+    await notification_queue.add(notification)
+    return True
+
+# Background job: send digest every 10 minutes
+async def send_interest_digest():
+    pending = await get_unnotified_interests(limit=50)
+    if not pending:
+        return
+
+    # Group by package
+    by_package = defaultdict(list)
+    for notif in pending:
+        by_package[notif.package].append(notif.user)
+
+    # Send one message per package to interested admins
+    for package, users in by_package.items():
+        admins = await get_admins_who_want_notifications()
+        for admin_id in admins:
+            await bot.send_message(
+                admin_id,
+                f"📊 {len(users)} interesados en: {package.title}\n"
+                f"Usuarios: {', '.join(map(str, users[:5]))}"
+            )
+
+    # Mark as sent
+    await mark_notified(pending)
 ```
 
 **Warning signs:**
-- Tests with 10+ string assertions per message
-- Test failure rate > 20% when messages change
-- Developers avoid improving message wording
-- Test maintenance takes longer than feature development
-- Regex assertions in tests
+- Admins mute bot due to spam
+- Multiple notifications for same user/content
+- Admins complain about notification volume
+- Notification sending blocks menu handlers (slow)
 
-**Phase to address:** Phase 3 (Testing Strategy)
+**Phase to address:** Phase 4 (Interest Notification System)
 
-**Impact if ignored:** HIGH - Slowed development, fear of refactoring
+**Impact if ignored:** MEDIUM - Admins disable bot, miss important notifications
 
 ---
 
-### Pitfall 5: Variation System Feels Random Instead of Natural
+### Pitfall 4: Content Pagination Off-by-One Errors
 
 **What goes wrong:**
-You implement message variation for personality:
+Pagination shows duplicate items, skips items, or shows empty pages:
 ```python
-WELCOME_MESSAGES = [
-    "¡Hola {name}! 👋",
-    "¡Bienvenido {name}! 🎉",
-    "¡Hola de nuevo {name}! 😊"
-]
-random.choice(WELCOME_MESSAGES)
+# BAD: Off-by-one error in pagination
+async def get_content_list(page: int):
+    offset = page * 10  # Wrong: should be (page - 1) * 10
+    result = await session.execute(
+        select(ContentPackage)
+        .offset(offset)
+        .limit(10)
+    )
+    # Page 1 skips first 10 items, shows items 11-20
 ```
 
-Users report feeling "the bot is inconsistent" or "something seems off." The variation feels arbitrary, not natural.
-
 **Why it happens:**
-- True randomness doesn't match human communication patterns
-- No context-aware variation (same message repeated within minutes)
-- Variation applied equally to all message types (errors shouldn't vary much)
-- No user memory of which variant they saw before
+- Page numbering confusion (0-indexed vs 1-indexed)
+- No validation of page parameter (negative, huge numbers)
+- COUNT query not run, so no total pages
+- Previous/Next buttons enabled when they shouldn't be
 
 **How to avoid:**
-1. **Context-driven variation:** Vary based on user state, time since last interaction
-2. **Variation tiers:** High variation (greetings), medium (confirmations), low (errors)
-3. **Stateful variation:** Remember recent variants, avoid repetition
-4. **A/B test perception:** Measure if users notice/appreciate variation
+1. **Explicit page numbering:** Decide 0-indexed or 1-indexed, stick to it
+2. **Validate page parameter:** Reject negative, cap at max page
+3. **Count total items:** Calculate total_pages, show to user
+4. **Disable buttons at bounds:** Previous disabled on page 0, Next disabled on last page
 
 ```python
-# GOOD: Context-aware variation
-def user_welcome(self, context: WelcomeContext) -> str:
-    if context.hours_since_last_visit < 1:
-        # Just saw them, minimal variation
-        return f"Hola de nuevo, {context.name}"
-    elif context.hours_since_last_visit < 24:
-        # Same day, moderate warmth
-        return self._choose_variant(["¡Hola {name}!", "Bienvenido de vuelta, {name}"])
-    else:
-        # Been a while, warmer greeting
-        return self._choose_variant([
-            "¡Hola de nuevo {name}! 👋",
-            "¡Bienvenido de vuelta {name}! 🎉"
+# GOOD: Correct pagination with validation
+async def get_content_list(package_type: str, page: int = 0):
+    page_size = 10
+
+    # Count total items
+    total_count = await session.execute(
+        select(func.count(ContentPackage.id)).where(
+            ContentPackage.package_type == package_type,
+            ContentPackage.is_active == True
+        )
+    )
+    total = total_count.scalar()
+
+    # Validate page
+    max_page = max(0, (total - 1) // page_size)
+    page = max(0, min(page, max_page))
+
+    # Query with correct offset
+    offset = page * page_size  # 0-indexed pages
+    result = await session.execute(
+        select(ContentPackage)
+        .where(
+            ContentPackage.package_type == package_type,
+            ContentPackage.is_active == True
+        )
+        .order_by(ContentPackage.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    packages = result.scalars().all()
+
+    # Build keyboard with disabled buttons at bounds
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="⬅️",
+                callback_data=f"content:list:{page-1}" if page > 0 else "disabled"
+            ),
+            InlineKeyboardButton(text=f"Página {page+1}/{max_page+1}", callback_data="noop"),
+            InlineKeyboardButton(
+                text="➡️",
+                callback_data=f"content:list:{page+1}" if page < max_page else "disabled"
+            )
+        ]
+    ])
+
+    return packages, keyboard
+```
+
+**Warning signs:**
+- Users report duplicate items across pages
+- Items missing (skipped) from list
+- Empty pages shown
+- "Previous" button shows new items instead of old
+
+**Phase to address:** Phase 3 (Admin Menu - Content List)
+
+**Impact if ignored:** MEDIUM - Broken UX, user frustration, data inconsistency
+
+---
+
+### Pitfall 5: Permission Escalation via Callback Manipulation
+
+**What goes wrong:**
+User crafts callback_data to access admin functions:
+```python
+# User inspects keyboard, sees: callback_data="admin:delete_user:123"
+# User edits keyboard, changes to: callback_data="admin:delete_user:456"
+# User clicks button, deletes user 456 without being admin
+```
+
+**Why it happens:**
+- Callback data trusted without permission check
+- Router filters only check role on menu entry
+- Individual actions assume user has permission
+- No audit trail for sensitive actions
+
+**How to avoid:**
+1. **Check permission on EVERY action:** Not just router level
+2. **Audit sensitive operations:** Log who did what
+3. **Confirm destructive actions:** Require confirmation for delete/block
+4. **Action-specific permissions:** Different admin levels for different actions
+
+```python
+# GOOD: Permission check on every action
+@router.callback_query(F.data.startswith("admin:delete_user:"))
+async def delete_user(callback: CallbackQuery, session: AsyncSession):
+    # Check permission (even though router has admin filter)
+    admin_id = callback.from_user.id
+    if not await is_admin(session, admin_id):
+        logger.warning(f"Non-admin {admin_id} attempted delete_user")
+        await callback.answer("Acceso denegado", show_alert=True)
+        return
+
+    # Parse target
+    target_id = int(callback.data.split(':')[2])
+
+    # Prevent self-deletion
+    if target_id == admin_id:
+        await callback.answer("No puedes borrarte a ti mismo", show_alert=True)
+        return
+
+    # Require confirmation
+    await state.update_data(pending_delete=target_id)
+    await callback.message.edit_text(
+        f"⚠️ Confirmar: ¿Borrar usuario {target_id}?",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Confirmar", callback_data=f"admin:confirm_delete:{target_id}")],
+            [InlineKeyboardButton(text="Cancelar", callback_data="admin:user_list")]
         ])
-```
-
-**Warning signs:**
-- Users report "bot feels inconsistent"
-- Same greeting twice in a row for same user
-- Error messages vary in formality (confusing)
-- No analytics on which variants perform better
-- Variation added "because it seems fun"
-
-**Phase to address:** Phase 4 (Variation System) - DEFER if not needed for MVP
-
-**Impact if ignored:** MEDIUM - User experience degradation, unprofessional feel
-
----
-
-### Pitfall 6: Service Layer Becomes Stateful Without Proper Session Management
-
-**What goes wrong:**
-Message service accumulates state:
-```python
-class MessageService:
-    def __init__(self, bot, session):
-        self.bot = bot
-        self.session = session
-        self._last_messages = {}  # DANGER
-        self._user_preferences = {}  # DANGER
-```
-
-Database sessions leak, memory grows unbounded, concurrency bugs emerge when multiple handlers share service instance.
-
-**Why it happens:**
-- Need to track "recently sent messages" for deduplication
-- Want to cache user preferences for formatting
-- ServiceContainer (see `bot/services/container.py`) uses lazy loading but services aren't properly scoped
-- Developers familiar with stateful OOP patterns
-
-**How to avoid:**
-1. **Stateless by default:** Service methods receive all context via parameters
-2. **Session-scoped state only:** Use FSM context or database for cross-request state
-3. **Explicit cache layer:** If caching needed, use separate cache service with TTL
-4. **Request-scoped services:** Create new service instance per request if state needed
-
-```python
-# GOOD: Stateless service
-class MessageService:
-    def __init__(self):
-        pass  # No session, no bot, no state
-
-    def format_welcome(self, user_name: str, is_vip: bool, last_visit: datetime) -> str:
-        # Pure function, all inputs via params
-        ...
-```
-
-**Warning signs:**
-- Service `__init__` accepts session/bot
-- Instance variables updated in service methods
-- Memory usage grows over time
-- Concurrent handler calls cause race conditions
-- ServiceContainer preload (see `container.py:preload_critical_services`) loads stateful services
-
-**Phase to address:** Phase 1 (Service Foundation)
-
-**Impact if ignored:** CRITICAL - Memory leaks, database session leaks, concurrency bugs
-
----
-
-### Pitfall 7: Missing Localization Preparation (i18n)
-
-**What goes wrong:**
-All messages hardcoded in Spanish. Later requirement: "add English support." Entire refactor needs re-refactoring because localization wasn't considered.
-
-**Why it happens:**
-- Current project is Spanish-only, seems like premature optimization
-- "We'll add it later if needed"
-- i18n libraries feel heavy for simple message service
-- Existing code shows no i18n structure (all messages in Spanish)
-
-**How to avoid:**
-1. **Keys not strings:** Even if single language, use message keys
-2. **Interpolation patterns:** Separate static text from dynamic values
-3. **String extraction ready:** Structure allows easy migration to gettext/Babel later
-4. **Test with pseudo-locale:** Catch hardcoded strings early
-
-```python
-# GOOD: i18n-ready even if Spanish-only today
-def token_success(self, context: TokenContext) -> str:
-    return self.get_message(
-        key="admin.token.success",
-        plan_name=context.plan_name,
-        deep_link=context.deep_link
     )
 
-# messages_es.json
-{
-    "admin.token.success": "🎟️ <b>Token VIP Generado</b>\n\n<b>Plan:</b> {plan_name}\n..."
-}
+# Confirmation handler
+@router.callback_query(F.data.startswith("admin:confirm_delete:"))
+async def confirm_delete_user(callback: CallbackQuery, session: AsyncSession):
+    target_id = int(callback.data.split(':')[2])
+
+    # Check permission AGAIN
+    if not await is_admin(session, callback.from_user.id):
+        return await callback.answer("Acceso denegado", show_alert=True)
+
+    # Perform deletion
+    await delete_user_from_db(session, target_id)
+
+    # Audit log
+    await audit_log.info(
+        "User deleted",
+        admin_id=callback.from_user.id,
+        target_id=target_id,
+        timestamp=datetime.utcnow()
+    )
+
+    await callback.answer("Usuario eliminado")
 ```
 
 **Warning signs:**
-- All strings in Python code (no separation)
-- No message key constants
-- Formatters directly return Spanish strings
-- Comments like "TODO: i18n"
+- No permission check in action handlers (only router filter)
+- Destructive actions execute immediately without confirmation
+- No logging of who did what
+- Callback data directly used to perform actions
 
-**Phase to address:** Phase 2 (Template Organization) - Design with i18n in mind, implement later
+**Phase to address:** Phase 3 (Admin Menu) + Phase 6 (User Management)
 
-**Impact if ignored:** MEDIUM - Expensive refactor if internationalization needed
+**Impact if ignored:** CRITICAL - Security vulnerability, unauthorized actions, data loss
+
+---
+
+### Pitfall 6: MenuService Becoming God Object
+
+**What goes wrong:**
+MenuService accumulates all menu logic, becomes 2000+ lines:
+```python
+# 6 months later...
+class MenuService:
+    # 50 methods for admin menus
+    def get_admin_main_menu(self) -> ...
+    def get_admin_content_list(self) -> ...
+    def get_admin_user_list(self) -> ...
+
+    # 40 methods for VIP menus
+    def get_vip_main_menu(self) -> ...
+    def get_vip_content_list(self) -> ...
+
+    # 30 methods for Free menus
+    def get_free_main_menu(self) -> ...
+
+    # 20 helper methods
+    def _render_text(self) -> ...
+    def _build_keyboard(self) -> ...
+    # ... 140 more methods
+```
+
+**Why it happens:**
+- All menu rendering goes through one service
+- No separation between different menu types
+- "Just add one more method" mentality
+- Fear of breaking existing code by refactoring
+
+**How to avoid:**
+1. **Split by role:** AdminMenuService, VIPMenuService, FreeMenuService
+2. **Base class for shared logic:** Common pagination, text rendering
+3. **Limit methods per class:** Max 20 methods per service
+4. **Keyboard builders separate:** utils/keyboards.py for keyboard construction
+
+```python
+# GOOD: Split by role with base class
+class BaseMenuService:
+    """Shared menu logic."""
+    def __init__(self, session: AsyncSession, bot: Bot):
+        self._session = session
+        self._bot = bot
+
+    async def _build_pagination_keyboard(self, page, max_page, callback_prefix):
+        # Shared pagination logic
+        pass
+
+    async def _render_content_list_text(self, packages, page):
+        # Shared text rendering
+        pass
+
+class AdminMenuService(BaseMenuService):
+    """Admin-only menus."""
+    async def get_main_menu(self) -> tuple[str, InlineKeyboardMarkup]:
+        # Admin-specific logic
+        pass
+
+    async def get_content_management_menu(self) -> tuple[str, InlineKeyboardMarkup]:
+        # Admin-specific logic
+        pass
+
+class VIPMenuService(BaseMenuService):
+    """VIP-only menus."""
+    async def get_main_menu(self) -> tuple[str, InlineKeyboardMarkup]:
+        # VIP-specific logic
+        pass
+
+# ServiceContainer routes to correct service
+class ServiceContainer:
+    @property
+    def admin_menu(self) -> AdminMenuService:
+        if self._admin_menu is None:
+            self._admin_menu = AdminMenuService(self._session, self._bot)
+        return self._admin_menu
+
+    @property
+    def vip_menu(self) -> VIPMenuService:
+        if self._vip_menu is None:
+            self._vip_menu = VIPMenuService(self._session, self._bot)
+        return self._vip_menu
+```
+
+**Warning signs:**
+- MenuService >500 lines
+- >30 methods in one class
+- Method names with 3+ underscores (_render_admin_content_list_text_v2)
+- Developers afraid to touch MenuService
+
+**Phase to address:** Phase 2 (MenuService Design) + Ongoing refactoring
+
+**Impact if ignored:** HIGH - Unmaintainable code, slow development, bug-prone
+
+---
+
+### Pitfall 7: Stateful Content Media Handling
+
+**What goes wrong:**
+Content media (photos/videos) downloaded and stored as URLs, but URLs expire or files are deleted:
+```python
+# BAD: Store URL, but URL expires
+package = ContentPackage(
+    title="My Content",
+    media_url="https://temp-storage.com/photo123.jpg"  # Expires in 24h
+)
+await session.add(package)
+
+# User tries to view content 1 week later
+# URL is broken, media doesn't load
+```
+
+**Why it happens:**
+- Using external file hosting with temporary URLs
+- Not storing Telegram file_id (permanent)
+- No validation that media URL still works
+- No fallback when media fails to load
+
+**How to avoid:**
+1. **Store Telegram file_id:** Permanent reference to uploaded file
+2. **Upload immediately:** Don't store URLs, upload to Telegram first
+3. **Validate on upload:** Check file size, type before storing
+4. **Graceful degradation:** Show text if media fails
+
+```python
+# GOOD: Store Telegram file_id
+@admin_menu_router.message(MenuStates.CONTENT_CREATION_MEDIA, F.photo)
+async def receive_content_photo(message: Message, state: FSMContext):
+    # Get largest photo
+    photo = message.photo[-1]
+    file_id = photo.file_id  # Permanent reference
+
+    # Store file_id, not URL
+    data = await state.get_data()
+    data['media_file_id'] = file_id
+    data['media_type'] = 'photo'
+    await state.update_data(data)
+
+    await message.answer("Foto recibida. Guardando contenido...")
+
+    # Create content package
+    package = ContentPackage(
+        title=data['title'],
+        description=data['description'],
+        file_id=file_id,  # Store permanent file_id
+        package_type='vip',
+        is_active=True
+    )
+    await session.add(package)
+    await session.commit()
+
+# When rendering content
+async def get_content_detail(package_id: int):
+    package = await session.get(ContentPackage, package_id)
+
+    if package.file_id:
+        if package.media_type == 'photo':
+            # Send using file_id (permanent, no bandwidth)
+            await bot.send_photo(chat_id, photo=package.file_id, caption=package.description)
+        elif package.media_type == 'video':
+            await bot.send_video(chat_id, video=package.file_id, caption=package.description)
+    else:
+        # Fallback to text only
+        await bot.send_message(chat_id, package.description)
+```
+
+**Warning signs:**
+- Media URLs stored instead of file_id
+- Broken media icons in old content
+- "Media not found" errors
+- High bandwidth usage (re-downloading media)
+
+**Phase to address:** Phase 3 (Admin Menu - Content Creation)
+
+**Impact if ignored:** MEDIUM - Broken content, poor UX, wasted bandwidth
 
 ---
 
@@ -381,29 +600,28 @@ Shortcuts that seem reasonable but create long-term problems.
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| f-strings in handlers | Fast implementation | Voice inconsistency, impossible to refactor | Never (breaks core architecture) |
-| Copy-paste similar templates | Avoids abstraction complexity | Template explosion (100+ methods) | Never (compounds quickly) |
-| Random variation without context | Easy personality | Feels random/unprofessional | Only for low-stakes messages (daily tips) |
-| String matching tests | Simple to write | Brittle, blocks message improvements | Only for critical exact-match (legal disclaimers) |
-| Skip voice documentation | Faster coding | Voice drift, reviewer confusion | Never (voice is core value) |
-| Stateful service for "just one cache" | Convenient | Memory leaks, concurrency bugs | Never (violates architecture) |
-| Hardcode language (Spanish only) | No translation overhead | Expensive refactor if i18n needed | Acceptable if internationalization confirmed out-of-scope |
+| Skip role checks on actions | Faster development | Security vulnerability | Never (safety critical) |
+| Hardcoded menu keyboards | Quick menu implementation | Cannot add dynamic content | Only for prototypes |
+| Send notifications immediately | Real-time feel for admins | Notification spam, performance | Only for <10 admins |
+| Store URLs instead of file_id | No upload logic needed | Broken media, bandwidth waste | Never |
+| One giant MenuService | No upfront design | Unmaintainable god object | Never |
+| Skip pagination for lists | Simpler queries | List too long, performance | Only for <20 items |
+| State caching for role check | Fewer database queries | Stale permissions | Never (security) |
 
 ---
 
 ## Integration Gotchas
 
-Common mistakes when connecting message service to existing bot components.
+Common mistakes when connecting menu system to existing bot components.
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| ServiceContainer | Add MessageService to container with session/bot in init | Make MessageService stateless, inject session/bot per-call |
-| FSM Handlers | Store formatted messages in FSM context | Store raw data in FSM, format on display |
-| Error Handling | Format error in service, log formatted string | Log structured data, format only for user display |
-| Testing | Mock entire MessageService | Use real service with test message variants |
-| Keyboards | Generate keyboard in message service | Separate keyboard utility, message service returns text only |
-| Background Tasks | Use different message tone than handlers | Reuse same voice rules, mark system messages clearly |
-| Database Models | Store rendered HTML in database | Store semantic data, render on retrieval |
+| ServiceContainer | Add MenuService without splitting by role | Split into AdminMenuService, VIPMenuService, FreeMenuService |
+| FSM States | Add state for every menu variation | Use state data for variations (browse_type='content' vs 'users') |
+| LucienVoiceService | Hardcode messages in handlers | Call voice service from MenuService |
+| SubscriptionService | Duplicate role logic in menu handlers | Reuse is_vip_active(), get_user_role() |
+| ChannelService | Assume channel always configured | Check is_configured() before using |
+| Admin Middleware | Only check at router level | Recheck permission on sensitive actions |
 
 ---
 
@@ -413,45 +631,46 @@ Patterns that work at small scale but fail as usage grows.
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Message template compilation on every call | High CPU, slow response time | Pre-compile templates at service init | >100 messages/sec |
-| Loading all templates into memory | High memory usage, OOM crashes | Lazy-load templates, use generator patterns | >1000 templates |
-| Complex variation logic blocking async loop | Handler timeout, queue backup | Pre-compute variations, cache results | >50 variation rules |
-| HTML escaping on every character | Slow message formatting | Use Telegram's entity system instead of HTML where possible | >1000 char messages |
-| Deep nested template inheritance | Slow rendering, hard to debug | Max 2-3 inheritance levels | >5 levels deep |
-| Logging every formatted message at INFO | Log spam, disk I/O bottleneck | Log at DEBUG, sample INFO logs | >500 messages/sec |
+| N+1 queries in content list | Slow list render, high DB CPU | Use selectinload/joinedload for relationships | >50 items |
+| Sending notifications synchronously | Handler timeout, slow menu response | Queue notifications, send in background | >5 admins |
+| No pagination on content lists | UI lag, timeout on large lists | Always paginate, max 20 items per page | >30 items |
+| Re-rendering full menu on every action | Slow updates, flickering | Use edit_text/edit_reply_markup, not full rebuild | >100 menu opens/hour |
+| Storing media in DB (base64) | DB bloat, slow queries | Store file_id, media in Telegram | >100 content items |
+| No caching of role checks | Repeated DB queries | Cache role in FSMContext for session duration | >1000 users |
 
-**Note for this project:** Termux environment has memory constraints. Even "small scale" performance issues matter. Keep service lightweight.
+**Note for this project:** Termux environment has memory constraints. Even "small scale" performance issues matter. Keep menu rendering lightweight.
 
 ---
 
 ## Security Mistakes
 
-Domain-specific security issues for message templating.
+Domain-specific security issues for menu systems.
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Unsanitized user input in templates | XSS via Telegram HTML | Always use formatters.escape_html() for user content |
-| Admin messages leaking user IDs | Privacy violation | Use format_user_id() which masks IDs or log audit separately |
-| Error messages revealing system internals | Information disclosure | Generic error messages to users, detailed logs only |
-| Deep links exposing tokens in URLs | Token theft if URL shared | Tokens should be short-lived (24h), single-use |
-| Message templates with hardcoded secrets | Credentials in version control | Use environment variables, never in templates |
-| Logging formatted messages with PII | PII in logs | Log message keys and context separately, not rendered output |
+| Callback data trusted blindly | Privilege escalation, data manipulation | Validate on every action, check permissions |
+| No confirmation for delete | Accidental data loss, malicious actions | Require confirmation for destructive actions |
+| Admin can delete other admins | Power struggles, bot administration breakdown | Prevent admin-on-admin actions |
+| No audit trail | Cannot investigate security incidents | Log all sensitive actions with who/when/what |
+| Role change without state clear | User retains old menu access | Clear FSM state when role changes |
+| File upload without validation | Malicious files, DoS | Validate file size, type, dimensions |
+| SQL injection in content search | Data breach, DB corruption | Use parameterized queries (SQLAlchemy handles this) |
 
 ---
 
 ## UX Pitfalls
 
-Common user experience mistakes in bot messaging.
+Common user experience mistakes in menu systems.
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Walls of text (>300 words) | TL;DR, users miss key info | Progressive disclosure: summary first, details on demand |
-| Emoji overload (>5 per message) | Looks unprofessional, hard to read | 1-3 emojis maximum, purposeful placement |
-| Inconsistent formatting (bold/code/italic) | Hard to scan, cognitive load | Consistent hierarchy: bold for headers, code for IDs/tokens |
-| No clear call-to-action | Users unsure what to do next | Every message ends with action button or clear instruction |
-| Error messages blame user | Frustration, abandonment | Frame errors as help: "Let's fix this together" |
-| Success messages bury important info | Users miss invite links, expiration | **Bold** critical information, use line breaks for hierarchy |
-| Mixing English/Spanish in UI | Confusion, feels unprofessional | Pick one language per user session, consistent terminology |
+| No back button on leaf menus | Stuck, must restart conversation | Always provide back button or "Home" |
+| Loading indicators not shown | "Is it broken?" confusion | Send "Cargando..." message, edit when done |
+| Empty pages with no message | "Did something go wrong?" | Show "No hay contenido" with placeholder |
+| Inconsistent button order | Cognitive load, wrong clicks | Standard order: Back on left, action on right |
+| No confirmation on destructive actions | Accidental deletions | Always require confirmation for delete/block |
+| Pagination without page info | Lost in list, don't know position | Show "Página X/Y" on pagination buttons |
+| Menu doesn't work on mobile | Buttons too small, hard to tap | Test on real device, use full-width buttons |
 
 ---
 
@@ -459,16 +678,16 @@ Common user experience mistakes in bot messaging.
 
 Things that appear complete but are missing critical pieces.
 
-- [ ] **Message Service:** Has methods but they just return hardcoded strings (no voice rules)
-- [ ] **Voice Consistency:** Voice guide document exists but not enforced in code review
-- [ ] **Template Organization:** Templates grouped in code but no hierarchy (still flat namespace)
-- [ ] **Test Strategy:** Tests pass but assert on exact strings (will break on wording changes)
-- [ ] **Error Handling:** Error messages exist but reveal system internals to users
-- [ ] **HTML Safety:** Using HTML parse mode but not escaping user input (XSS risk)
-- [ ] **Variation System:** Messages vary but randomly (no context, feels artificial)
-- [ ] **Performance:** Works in dev but no profiling for 100+ concurrent users
-- [ ] **Localization:** All messages extracted but keys are generic (msg_001, msg_002)
-- [ ] **Documentation:** Every method documented but no voice rationale or usage examples
+- [ ] **FSM States:** States defined but no back button implementation
+- [ ] **Role Filtering:** Router filters exist but no permission checks on actions
+- [ ] **Pagination:** Implemented but off-by-one errors in offset calculation
+- [ ] **Content CRUD:** Create works but edit/delete missing or broken
+- [ ] **Notifications:** Sent but no deduplication (spam)
+- [ ] **Media Handling:** Stores URL but not file_id (will break)
+- [ ] **User Management:** View user works but role change missing
+- [ ] **Error Handling:** Works for happy path only, crashes on edge cases
+- [ ] **State Persistence:** Menu works in session but breaks after restart
+- [ ] **Audit Logging:** Actions work but no logging for security incidents
 
 ---
 
@@ -478,12 +697,12 @@ When pitfalls occur despite prevention, how to recover.
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Voice inconsistency discovered | MEDIUM | 1. Audit all messages, categorize by tone<br>2. Define 3-5 voice archetypes<br>3. Rewrite outliers in batch<br>4. Add voice linting to CI |
-| Template explosion (100+ methods) | HIGH | 1. Map message flow diagram<br>2. Identify composition opportunities<br>3. Refactor to base + variant pattern<br>4. Deprecate old methods gradually |
-| Test brittleness blocking changes | LOW | 1. Create semantic test helpers<br>2. Rewrite tests in batches<br>3. Add snapshot testing<br>4. Update test guidelines |
-| Service became stateful | CRITICAL | 1. Audit all state usage<br>2. Move state to FSM context or database<br>3. Make service stateless<br>4. Add lint rule preventing state |
-| Missing i18n support | HIGH | 1. Extract all strings to keys<br>2. Create message catalog<br>3. Add locale parameter to all methods<br>4. Migrate handlers to use keys |
-| Performance degraded | MEDIUM | 1. Profile message formatting<br>2. Pre-compile templates<br>3. Add caching layer<br>4. Optimize hot paths |
+| FSM State Soup | HIGH | 1. Map all states and transitions<br>2. Group related states<br>3. Refactor to shallow hierarchy<br>4. Update all handlers |
+| Permission Bugs | CRITICAL | 1. Audit all action handlers<br>2. Add permission checks<br>3. Test with non-admin users<br>4. Add audit logging |
+| Notification Spam | MEDIUM | 1. Implement deduplication<br>2. Batch existing notifications<br>3. Add rate limiting<br>4. Ask admins to re-enable |
+| Pagination Errors | LOW | 1. Fix offset calculation<br>2. Add validation<br>3. Test with empty, single, multi-page<br>4. Fix button enable/disable logic |
+| God Object MenuService | HIGH | 1. Extract role-specific services<br>2. Move shared logic to base class<br>3. Update ServiceContainer<br>4. Test all menus |
+| Media URL Rot | MEDIUM | 1. Migrate URLs to file_id<br>2. Re-upload content to Telegram<br>3. Update database<br>4. Add fallback for missing media |
 
 ---
 
@@ -493,29 +712,26 @@ How roadmap phases should address these pitfalls.
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Hardcoded presentation logic in handlers | Phase 1: Service Foundation | Handler code review: zero f-strings, zero emoji constants |
-| Template explosion | Phase 2: Template Organization | Template count < 30 public methods, composition pattern documented |
-| Voice inconsistency | Phase 1 + Ongoing | Voice lint rules pass, PRs reviewed by voice champion |
-| Test brittleness | Phase 3: Testing Strategy | Message wording change doesn't break >10% of tests |
-| Random variation | Phase 4: Variation (Defer) | User testing: variation feels natural not random |
-| Stateful service | Phase 1: Service Foundation | Service `__init__` accepts zero arguments, no instance vars |
-| Missing i18n | Phase 2: Design (implement later) | All messages use keys, no hardcoded strings in service |
+| FSM State Soup | Phase 2 (FSM States) | Total states < 8, back button < 20 lines |
+| Role Race Conditions | Phase 1 (Service Design) | Role rechecked on every action |
+| Notification Spam | Phase 4 (Notifications) | Deduplication works, batched sending |
+| Pagination Errors | Phase 3 (Content List) | Validate with 0, 1, many pages |
+| Permission Escalation | Phase 3 (Admin Menu) | Permission check on every action |
+| God Object MenuService | Phase 2 (Service Design) | Service < 500 lines, < 30 methods |
+| Media URL Rot | Phase 3 (Content Creation) | Store file_id, not URL |
 
 ---
 
 ## Sources
 
-- [GramIO Formatting](https://gramio.dev/formatting) - Telegram message formatting patterns
-- [Telegram Bot API Inconsistencies](https://github.com/tdlib/telegram-bot-api/issues/515) - Known formatting issues
-- [Brand Voice Consistency in AI 2026](https://danishleadco.io/blog?p=brand-voice-consistency-in-ai-b2b-outreach-2026-guide) - Voice consistency challenges
-- [Chatbot Architecture Best Practices 2026](https://research.aimultiple.com/chatbot-architecture/) - Architecture patterns
-- [Common Chatbot Mistakes](https://www.chatbot.com/blog/common-chatbot-mistakes/) - UX and implementation pitfalls
-- [WhatsApp General-Purpose Chatbots Ban](https://respond.io/blog/whatsapp-general-purpose-chatbots-ban) - Structured template requirements
-- [Bot Service Architecture](https://moimhossain.com/2025/05/22/azure-bot-service-microsoft-teams-architecture-and-message-flow/) - Integration gotchas
-- [Chatbot Best Practices 2026](https://botpress.com/blog/chatbot-best-practices) - 24 best practices including monitoring and security
+- [FSM State Management Best Practices](https://docs.aiogram.dev/en/latest/dispatcher/finite_state_machine.html) — aiogram FSM guide (HIGH confidence)
+- [Telegram Bot Security Checklist](https://core.telegram.org/bots/security) — Official security guidelines (HIGH confidence)
+- [Menu Navigation Patterns](https://mastergroosha.github.io/telegram-tutorial-2/levelup/) — Navigation patterns (MEDIUM confidence)
+- [Pagination in Web Applications](https://www.postgresql.org/docs/current/queries-limit.html) — Database pagination (HIGH confidence)
+- [Notification UX Best Practices](https://www.nngroup.com/articles/notification-ux/) — User experience (MEDIUM confidence)
 
 ---
 
-*Pitfalls research for: Telegram Bot Message Service Refactoring*
-*Researched: 2026-01-23*
-*Confidence: HIGH (based on real-world patterns in codebase + web research + official documentation)*
+*Pitfalls research for: Menu System (v1.1)*
+*Researched: 2026-01-24*
+*Confidence: HIGH (based on real-world patterns + aiogram documentation)*

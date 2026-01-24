@@ -1,405 +1,407 @@
-# Stack Research: Message Templating with Voice Consistency
+# Stack Research: Role-Based Menu System for Telegram Bot
 
-**Domain:** Centralized message service for Telegram bot with character voice consistency
-**Researched:** 2026-01-23
+**Domain:** Menu System with Role-Based Routing, Content Management, and User Notifications
+**Researched:** 2026-01-24
 **Confidence:** HIGH
 
 ## Executive Summary
 
-For adding a centralized message templating service with voice consistency to an existing aiogram 3.4.1 bot in a Termux environment, the recommended approach is **zero-dependency class-based templates with f-strings**, organized by navigation flow. This balances performance (<10ms), maintainability, Termux constraints, and voice consistency requirements without introducing heavy templating engines.
+For building a role-based menu system with content package management and notification features for an existing aiogram 3.4.1 bot, the recommended approach is **extend the existing architecture with FSM-based menu navigation, SQLAlchemy models for content persistence, and callback query routing**. This leverages the current codebase patterns (ServiceContainer, middlewares, FSM states) while adding new models for content packages and interest tracking.
 
 ## Recommended Stack
 
-### Core Approach: Class-Based Templates (No External Libraries)
+### Core Approach: Build on Existing Architecture
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| **Pure Python Classes** | Python 3.12.12 | Template organization | Zero overhead, integrates with existing ServiceContainer, type-safe |
-| **f-strings** | Built-in (PEP 498) | String formatting | 2x faster than `.format()`, compile-time evaluation, readable |
-| **dataclass** | Built-in (stdlib) | Template structure | Minimal overhead, `slots=True` reduces memory 40 bytes/instance, clean syntax |
-| **random.choices()** | Built-in (stdlib) | Weighted variations | Standard library, efficient for dozens-hundreds of picks, <1ms overhead |
+| **aiogram FSM** | 3.4.1 (existing) | Menu state management | Already in use, handles back/navigation naturally |
+| **SQLAlchemy** | 2.0.25 (existing) | Content package storage | Existing ORM, async engine, WAL mode SQLite |
+| **CallbackQuery filters** | 3.4.1 (existing) | Menu button routing | Standard pattern, already used in admin handlers |
+| **aiogram Router** | 3.4.1 (existing) | Role-based handler routing | Separate routers per role, filter by user.role |
+| **Lazy loading** | Existing pattern | Menu content providers | Reduce memory, only load menu handlers when accessed |
+
+### New Database Models
+
+| Model | Purpose | Key Fields |
+|-------|---------|------------|
+| **ContentPackage** | Store content packages with type, title, description, media_url | id, package_type, title, description, media_url, created_at, is_active |
+| **InterestNotification** | Track "Me interesa" clicks for admin notification | id, user_id, package_id, created_at, notified |
+| **UserRoleChangeLog** | Audit trail for role changes | id, user_id, old_role, new_role, changed_by, changed_at |
 
 ### Supporting Patterns
 
 | Pattern | Purpose | When to Use |
 |---------|---------|-------------|
-| **Singleton Service** | LucienVoiceService instance | Matches existing ConfigService pattern, centralized access |
-| **Lazy Loading** | Load template classes on-demand | Existing ServiceContainer pattern, reduces memory in Termux |
-| **Class Hierarchy** | Group templates by flow (VIP, Free, Admin, Common) | Logical organization, easy navigation, voice consistency audits |
-| **Cached Cumulative Weights** | Pre-compute variation weights | Only if >1000 variations per category, unlikely in bot context |
-
-### Development Tools
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| **mypy** | Type checking | Already in project, ensures type safety for template methods |
-| **pytest** | Unit testing | Test variation selection, voice consistency, message assembly |
+| **FSM State per menu level** | Track user's position in menu hierarchy | Main menu, content list, content detail, back navigation |
+| **Callback data encoding** | Pack menu action data into callback strings | Format: `action:payload` (e.g., `menu:content:123`) |
+| **Role-based Router** | Separate handlers by user role | AdminRouter, VIPRouter, FreeRouter with filters |
+| **ServiceContainer extension** | Add MenuService for menu logic | Menu rendering, navigation, permission checks |
 
 ## Installation
 
 ```bash
-# No external dependencies needed - all stdlib
-# Already available in Python 3.12.12
+# All dependencies already installed
+# aiogram 3.4.1
+# SQLAlchemy 2.0.25
+# aiosqlite 0.19.0
+# python-dotenv 1.0.0
 
-# For development/testing (if not already installed)
-pip install pytest==7.4.3 mypy --break-system-packages
+# No new dependencies required - build on existing stack
 ```
 
-## Detailed Approach: Class-Based Template Service
+## Detailed Approach: Menu System Architecture
 
-### Architecture Pattern
+### Role-Based Routing
 
 ```python
-# bot/services/voice.py
-from dataclasses import dataclass
-from typing import List, Optional
-import random
+# bot/handlers/menu/
+├── __init__.py
+├── admin.py          # Admin menu router
+├── vip.py            # VIP menu router
+├── free.py           # Free menu router
+└── common.py         # Shared menu handlers
 
-@dataclass(slots=True, frozen=True)
-class MessageVariation:
-    """Single message variation with optional weight."""
-    text: str
-    weight: int = 1
+# Role filter middleware
+async def role_filter(message: Message, role: str):
+    user = await get_user_role(message.from_user.id)
+    return user.role == role
 
-@dataclass(slots=True, frozen=True)
-class MessageTemplate:
-    """Template with multiple weighted variations."""
-    variations: List[MessageVariation]
-
-    def render(self, **kwargs) -> str:
-        """Select variation and render with f-string."""
-        variation = random.choices(
-            self.variations,
-            weights=[v.weight for v in self.variations],
-            k=1
-        )[0]
-        # f-string evaluation via eval in controlled context
-        return variation.text.format(**kwargs)
-
-class LucienVoiceService:
-    """Centralized voice-consistent message service."""
-
-    # Organization by navigation flow
-    class VIP:
-        WELCOME = MessageTemplate([
-            MessageVariation("*adjusts monocle* Welcome, {name}. VIP access granted.", weight=3),
-            MessageVariation("Ah, {name}. The VIP lounge awaits you.", weight=2),
-            MessageVariation("Splendid to see you, {name}. You're all set.", weight=1),
-        ])
-
-    class Free:
-        QUEUE_JOINED = MessageTemplate([
-            MessageVariation("Request received, {name}. Current wait: {minutes} minutes.", weight=2),
-            MessageVariation("You're in the queue, {name}. Patience is a virtue. {minutes} minutes.", weight=1),
-        ])
+# Router setup
+admin_router = Router()
+admin_router.message.filter(F.role == "admin")
+admin_router.callback_query.filter(F.role == "admin")
 ```
 
-### Why This Approach
+### FSM Menu State Management
 
-**Performance:**
-- f-strings: Compile-time evaluation, ~2x faster than `.format()`
-- dataclass with `slots=True`: 40-byte memory reduction per instance
-- `random.choices()`: Efficient stdlib implementation, <1ms for typical use
-- **Measured:** <5ms per message generation (well under 10ms requirement)
+```python
+# bot/states/menu.py
+class MenuStates(StatesGroup):
+    MAIN = State()
+    CONTENT_LIST = State()
+    CONTENT_DETAIL = State()
+    USER_MANAGEMENT = State()
+    CONTENT_MANAGEMENT = State()
 
-**Voice Consistency:**
-- All messages in one service = single source of truth
-- Class organization = easy auditing of Lucien's voice
-- Frozen dataclasses = immutable variations (consistency enforced)
-- Type hints = IDE autocomplete reduces copy-paste errors
+# Handler example
+@admin_router.callback_query(MenuStates.MAIN, F.data == "content_management")
+async def content_management_menu(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(MenuStates.CONTENT_MANAGEMENT)
+    await render_content_management_menu(callback.message)
+```
 
-**Termux Constraints:**
-- Zero external dependencies
-- Minimal memory footprint (dataclass slots)
-- No template parsing overhead (plain Python)
+### Content Package Models
 
-**Integration:**
-- Matches existing ServiceContainer pattern
-- Lazy loading via `@property` in container
-- Async-compatible (no blocking operations)
+```python
+# bot/database/models.py (add to existing)
 
-**Developer Experience:**
-- Templates alongside code (no separate files)
-- Type-safe with mypy
-- Easy to test (deterministic with seed)
-- Clear organization by flow
+class ContentPackage(Base):
+    """Content packages for display in menus."""
+    __tablename__ = "content_packages"
+
+    id = Column(Integer, primary_key=True)
+    package_type = Column(String(50), nullable=False)  # 'vip', 'free', 'admin'
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    media_url = Column(String(500), nullable=True)  # Photo/video URL
+    file_id = Column(String(255), nullable=True)  # Telegram file_id
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
+    created_by = Column(Integer, ForeignKey("bot_config.id"), nullable=True)
+
+    # Relationship to interest notifications
+    interests = relationship("InterestNotification", back_populates="package")
+
+class InterestNotification(Base):
+    """Track user interest in content packages."""
+    __tablename__ = "interest_notifications"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(BigInteger, nullable=False)
+    package_id = Column(Integer, ForeignKey("content_packages.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    notified = Column(Boolean, default=False)  # Whether admin was notified
+
+    # Relationships
+    package = relationship("ContentPackage", back_populates="interests")
+```
+
+### Menu Service
+
+```python
+# bot/services/menu.py
+class MenuService:
+    """Menu rendering and navigation service."""
+
+    def __init__(self, session: AsyncSession, bot: Bot):
+        self._session = session
+        self._bot = bot
+
+    async def get_main_menu(self, user_id: int) -> tuple[str, InlineKeyboardMarkup]:
+        """Render role-appropriate main menu."""
+        user = await self._get_user(user_id)
+        if user.is_admin:
+            return self._admin_main_menu()
+        elif await self._is_vip(user_id):
+            return self._vip_main_menu()
+        else:
+            return self._free_main_menu()
+
+    async def get_content_list(self, package_type: str, page: int = 0) -> tuple[str, InlineKeyboardMarkup]:
+        """Render paginated content list."""
+        # Query content packages by type
+        # Build keyboard with pagination
+        pass
+
+    async def get_content_detail(self, package_id: int) -> tuple[str, InlineKeyboardMarkup]:
+        """Render content detail with 'Me interesa' button."""
+        package = await self._get_package(package_id)
+        # Build message with media if available
+        # Add interest button
+        pass
+
+    async def handle_interest(self, user_id: int, package_id: int) -> bool:
+        """Record 'Me interesa' click and notify admin."""
+        interest = InterestNotification(user_id=user_id, package_id=package_id)
+        self._session.add(interest)
+        await self._session.commit()
+        await self._notify_admin(interest)
+        return True
+```
 
 ## Alternatives Considered
 
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
-| **Class-based f-strings** | Jinja2 (3.1.x) | If you need complex logic in templates (loops, filters, inheritance). **Not recommended** due to 5MB+ dependency, parsing overhead (~50ms), overkill for bot messages |
-| **Class-based f-strings** | Mako (1.3.x) | If you need near-Jinja2 features with better performance. **Not recommended** due to extra dependency, template compilation overhead |
-| **Class-based f-strings** | File-based .py configs | If you have 100+ message categories and want physical file separation. **Not recommended** until you hit scale issues |
-| **dataclass (slots=True)** | NamedTuple | If you need tuple unpacking or marginal performance gains. **Not recommended** due to less ergonomic API for this use case |
-| **random.choices()** | numpy.random.choice() | If you're selecting 1000+ variations per request. **Not recommended** due to numpy dependency (50MB+) in Termux |
+| **FSM-based menus** | Inline-only stateless menus | If you have simple 1-level menus without nested navigation. FSM is better for multi-level with back buttons |
+| **SQLAlchemy models** | Redis-based content cache | If you have 100k+ content packages and need sub-ms queries. Not needed for typical bots (<1000 packages) |
+| **Callback data encoding** | Separate state table | If you need to track menu analytics across sessions. Encoding is simpler for standard use |
+| **Role-based routers** | Single router with if-checks | If you have only 1-2 role differences. Routers scale better with 3+ roles |
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| **Jinja2** | 5MB+ dependency, 50ms+ parsing overhead, designed for web templates not bot messages | Class-based f-strings |
-| **String concatenation** | Slow, error-prone, unreadable for dynamic content | f-strings |
-| **% formatting** | Deprecated style, slower than f-strings, limited functionality | f-strings |
-| **Hardcoded messages in handlers** | No voice consistency, scattered across codebase, hard to audit | LucienVoiceService |
-| **File-based message configs** | I/O overhead, harder to type-check, unnecessary complexity for <1000 messages | Class-based templates |
-| **Global dicts/lists** | No type safety, hard to organize, prone to typos | dataclass templates |
+| **Hardcoded menu keyboards** | Cannot render dynamic content lists | Build keyboards dynamically from database |
+| **ConversationHandler (telebot style)** | aiogram has FSM which is more powerful | Use FSM States for menu navigation |
+| **Global menu state dicts** | Concurrency issues, memory leaks | FSMContext stored by aiogram, scoped per user |
+| **Message-only menus** | Cannot use inline buttons, poor UX | CallbackQuery + inline keyboards for menus |
+| **Separate "menu" microservice** | Over-engineering, adds latency | MenuService within existing bot process |
 
 ## Implementation Strategy
 
-### Phase 1: Service Skeleton (LOW risk)
+### Phase 1: Database Models and Service (LOW risk)
 ```python
-# bot/services/voice.py
-class LucienVoiceService:
-    """Centralized Lucien-voice message service."""
-
-    def __init__(self):
-        # Initialize template registry if needed
-        pass
-
-    @staticmethod
-    def vip_welcome(name: str) -> str:
-        """VIP welcome message with variations."""
-        # Implementation
-
-# bot/services/container.py
-@property
-def voice(self) -> 'LucienVoiceService':
-    """Lazy-loaded voice service."""
-    if self._voice_service is None:
-        from bot.services.voice import LucienVoiceService
-        self._voice_service = LucienVoiceService()
-    return self._voice_service
+# bot/database/models.py - Add ContentPackage, InterestNotification
+# bot/services/menu.py - Create MenuService with basic methods
+# bot/services/container.py - Add @property menu
 ```
 
-### Phase 2: Template Organization (MEDIUM risk)
+### Phase 2: Admin Menu with Content Management (MEDIUM risk)
 ```python
-# Organize by navigation flow
-class LucienVoiceService:
-    class Common:  # Shared across flows
-        ERROR = ...
-        SUCCESS = ...
-
-    class VIP:     # VIP channel flow
-        WELCOME = ...
-        TOKEN_GENERATED = ...
-
-    class Free:    # Free channel flow
-        QUEUE_JOINED = ...
-        APPROVED = ...
-
-    class Admin:   # Admin operations
-        CONFIG_UPDATED = ...
-        BROADCAST_SENT = ...
+# bot/handlers/menu/admin.py - Admin menu handlers
+# Content CRUD: create, edit, delete, toggle active
+# Content list with pagination
+# Interest notification viewer
 ```
 
-### Phase 3: Handler Refactoring (HIGH risk)
-- Incrementally replace hardcoded strings
-- Use `container.voice.vip_welcome(name=user.name)`
-- Test each handler after refactoring
-
-### Phase 4: Variation System (LOW risk)
+### Phase 3: VIP/Free User Menus (MEDIUM risk)
 ```python
-# Add weighted variations for personality
-@dataclass(slots=True, frozen=True)
-class MessageVariation:
-    text: str
-    weight: int = 1  # Higher = more likely
-
-# Example usage
-WELCOME = MessageTemplate([
-    MessageVariation("*adjusts monocle* Welcome back.", weight=3),  # Formal (60%)
-    MessageVariation("Ah, you've returned!", weight=1),              # Casual (20%)
-    MessageVariation("Splendid timing.", weight=1),                   # Neutral (20%)
-])
+# bot/handlers/menu/vip.py - VIP menu handlers
+# bot/handlers/menu/free.py - Free menu handlers
+# Role-based routing with filters
+# Content browsing with pagination
 ```
 
-## Performance Benchmarks (Expected)
+### Phase 4: Interest Notification System (LOW risk)
+```python
+# "Me interesa" button on content detail
+# Admin notification on interest clicks
+# Interest list viewer for admins
+```
 
-Based on 2025 research findings:
+### Phase 5: User Management Features (MEDIUM risk)
+```python
+# User info viewer (from admin menu)
+# Role change functionality
+# Block/expel user functionality
+# User activity log
+```
 
-| Operation | Expected Time | Notes |
-|-----------|---------------|-------|
-| f-string render | <1μs | Compile-time, minimal overhead |
-| random.choices() (1-10 variations) | <100μs | Stdlib implementation |
-| dataclass attribute access (slots) | <50ns | C-level performance |
-| **Total per message** | **<5ms** | Well under 10ms requirement |
-
-For 1000+ variations per category (unlikely):
-- Pre-compute cumulative weights: +1ms setup, saves 50μs per choice
-- Only optimize if profiling shows bottleneck
+### Phase 6: Free Channel Entry Flow (LOW risk)
+```python
+# Social media link display
+# Follow verification (if needed)
+# Free channel invite generation
+```
 
 ## Stack Patterns by Use Case
 
-**If you need 100+ message categories:**
-- Split into multiple service classes (VIPVoice, FreeVoice, AdminVoice)
-- Maintain same pattern, just separate files for maintainability
+**If you need multi-level navigation:**
+- Use FSM States for each menu level
+- Store navigation context in FSMContext (page, filters, selected_item)
+- Back buttons restore previous state
 
-**If you need A/B testing variations:**
-- Add `variation_id: str` to MessageVariation
-- Log which variation was sent
-- Use weights to control rollout (weight=9 vs weight=1 = 90/10 split)
+**If you need dynamic content:**
+- Query ContentPackage from database
+- Build keyboard iteratively from results
+- Use callback data encoding for actions
 
-**If you need multi-language support later:**
-- Wrap MessageTemplate with locale parameter
-- Return different variation pools per locale
-- Keep Lucien's voice consistent within each locale
+**If you need admin notifications:**
+- InterestNotification model tracks clicks
+- Background job or async task sends admin messages
+- Use existing LucienVoiceService for consistent messaging
 
-**If variation selection becomes bottleneck (>1000 variations):**
-```python
-# Cache cumulative weights
-from itertools import accumulate
-from bisect import bisect
-
-@dataclass(slots=True, frozen=True)
-class MessageTemplate:
-    variations: List[MessageVariation]
-    _cumulative_weights: List[int] = field(init=False)
-
-    def __post_init__(self):
-        object.__setattr__(
-            self,
-            '_cumulative_weights',
-            list(accumulate(v.weight for v in self.variations))
-        )
-```
+**If you need role-based access:**
+- Check user.role before rendering menu
+- Use aiogram's F.filter for router-level filtering
+- Hide/show menu options based on permissions
 
 ## Version Compatibility
 
 | Package | Compatible With | Notes |
 |---------|-----------------|-------|
-| Python 3.12.12 | dataclass (slots=True), f-strings, random.choices() | All features available |
-| aiogram 3.4.1 | LucienVoiceService (no conflicts) | Service returns plain strings |
-| SQLAlchemy Async | No interaction | Voice service is stateless |
+| Python 3.11+ | All patterns (dataclass, async, FSM) | Existing environment |
+| aiogram 3.4.1 | FSM, Router, CallbackQuery, F filters | Already in use |
+| SQLAlchemy 2.0.25 | New models, async queries | Existing patterns |
+| aiosqlite 0.19.0 | Async SQLite access | No changes needed |
 
 ## Integration Points
 
 ### With Existing Services
 
 ```python
-# bot/handlers/admin/vip.py
-async def callback_generate_token(callback: CallbackQuery, container: ServiceContainer):
-    token = await container.subscription.generate_vip_token(...)
+# bot/services/container.py
+class ServiceContainer:
+    # ... existing properties ...
 
-    # OLD: Hardcoded message
-    # await callback.message.answer("✅ Token generado...")
-
-    # NEW: Voice-consistent message
-    message = container.voice.vip_token_generated(
-        token=token.token,
-        expires_hours=24
-    )
-    await callback.message.answer(message, parse_mode="HTML")
+    @property
+    def menu(self) -> 'MenuService':
+        """Lazy-loaded menu service."""
+        if self._menu_service is None:
+            from bot.services.menu import MenuService
+            self._menu_service = MenuService(self._session, self._bot)
+        return self._menu_service
 ```
 
-### With Keyboards
+### With Existing Middlewares
 
 ```python
-# Voice service returns message text only
-# Keyboards remain in utils/keyboards.py
-message = container.voice.vip_menu(
-    channel_configured=is_configured,
-    member_count=count
-)
-keyboard = vip_menu_keyboard(is_configured)
-
-await callback.message.edit_text(
-    message,
-    reply_markup=keyboard,
-    parse_mode="HTML"
-)
+# bot/middlewares/role.py (NEW)
+class RoleMiddleware(BaseMiddleware):
+    """Inject user role into callback data."""
+    async def process(
+        self,
+        callback: CallbackQuery,
+        data: dict
+    ):
+        user_id = callback.from_user.id
+        data["user_role"] = await self._get_user_role(user_id)
 ```
+
+### With LucienVoiceService
+
+```python
+# Menu messages use voice service for consistency
+async def render_main_menu(callback: CallbackQuery, container: ServiceContainer):
+    user_role = await container.subscription.get_user_role(callback.from_user.id)
+
+    text = container.voice.menu.main_menu_greeting(
+        user_name=callback.from_user.first_name,
+        role=user_role
+    )
+    keyboard = await container.menu.get_main_menu_keyboard(user_role)
+
+    await callback.message.edit_text(text, reply_markup=keyboard)
+```
+
+## Performance Considerations
+
+For typical bot usage (<10k users, <1000 content packages):
+
+| Operation | Expected Time | Notes |
+|-----------|---------------|-------|
+| Menu render from DB | <50ms | Single query, indexed by type/is_active |
+| Callback handler | <20ms | FSM context + simple logic |
+| Interest notification | <100ms | DB insert + admin message |
+| Content list pagination | <50ms | LIMIT/OFFSET query with index |
+
+Bottlenecks to watch:
+- N+1 queries when rendering content lists (use selectinload)
+- Sending admin notifications (queue if multiple admins)
+- Media file downloads (cache file_id after first upload)
 
 ## Testing Strategy
 
 ```python
-# tests/test_voice_service.py
-def test_message_variation_selection():
-    """Test that variations are selected correctly."""
-    random.seed(42)  # Deterministic
-    service = LucienVoiceService()
+# tests/test_menu_service.py
+async def test_role_based_menu_rendering():
+    """Test that users get correct menu based on role."""
+    container = ServiceContainer(session, bot)
 
-    messages = [service.vip_welcome(name="Test") for _ in range(100)]
+    # Admin gets admin menu
+    admin_text, admin_kb = await container.menu.get_main_menu(admin_user_id)
+    assert "Gestión" in admin_text
 
-    # Should have variety (not all same)
-    assert len(set(messages)) > 1
+    # VIP gets VIP menu
+    vip_text, vip_kb = await container.menu.get_main_menu(vip_user_id)
+    assert "Contenido VIP" in vip_text
 
-    # Should maintain voice (all contain formal elements)
-    assert all(any(marker in msg for marker in ["*adjusts", "Ah,", "Splendid"])
-               for msg in messages)
+async def test_interest_notification():
+    """Test that 'Me interesa' creates notification and notifies admin."""
+    result = await container.menu.handle_interest(user_id, package_id)
+    assert result is True
 
-def test_voice_consistency():
-    """Ensure all messages match Lucien's character."""
-    service = LucienVoiceService()
-
-    # Collect all message templates
-    templates = [
-        getattr(service.VIP, attr)
-        for attr in dir(service.VIP)
-        if isinstance(getattr(service.VIP, attr), MessageTemplate)
-    ]
-
-    # Check for forbidden patterns (out-of-character)
-    forbidden = ["lol", "omg", "hey", "bro"]
-    for template in templates:
-        for variation in template.variations:
-            for word in forbidden:
-                assert word.lower() not in variation.text.lower()
+    notification = await session.get(InterestNotification, (user_id, package_id))
+    assert notification.notified is True
 ```
 
 ## Migration Path
 
-1. **Week 1:** Create LucienVoiceService skeleton, add to ServiceContainer
-2. **Week 2:** Migrate Common messages (errors, success)
-3. **Week 3:** Migrate VIP flow messages
-4. **Week 4:** Migrate Free flow messages
-5. **Week 5:** Migrate Admin messages
-6. **Week 6:** Add variations, test voice consistency, remove hardcoded strings
+1. **Week 1:** Add database models (ContentPackage, InterestNotification)
+2. **Week 2:** Create MenuService with basic render methods
+3. **Week 3:** Build admin menu with content CRUD
+4. **Week 4:** Implement VIP/Free user menus
+5. **Week 5:** Add interest notification system
+6. **Week 6:** Implement user management features
+7. **Week 7:** Build free channel entry flow
+8. **Week 8:** Integration testing and polish
 
 **Risk mitigation:**
-- Migrate incrementally (one handler at a time)
-- Keep old messages commented until new ones tested
-- Run full test suite after each migration
+- Start with admin-only features (no user impact)
+- Add role routing incrementally (one role at a time)
+- Test menu navigation thoroughly (back buttons, state transitions)
+- Keep FSM states simple (avoid deep nesting)
 
 ## Open Questions for Validation
 
-- **Message count estimate:** How many unique messages exist currently? (affects organization strategy)
-- **Variation requirements:** How many variations per message category? (affects caching strategy)
-- **Multi-language future:** Is i18n planned? (affects template structure)
-- **A/B testing:** Need variation tracking? (affects MessageVariation schema)
+- **Content package types:** How many types? (vip, free, admin, custom?)
+- **Interest notification urgency:** Real-time or batched for admins?
+- **User management scope:** Can admins modify other admins or only users?
+- **Social media links:** Static config or database-stored?
+- **Content approval workflow:** Do packages need approval before appearing?
 
 ## Sources
 
-**Templating Approaches:**
-- [Adding Lightweight Templating to Your Python Web Framework Without Jinja2](https://hexshift.medium.com/adding-lightweight-templating-to-your-python-web-framework-without-jinja2-df4031c1d317) — Lightweight alternatives (MEDIUM confidence)
-- [3 Python template libraries compared | Opensource.com](https://opensource.com/resources/python/template-libraries) — Jinja2 vs alternatives (MEDIUM confidence)
-- [Mako Templates](https://www.makotemplates.org/) — Alternative to Jinja2 (HIGH confidence - official docs)
+**Telegram Bot Menu Patterns:**
+- [aiogram FSM Documentation](https://docs.aiogram.dev/en/latest/dispatcher/finite_state_machine.html) — Official FSM guide (HIGH confidence)
+- [Building Nested Menu Systems in aiogram](https://mastergroosha.github.io/telegram-tutorial-2/levelup/) — Menu state patterns (MEDIUM confidence)
+- [Telegram Bot: Best Practices for Keyboards](https://core.telegram.org/bots/features#inline-keyboards) — Inline keyboard guidelines (HIGH confidence)
 
-**String Formatting Performance:**
-- [Python String Formatting: F-strings vs .format() vs %](https://sinhassatyam.medium.com/python-string-formatting-f-strings-vs-format-vs-aa97693b7244) — Performance comparison (HIGH confidence - recent 2025)
-- [Python f-string benchmarks | Scientific Computing](https://www.scivision.dev/python-f-string-speed/) — f-string performance data (HIGH confidence)
+**Role-Based Access:**
+- [Role-Based Access Control in Bots](https://www.botframework.com/blog/role-based-access-control/) — RBAC patterns (MEDIUM confidence)
+- [aiogram Filter Documentation](https://docs.aiogram.dev/en/latest/faq/filters.html) — Magic filter usage (HIGH confidence)
 
-**Random Choice Performance:**
-- [Weighted Random Choice in Python: Practical Patterns, Pitfalls, and Performance](https://thelinuxcode.com/weighted-random-choice-in-python-practical-patterns-pitfalls-and-performance/) — Implementation guide (MEDIUM confidence)
-- [Python random.choices() documentation](https://docs.python.org/3/library/random.html) — Official API reference (HIGH confidence)
+**Content Management:**
+- [Database-Driven Bot Content](https://dev.to/codesphere/building-a-telegram-bot-with-database-driven-content-3m1a) — Content CRUD patterns (MEDIUM confidence)
+- [SQLAlchemy Async Patterns](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html) — Async ORM usage (HIGH confidence)
 
-**Dataclass Performance:**
-- [Dataclass vs namedtuple performance in python 3.11](https://www.linkedin.com/pulse/dataclass-vs-namedtuple-performance-python-311-pawel-guzik) — Performance comparison (HIGH confidence)
-- [Python dataclass vs NamedTuple: Performance & Memory Optimization](https://openillumi.com/en/en-python-dataclass-namedtuple-performance/) — Memory optimization (MEDIUM confidence)
-
-**Configuration Patterns:**
-- [Best Practices for Working with Configuration in Python Applications](https://tech.preferred.jp/en/blog/working-with-configuration-in-python/) — Class-based patterns (HIGH confidence)
-- [A Design Pattern for Configuration Management in Python](https://www.hackerearth.com/practice/notes/samarthbhargav/a-design-pattern-for-configuration-management-in-python/) — Architecture patterns (MEDIUM confidence)
-
-**Voice Consistency Best Practices:**
-- [How to Build an AI Chatbot's Persona in 2025](https://www.chatbot.com/blog/personality/) — Character consistency (MEDIUM confidence)
-- [24 Chatbot Best Practices You Can't Afford to Miss in 2025](https://botpress.com/blog/chatbot-best-practices) — Voice guidelines (MEDIUM confidence)
-
-**Telegram Bot Patterns:**
-- [Building Robust Telegram Bots](https://henrywithu.com/building-robust-telegram-bots/) — Architecture patterns (MEDIUM confidence)
-- [Telegram Bot Development Guide 2025](https://wnexus.io/the-complete-guide-to-telegram-bot-development-in-2025/) — Current practices (MEDIUM confidence)
+**Notification Systems:**
+- [Telegram Bot Notifications Best Practices](https://www.twilio.com/blog/notifications-telegram-bot) — Notification patterns (MEDIUM confidence)
+- [Async Task Queues in Python](https://docs.celeryq.dev/en/stable/) — Background jobs (if needed) (HIGH confidence)
 
 ---
-*Stack research for: Message Templating with Voice Consistency*
-*Researched: 2026-01-23*
-*Python 3.12.12 | aiogram 3.4.1 | Termux environment*
+*Stack research for: Role-Based Menu System (v1.1)*
+*Researched: 2026-01-24*
+*Python 3.11+ | aiogram 3.4.1 | SQLAlchemy 2.0.25*

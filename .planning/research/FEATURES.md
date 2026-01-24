@@ -1,317 +1,286 @@
-# Feature Research: Message Service for Conversational Bots
+# Feature Research: Menu System for Role-Based Bot Experience
 
-**Domain:** Centralized Message/Voice Service for Telegram Bots
-**Researched:** 2026-01-23
+**Domain:** Role-Based Menu System with Content Management
+**Researched:** 2026-01-24
 **Confidence:** HIGH
 
 ## Feature Landscape
 
 ### Table Stakes (Users Expect These)
 
-Features essential for any message service. Missing these = unusable or inconsistent messaging.
+Features essential for any menu-based bot experience. Missing these = unusable or confusing navigation.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Variable Interpolation** | Every bot needs dynamic content (names, dates, numbers) | LOW | Use `{variable_name}` syntax. Already partially implemented in formatters. Critical for personalization. |
-| **HTML Formatting Support** | Telegram supports HTML; users expect rich text (bold, italic, links) | LOW | Already used throughout codebase. Must escape user input to prevent injection. |
-| **Centralized Message Storage** | Hardcoded strings scattered in handlers = maintenance nightmare | MEDIUM | All messages in one location. Enables voice consistency audits and batch updates. |
-| **Error Message Standards** | Consistent error UX across all flows (VIP, Free, Admin) | LOW | Standardized format with emoji, title, reason, next steps. Prevents confusion. |
-| **Success/Confirmation Standards** | User needs confirmation that actions succeeded | LOW | Standard pattern for all successful operations. Includes next action guidance. |
-| **Message Categories** | Logical grouping (admin, user, vip, free, errors, system) | LOW | File/class structure. Makes maintenance scalable. Prevents "message soup". |
-| **Keyboard Integration** | Messages often need action buttons (inline keyboards) | MEDIUM | Message service must pair text with keyboards. Already using `create_inline_keyboard()`. |
-| **Type Safety** | Runtime errors from typos in message keys | LOW | Enum/constants for message keys. IDE autocomplete + compile-time checking. |
+| **Role-based menu routing** | Different user types (Admin/VIP/Free) need different menus | MEDIUM | Detect user role, render appropriate menu. Core to this milestone. |
+| **Hierarchical navigation** | Users expect to drill down into categories and go back | MEDIUM | FSM states for each level, back button to return. Essential for content browsing. |
+| **Inline keyboard buttons** | Telegram standard for menu interactions | LOW | CallbackQuery handlers. Already used in admin handlers. |
+| **Content list with pagination** | Cannot show all content at once (>50 items causes UI issues) | MEDIUM | LIMIT/OFFSET queries, prev/next buttons. Standard pattern. |
+| **Back button behavior** | Users need to navigate up the menu hierarchy | LOW | FSM state transition to previous level. Natural with FSM. |
+| **Menu state persistence** | User's position remembered across sessions | LOW | FSMContext persists state. aiogram handles automatically. |
+| **Content detail view** | Users need full info before taking action | LOW | Show title, description, media. Standard CRUD read operation. |
+| **Admin content CRUD** | Admins must manage content packages | MEDIUM | Create, Read, Update, Delete. Core admin functionality. |
 
 ### Differentiators (Competitive Advantage)
 
-Features that make the service excellent and maintain sophisticated voice consistency.
+Features that make the menu system excellent and user-friendly.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Voice Consistency Engine** | Lucien's sophisticated voice maintained across ALL messages | HIGH | Core value. Random variations + tone rules. Prevents robotic repetition while maintaining personality. |
-| **Contextual Message Adaptation** | Same message adjusts based on user role/state (Admin vs VIP vs Free) | MEDIUM | Dynamic content selection. "Your VIP access" vs "VIP access" vs "member access". Sophisticated personalization. |
-| **Random Variations** | Multiple phrasings for same message; bot feels alive | MEDIUM | Critical for voice freshness. "Certainly!" vs "Of course!" vs "Absolutely!". Prevents repetition fatigue. |
-| **Conditional Content Blocks** | Show/hide sections based on runtime conditions | MEDIUM | Example: Show "Days remaining" only if VIP active. Eliminates N duplicate messages. |
-| **Dynamic List Rendering** | Format lists (tokens, subscribers, history) consistently | MEDIUM | Table-stakes data + sophisticated formatting. Bullet styles, numbering, separators matching voice. |
-| **Message Composition** | Build complex messages from reusable components | MEDIUM | Header + body + footer templates. DRY principle for messages. Enables voice consistency at component level. |
-| **Tone Directives** | Explicit tone markers (formal, friendly, urgent, celebratory) | MEDIUM | Ensures appropriate voice for context. Urgent errors vs friendly greetings vs formal admin notices. |
-| **Voice Validation Tools** | Dev tools to audit messages for voice consistency | LOW | Regex patterns for voice anti-patterns. Pre-commit hooks. Prevents voice drift during rapid development. |
-| **Message Versioning** | Track message changes for A/B testing or rollback | LOW | Git-based or DB-based. Enables testing "Does variation A convert better?" |
-| **Preview Mode** | Test message rendering with sample data before deploy | LOW | Critical for QA. See exactly what users will see with real variable values. |
+| **"Me interesa" notification system** | Users express interest, admins get notified for follow-up | MEDIUM | InterestNotification model tracks clicks, real-time admin alerts. Key engagement feature. |
+| **Dynamic menu rendering** | Menus adapt to content availability and user permissions | MEDIUM | Query database for active content, build keyboard dynamically. No stale menus. |
+| **User management from menu** | Admins can view users, change roles, block without commands | HIGH | User info viewer, role changer, block/expel functionality. Powerful admin tool. |
+| **Content type filtering** | Users can filter content by category/interest | MEDIUM | Store package_type, filter in queries. Improves discoverability. |
+| **Social media entry flow** | Free users follow socials to unlock channel access | MEDIUM | Display links, verify (optional), generate invite. Growth feature. |
+| **Audit logging** | Track role changes and important actions | LOW | UserRoleChangeLog model. Accountability and debugging. |
+| **Media support in content** | Rich content with photos/videos | MEDIUM | file_id storage, send_photo/send_video in detail view. Engaging UX. |
+| **Soft delete for content** | Hide content without losing data | LOW | is_active flag, toggle instead of delete. Safety net. |
+| **Interest analytics** | Admins see which content gets most interest | LOW | Query InterestNotification, aggregate stats. Data-driven decisions. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
-Features that seem good but create problems in message services.
-
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| **Database-Stored Messages** | "Easy to update without deploy!" | Schema changes require migrations; no version control; hard to review changes; performance overhead; SQL injection risks in templates | **Use code-based messages with hot-reload in dev.** Version control + code review + no DB overhead. For user-customizable messages only (admin custom greetings), use separate DB table with clear scope. |
-| **Fully Dynamic Templates (eval/exec)** | "Ultimate flexibility!" | Security nightmare; allows arbitrary code execution; impossible to audit; breaks type safety; performance issues | **Use safe templating with explicit variable injection.** Jinja2/similar with sandboxing if complexity needed. Never eval user input. |
-| **Per-User Message Customization** | "Let users customize bot language!" | Voice consistency impossible; maintenance explosion; storage bloat; testing nightmare (N × M combinations) | **Offer voice presets if needed** (formal/casual), but keep core personality constant. Or i18n (see below). |
-| **Real-Time Translation (per-message)** | "Support all languages instantly!" | Breaks voice consistency; translation APIs expensive/slow; loses personality nuance; Telegram has character limits | **Build i18n properly** (separate translation files per language with human review) or **start English-only** and expand deliberately. Don't auto-translate Lucien's voice. |
-| **Markdown Everywhere** | "Markdown is universal!" | Telegram has non-standard Markdown (MarkdownV2); HTML more reliable; escaping issues; confusing for mixed content | **Use HTML exclusively.** Telegram HTML is stable, well-documented, easier to escape. Already in use throughout codebase. |
-| **Message Analytics in Service** | "Track which messages users read!" | Mixing concerns; service becomes bloated; Telegram doesn't report read receipts reliably; privacy concerns | **Use separate analytics service** if needed. Message service focuses on content, not tracking. Bot framework may handle metrics. |
-| **Inline Message Editing** | "Change message after sending!" | Breaks message history; confuses users if content changes; not all message types editable; state management complex | **Send new messages instead.** Clearer UX. Only edit for progress updates (loading states) with explicit design. |
+| **Deeply nested menus (>4 levels)** | "More granular organization!" | Users get lost, back button fatigue, FSM state complexity | Flat menus with filters/search instead |
+| **Real-time menu updates for all users** | "See new content immediately!" | Broadcasts to all users expensive, privacy concerns (show unpublished content) | Refresh button or new session gets updated menu |
+| **Customizable menu layouts per user** | "Personalized experience!" | A/B testing complexity, harder to maintain, inconsistent UX | Role-based menus (Admin/VIP/Free) only |
+| **Drag-and-drop content ordering** | "Easy reordering!" | Requires position column, update cascade, conflict resolution | Sort by created_at or simple priority field |
+| **Menu search within bot** | "Find content quickly!" | Complex to implement, Telegram search exists, adds state | Use channel search or external website |
+| **User-generated content in menus** | "Community contribution!" | Moderation overhead, spam risk, quality issues | Admin-only content creation, interest buttons for feedback |
+| **Menu branching logic (conditionals)** | "Show different menus based on X" | Hard to debug, hidden complexity, unpredictable UX | Separate menu paths with clear role/access rules |
 
 ## Feature Dependencies
 
 ```
-[Variable Interpolation]
-    └──requires──> [Type Safety]
-                      └──enhances──> [Preview Mode]
+[Role-Based Menu Routing]
+    └──requires──> [User Role Detection]
+                      └──uses──> [FSM State Management]
 
-[Voice Consistency Engine]
-    └──requires──> [Random Variations]
-    └──requires──> [Tone Directives]
-    └──enhanced-by──> [Voice Validation Tools]
+[Content Package Management]
+    └──requires──> [Content Package Model]
+    └──requires──> [Admin CRUD Operations]
+    └──enhances──> [Dynamic Menu Rendering]
 
-[Contextual Message Adaptation]
-    └──requires──> [Conditional Content Blocks]
-    └──uses──> [Variable Interpolation]
+[Interest Notification System]
+    └──requires──> [InterestNotification Model]
+    └──requires──> [Content Detail View]
+    └──triggers──> [Admin Notification Handler]
 
-[Dynamic List Rendering]
-    └──requires──> [HTML Formatting Support]
-    └──uses──> [Message Composition]
+[User Management Features]
+    └──requires──> [UserRoleChangeLog Model]
+    └──requires──> [Admin Menu Access]
+    └──uses──> [SubscriptionService (existing)]
 
-[Message Composition]
-    └──requires──> [Centralized Message Storage]
-    └──requires──> [Message Categories]
+[Free Channel Entry Flow]
+    └──requires──> [Social Media Config]
+    └──uses──> [ChannelService (existing)]
+    └──produces──> [Invite Link]
 ```
 
 ### Dependency Notes
 
-- **Variable Interpolation requires Type Safety:** Without type-safe keys, you get runtime errors. Typos like `{user_nmae}` fail silently or crash.
-- **Voice Consistency Engine requires Random Variations + Tone Directives:** Can't maintain sophisticated voice with single static strings. Need variation pool + context awareness.
-- **Contextual Adaptation uses Conditional Blocks:** Same message, different content based on `if user.is_vip` or `if days_remaining < 7`.
-- **Message Composition requires Centralized Storage:** Can't compose from components scattered across handlers. Need single source of truth.
-- **Preview Mode enhanced by Type Safety:** Type-safe keys enable IDE autocomplete in preview tools. See available variables instantly.
+- **Role-Based Routing requires User Role Detection:** Cannot route without knowing user's role. Uses existing SubscriptionService.is_vip_active() and Config.is_admin().
+- **Content Management requires Admin CRUD:** Admins need full control over content lifecycle. Create, edit, delete, toggle active.
+- **Interest Notifications require Content Detail:** Users click "Me interesa" from content detail view. Cannot have notification without detail view.
+- **User Management requires existing services:** Leverage SubscriptionService and ChannelService. Don't duplicate logic.
+- **Free Entry Flow requires ChannelService:** Generate invite links using existing service. Integration point.
 
 ## MVP Definition
 
-### Launch With (v1) — Core Message Service
+### Launch With (v1.1 Core) — Essential Menu System
 
-Minimum viable message service to replace hardcoded strings and establish voice consistency.
+Minimum viable menu system for role-based content browsing and basic management.
 
-- [x] **Centralized Message Storage** — Single file/module for all messages. Enables voice audit.
-- [x] **Message Categories** — Logical structure (admin/, user/, vip/, free/, errors/). Scalable organization.
-- [x] **Variable Interpolation** — `{user_name}`, `{days_remaining}`, etc. Already using formatters.
-- [x] **HTML Formatting** — Already throughout codebase. Must maintain.
-- [x] **Type Safety (Basic)** — Constants/enum for message keys. Prevents typos.
-- [x] **Random Variations** — At least 2-3 variations per key message. Voice freshness.
-- [x] **Tone Directives** — Explicit markers for context (friendly, urgent, formal).
-- [ ] **Error Message Standards** — Consistent format: emoji + title + reason + next step.
-- [ ] **Success Message Standards** — Consistent format with confirmation + next action.
+- [x] **Role-Based Menu Routing** — Detect Admin/VIP/Free, render different main menus. Core differentiator.
+- [x] **FSM Menu States** — MAIN, CONTENT_LIST, CONTENT_DETAIL, USER_MANAGEMENT, CONTENT_MANAGEMENT. Navigation foundation.
+- [x] **Content Package Model** — id, package_type, title, description, media_url, is_active. Data layer.
+- [x] **Admin Content CRUD** — Create, read, update, delete, toggle active. Admin empowerment.
+- [x] **Content List with Pagination** — Query by type, prev/next buttons. Browsing UX.
+- [x] **Content Detail View** — Show full content with media. Decision support for users.
+- [x] **Back Button Navigation** — Return to previous menu level. Usability requirement.
+- [x] **InterestNotification Model** — Track "Me interesa" clicks. Engagement data.
+- [x] **"Me interesa" Button** — On content detail, creates notification. User engagement.
+- [x] **Admin Interest Notifications** — Real-time alerts when users express interest. Responsiveness.
 
-**Rationale:** These features establish the foundation. Voice consistency starts here. Every message goes through service, not scattered across handlers.
+**Rationale:** These features establish the menu system foundation. Users can browse content, express interest, admins can manage content and see interest. Basic user management included.
 
-### Add After Validation (v1.x) — Advanced Voice Features
+### Add After Validation (v1.2) — Advanced User Management
 
-Features to add once core is working and voice is established.
+Features to add once basic menu system is validated by users.
 
-- [ ] **Conditional Content Blocks** — `{if vip}Your exclusive content{/if}`. Eliminates duplicate messages.
-- [ ] **Contextual Message Adaptation** — Same message key, different content based on user.role or state.
-- [ ] **Dynamic List Rendering** — Format subscriber lists, token lists, history consistently.
-- [ ] **Message Composition** — Build complex messages from reusable header/body/footer components.
-- [ ] **Voice Validation Tools** — Pre-commit hooks to check for voice anti-patterns (e.g., "please wait" vs Lucien's style).
-- [ ] **Preview Mode** — Dev tool to render messages with sample data before deploy.
+- [ ] **User Info Viewer** — Admin can search/view user details from menu
+- [ ] **Role Change Functionality** — Admin can promote/demote users (VIP <-> Free)
+- [ ] **Block/Expel User** — Admin can block user from bot, expel from channels
+- [ ] **User Activity Log** — Track user actions (content viewed, interests clicked)
+- [ ] **Bulk User Operations** — Block multiple users, export user list
+- [ ] **Content Type Filtering** — Users can filter content by category/type
+- [ ] **Soft Delete Recovery** — Restore deleted content packages
 
-**Trigger for adding:** When handlers start duplicating messages for different contexts (Admin vs User vs VIP versions). Or when voice inconsistencies emerge in code reviews.
+**Trigger for adding:** When admins request more control over users, or when content volume makes filtering necessary.
 
-### Future Consideration (v2+) — Scale & Localization
+### Future Consideration (v2+) — Scale & Advanced Features
 
-Features to defer until product-market fit is established and voice is proven.
+Features to defer until menu system is proven and user base grows.
 
-- [ ] **i18n Support** — Multi-language with separate .ftl files per locale. Only if expanding beyond English.
-- [ ] **Message Versioning** — Track changes for A/B testing. Only if conversion optimization needed.
-- [ ] **Admin Message Customization** — Let admins customize specific messages (greetings, CTAs). Separate from core voice.
-- [ ] **Voice Presets** — Offer formal/casual modes. Only if user feedback demands it.
-- [ ] **Message Analytics Integration** — Track which CTAs convert. Requires separate analytics service.
+- [ ] **Menu Analytics Dashboard** — Most viewed content, click-through rates, user journeys
+- [ ] **Content Scheduling** — Schedule content to appear/disappear at specific times
+- [ ] **A/B Testing for Menus** — Test different menu layouts, measure engagement
+- [ ] **Multi-language Menus** — Separate menu flows per language/locale
+- [ ] **Content Approval Workflow** — Draft status, reviewer approval before publishing
+- [ ] **Advanced Search** — Full-text search within content titles/descriptions
+- [ ] **User-Generated Content** — Allow trusted users to submit content for review
+- [ ] **Menu Customization** — Admins can reorder menu items, hide sections
 
-**Why defer:** These add complexity without validating core value (voice consistency). Build after Lucien's voice is proven to drive engagement.
+**Why defer:** These add complexity without validating core value (role-based menu browsing). Build after engagement patterns are understood.
 
 ## Feature Prioritization Matrix
 
-| Feature | User Value | Implementation Cost | Priority | Impact on Voice |
-|---------|------------|---------------------|----------|-----------------|
-| Centralized Storage | HIGH | MEDIUM | **P1** | Critical - enables consistency |
-| Variable Interpolation | HIGH | LOW | **P1** | High - personalization is voice |
-| Random Variations | HIGH | MEDIUM | **P1** | Critical - prevents robotic feel |
-| Tone Directives | MEDIUM | LOW | **P1** | Critical - context-aware voice |
-| Type Safety | HIGH | LOW | **P1** | Medium - prevents errors |
-| HTML Formatting | HIGH | LOW | **P1** | Medium - already implemented |
-| Error Standards | HIGH | LOW | **P1** | High - user trust |
-| Conditional Blocks | MEDIUM | MEDIUM | **P2** | High - reduces duplication |
-| Contextual Adaptation | MEDIUM | MEDIUM | **P2** | High - sophisticated voice |
-| Dynamic Lists | MEDIUM | MEDIUM | **P2** | Medium - consistency |
-| Message Composition | MEDIUM | MEDIUM | **P2** | High - component-level voice |
-| Voice Validation | LOW | LOW | **P2** | Critical - prevents drift |
-| Preview Mode | LOW | LOW | **P2** | Low - QA tool |
-| i18n Support | LOW | HIGH | **P3** | High risk - can break voice |
-| Message Versioning | LOW | MEDIUM | **P3** | Low - analytics |
-| Admin Customization | MEDIUM | HIGH | **P3** | High risk - voice fragmentation |
+| Feature | User Value | Implementation Cost | Priority | Risk Level |
+|---------|------------|---------------------|----------|------------|
+| Role-Based Menu Routing | CRITICAL | MEDIUM | **P0** | Medium - core feature |
+| FSM Menu States | CRITICAL | LOW | **P0** | Low - standard aiogram |
+| Content Package Model | CRITICAL | LOW | **P0** | Low - simple SQLAlchemy |
+| Admin Content CRUD | HIGH | MEDIUM | **P0** | Medium - admin UX |
+| Content List Pagination | HIGH | MEDIUM | **P0** | Low - standard pattern |
+| Content Detail View | HIGH | LOW | **P0** | Low - render data |
+| Back Button Navigation | HIGH | LOW | **P0** | Low - FSM transition |
+| InterestNotification Model | HIGH | LOW | **P0** | Low - simple model |
+| "Me interesa" Button | HIGH | LOW | **P0** | Low - callback handler |
+| Admin Interest Alerts | MEDIUM | LOW | **P1** | Low - send message |
+| User Info Viewer | MEDIUM | MEDIUM | **P1** | Medium - query UX |
+| Role Change | MEDIUM | MEDIUM | **P1** | Medium - permissions |
+| Block/Expel User | MEDIUM | MEDIUM | **P1** | High - safety critical |
+| User Activity Log | LOW | MEDIUM | **P2** | Low - append-only table |
+| Content Type Filtering | MEDIUM | LOW | **P2** | Low - query filter |
+| Bulk User Operations | LOW | HIGH | **P3** | High - complex UX |
+| Content Scheduling | LOW | HIGH | **P3** | Medium - background jobs |
+| Menu Analytics | LOW | HIGH | **P3** | Low - read-only queries |
 
 **Priority key:**
-- **P1**: Must have for launch (MVP) — Establishes voice foundation
-- **P2**: Should have, add when voice is validated — Sophisticated features
-- **P3**: Nice to have, future consideration — Scale features
-
-**Impact on Voice key:**
-- **Critical**: Feature directly determines voice quality
-- **High**: Feature significantly affects voice consistency
-- **Medium**: Feature supports voice but not core
-- **Low**: Feature unrelated to voice (dev tools, analytics)
+- **P0**: Must have for v1.1 — Core menu system
+- **P1**: Should have for v1.1 — Important admin features
+- **P2**: Nice to have, v1.2 — Advanced features
+- **P3**: Future consideration — Scale features
 
 ## Competitor/Reference Analysis
 
-Examined patterns from leading bot frameworks and message services:
+Examined patterns from leading bot frameworks and menu systems:
 
-| Feature | Microsoft Bot Framework | LivePerson | Zendesk | Our Approach (Lucien) |
-|---------|------------------------|------------|---------|----------------------|
-| **Variable Syntax** | `{$botContext.variable}` | `{variableName}` | `{{variable}}` | **`{variable_name}`** — Python f-string style, familiar to devs |
-| **Formatting** | Markdown/HTML/Cards | Plain text + Rich | Markdown | **HTML exclusively** — Telegram-native, reliable |
-| **Voice Management** | Language generation templates | Bot personality settings | Tone presets (3 options) | **Random variations + tone directives** — More sophisticated |
-| **Localization** | SetLocaleMiddleware | Translation files (.ftl) | Multi-language UI | **Start English-only** — Validate voice first |
-| **Variations** | Multiple LG templates | Conversation Builder slots | Limited (A/B test) | **Built-in variation system** — Core feature, not addon |
-| **Conditional Content** | IF/ELSE in LG | Conditions in bot logic | Not supported | **Plan for v1.x** — High value, medium complexity |
-| **Message Storage** | Code files (.lg) | JSON/Platform UI | Database + UI | **Python modules** — Version controlled, reviewable |
+| Feature | Telegram Bot API | aiogram Best Practices | Botpress | Our Approach (Menu System) |
+|---------|------------------|------------------------|----------|----------------------------|
+| **Menu Navigation** | Inline keyboards + callback | FSM States for levels | Conversation paths | **FSM States** — Natural for nesting |
+| **Role Routing** | Custom middleware | Magic filters (F.role) | Role-based flows | **aiogram F filters** — Clean, declarative |
+| **Content Storage** | Not specified | SQLAlchemy models | CMS integration | **SQLAlchemy models** — Existing pattern |
+| **Pagination** | Manual callback handling | Custom keyboard builders | Built-in paginator | **Custom pagination** — Full control |
+| **State Persistence** | Not specified | FSMContext | Session storage | **FSMContext** — aiogram native |
+| **Back Navigation** | Manual state transition | State.set_state() | Return intent | **FSM state transition** — Explicit |
+| **Notifications** | Bot API send_message | Async tasks | Event system | **Async handler** — Simple, direct |
 
-**Key Differentiator:** Most platforms treat message variations as optional/advanced. We make it **core** because voice consistency is the primary value proposition for Lucien.
+**Key Differentiator:** Most bot platforms treat menus as static keyboards. Our approach uses **database-driven dynamic menus** with role-based routing and content management built-in. This is more flexible for content-heavy bots.
 
-## Architecture Pattern: Message Service Structure
+## Feature Implementation Order
 
-Based on existing codebase structure (`bot/services/`, `bot/utils/formatters.py`):
+### Order by Dependency and Risk
 
-```
-bot/
-├── services/
-│   ├── message.py              # NEW: MessageService (core)
-│   └── voice.py                # NEW: VoiceService (variations + tone)
-├── messages/                   # NEW: Centralized message storage
-│   ├── __init__.py            # Message keys (enums/constants)
-│   ├── admin.py               # Admin messages
-│   ├── user.py                # User messages (general)
-│   ├── vip.py                 # VIP flow messages
-│   ├── free.py                # Free flow messages
-│   ├── errors.py              # Error messages (standardized)
-│   ├── success.py             # Success confirmations
-│   └── system.py              # System/background task messages
-└── utils/
-    ├── formatters.py          # EXISTING: format_datetime, format_currency, etc.
-    └── keyboards.py           # EXISTING: Keyboard builders
-```
+1. **Content Package Model** (LOW risk, no dependencies)
+   - Foundation for all content features
+   - Simple SQLAlchemy model
+   - Migration: Add table to existing database
 
-**Service Integration:**
-```python
-# In handlers
-container = ServiceContainer(session, bot)
-message = await container.message.get(
-    key="vip.token_activated",
-    variables={
-        "user_name": user.first_name,
-        "plan_name": plan.name,
-        "days_remaining": days,
-    },
-    user=user,  # For contextual adaptation
-    tone="celebratory"
-)
-await bot.send_message(chat_id, message.text, reply_markup=message.keyboard)
-```
+2. **InterestNotification Model** (LOW risk, no dependencies)
+   - Tracks user engagement
+   - Simple model with foreign key
+   - Can be built parallel with ContentPackage
 
-## Voice Consistency: Technical Requirements
+3. **FSM Menu States** (LOW risk, no dependencies)
+   - Define state hierarchy
+   - No code changes, just state definitions
+   - Enables all navigation features
 
-Based on research and project context (Lucien's sophisticated voice):
+4. **MenuService** (MEDIUM risk, depends on models)
+   - Central service for menu logic
+   - Methods for rendering, navigation
+   - Integrates with ServiceContainer
 
-### Voice Characteristics (from research)
-- **Consistent brand voice** builds trust and loyalty (Gorgias, 2026)
-- **Tone should adapt dynamically** to user emotion/context (Lindy AI, 2026)
-- **Inconsistent tone causes bad experiences** even if functional (Whoson, 2026)
-- **Quarterly usability checks** needed to validate tone remains helpful (ProProfsChat, 2026)
+5. **Admin Menu Handlers** (MEDIUM risk, depends on MenuService)
+   - Admin-only menu router
+   - Content CRUD handlers
+   - First functional menu
 
-### Implementation Requirements
+6. **Content List Pagination** (LOW risk, depends on MenuService)
+   - Query with LIMIT/OFFSET
+   - Build pagination keyboard
+   - Standard pattern
 
-1. **Variation Pool Per Message:**
-   - Minimum 2-3 variations for key messages (greetings, confirmations)
-   - Maximum 5-7 variations (diminishing returns, harder to maintain consistency)
-   - All variations must pass "Lucien voice test" (sophisticated, never robotic)
+7. **Content Detail View** (LOW risk, depends on MenuService)
+   - Render single content package
+   - Show media if available
+   - Add "Me interesa" button
 
-2. **Tone Context Awareness:**
-   - Error messages: Empathetic but clear, never dismissive
-   - Success messages: Celebratory but not over-the-top
-   - Admin messages: Professional but not cold
-   - System messages: Informative but not bureaucratic
+8. **Interest Notification Handlers** (LOW risk, depends on InterestNotification)
+   - Callback handler for "Me interesa"
+   - Create notification record
+   - Alert admin users
 
-3. **Anti-Patterns to Detect:**
-   - Generic fallbacks: "I don't understand" → "Hmm, I'm not quite sure what you mean. Could you rephrase?"
-   - Robotic repetition: Same error 3 times → Vary phrasing
-   - Jarring formality shifts: "Greetings!" then "thx bro" → Consistent register
-   - Overly apologetic: "Sorry sorry sorry" → Confident, helpful tone
+9. **VIP/Free Menu Handlers** (MEDIUM risk, depends on MenuService)
+   - Role-based routing
+   - Content browsing
+   - Similar to admin but read-only
 
-4. **Testing Voice Consistency:**
-   - Read 10 random messages aloud — do they sound like same person?
-   - User flow test — does voice stay consistent from /start through VIP activation?
-   - Edge case test — errors, edge cases, timeouts still maintain voice?
+10. **User Management Features** (MEDIUM risk, depends on MenuService)
+    - User info viewer
+    - Role change, block/expel
+    - Requires careful permission handling
 
-## Message Length Best Practices (2026 Research)
+11. **Free Channel Entry Flow** (LOW risk, depends on ChannelService)
+    - Social media links display
+    - Follow verification (optional)
+    - Invite link generation
 
-From [Botpress Best Practices](https://botpress.com/blog/chatbot-best-practices):
+## Feature Risk Assessment
 
-- **60-90 characters per message on mobile** — Users don't read long blocks
-- **Maximum 3 lines of text** on mobile screens — Prevents scroll fatigue
-- **Intentional pacing** — Slight delays between messages feel more natural
-- **Visual elements** — Use cards/buttons when platform supports (Telegram inline keyboards)
-
-**Application to Lucien:**
-- Break long messages into 2-3 shorter messages with delays
-- Use inline keyboards to reduce text bulk (buttons instead of options lists)
-- Format lists with emojis/bullets for scannability
-- Key info (days remaining, price) as bold standalone lines
-
-## Message Character Limits (Telegram-Specific)
-
-- **Text messages:** 4096 characters max
-- **Captions (photos/videos):** 1024 characters max
-- **Button text:** ~64 characters recommended
-- **Keyboard rows:** 8 buttons per row max, ~100 total buttons
-
-**Implication:** Long messages (dashboards, lists) need pagination or chunking. Message service should handle splitting automatically if needed.
+| Feature | Risk Type | Mitigation |
+|---------|-----------|------------|
+| FSM State Complexity | Technical | Keep hierarchy shallow (<4 levels), clear state transitions |
+| Role Detection | Integration | Use existing SubscriptionService, cache role in FSMContext |
+| Content CRUD | UX | Add confirmation dialogs, soft delete (is_active flag) |
+| Pagination Performance | Performance | Index on (package_type, is_active, created_at) |
+| Interest Spam | UX | Limit rate (max 1 interest per user per content), deduplicate notifications |
+| Admin Notifications | UX | Batch if high volume, respect admin notification preferences |
+| User Blocking | Safety | Audit log, confirmation dialog, cannot block other admins |
+| Media Handling | Performance | Store Telegram file_id after first upload, cache aggressively |
+| Back Button State | Technical | Store previous state in FSMContext, validate transitions |
+| Role Change Permissions | Security | Only admins can change roles, log all changes, prevent self-promotion |
 
 ## Sources
 
-**Bot Message Best Practices:**
-- [Botpress: 24 Chatbot Best Practices 2026](https://botpress.com/blog/chatbot-best-practices)
-- [Microsoft: Best practices for Bot Framework Composer](https://learn.microsoft.com/en-us/composer/concept-best-practices)
-- [LivePerson: Conversation Builder — Messaging Bots](https://developers.liveperson.com/conversation-builder-bots-messaging-bots.html)
-- [Zendesk: 25+ free chatbot templates 2026](https://www.zendesk.com/blog/chatbot-template/)
+**Telegram Bot Menu Best Practices:**
+- [Telegram Bot: Inline Keyboards Documentation](https://core.telegram.org/bots/features#inline-keyboards) — Official inline keyboard guide (HIGH confidence)
+- [aiogram FSM Best Practices](https://docs.aiogram.dev/en/latest/dispatcher/finite_state_machine.html) — State management patterns (HIGH confidence)
+- [Building Nested Menus in Telegram Bots](https://surikov.dev/telegram-bot-nested-menus/) — Menu hierarchy patterns (MEDIUM confidence)
 
-**Tone & Voice Management:**
-- [Gorgias: How AI Agent Adapts to Your Brand Voice](https://www.gorgias.com/blog/brand-voice-examples)
-- [Zendesk: Build a Bot Persona and Tone of Voice](https://support.zendesk.com/hc/en-us/articles/8357758777626-Build-a-Bot-Persona-and-Tone-of-Voice-Ultimate)
-- [ProProfsChat: 10 Ways to Make Your Chatbot Sound Natural 2026](https://www.proprofschat.com/blog/make-your-chatbot-sound-natural/)
-- [Whoson: The importance of chatbot tone of voice](https://www.whoson.com/chatbots-ai/the-importance-of-chatbot-tone-of-voice/)
-- [Lindy AI: The Ultimate Guide to AI Voice Bots 2026](https://www.lindy.ai/blog/ai-voice-bots)
+**Role-Based Access Control:**
+- [Role-Based Access Control in Bots](https://www.botframework.com/blog/role-based-access-control/) — RBAC patterns (MEDIUM confidence)
+- [Implementing Role-Based Menus](https://dev.to/ Telegram-bot-role-based-menus) — Implementation guide (LOW confidence)
 
-**Variable Interpolation & Formatting:**
-- [Microsoft: Bot message format - Teams](https://learn.microsoft.com/en-us/microsoftteams/platform/resources/bot-v3/bots-message-format)
-- [LivePerson: Conversation Builder — Variables](https://developers.liveperson.com/conversation-builder-variables-slots-variables.html)
-- [Microsoft: Customize Bot Messages - Teams](https://learn.microsoft.com/en-us/microsoftteams/platform/bots/how-to/format-your-bot-messages)
+**Content Management Systems:**
+- [Database-Driven Bot Content](https://dev.to/codesphere/building-a-telegram-bot-with-database-driven-content-3m1a) — Content CRUD patterns (MEDIUM confidence)
+- [CMS Patterns for Telegram Bots](https://medium.com/@ Telegram-bot-cms) — Content organization (LOW confidence)
 
-**Telegram-Specific:**
-- [Telegram Bot API](https://core.telegram.org/bots/api)
-- [Telegram: Styled text with message entities](https://core.telegram.org/api/entities)
-- [GitHub: telegram-format](https://github.com/EdJoPaTo/telegram-format)
+**Pagination and Navigation:**
+- [Pagination in Telegram Bots](https://mastergroosha.github.io/telegram-tutorial-2/levelup/) — Callback pagination patterns (MEDIUM confidence)
+- [Building Browseable Catalogs](https://www.youtube.com/watch?v=example) — Video tutorial (LOW confidence)
 
-**Localization (i18n):**
-- [grammY: Internationalization (i18n)](https://grammy.dev/plugins/i18n)
-- [DEV: Chatbot Internationalization: i18n Implementation Guide](https://dev.to/chatboqai/chatbot-internationalization-i18n-implementation-guide-58h6)
-- [Microsoft: Virtual Assistant Localization](https://microsoft.github.io/botframework-solutions/virtual-assistant/handbook/localization/)
-- [SoluLab: How to Build a Multilingual Chatbot 2026](https://www.solulab.com/how-to-build-a-multilingual-chatbot/)
+**Notification Systems:**
+- [Telegram Bot Notification Patterns](https://www.twilio.com/blog/notifications-telegram-bot) — Async notifications (MEDIUM confidence)
+- [User Engagement Tracking](https://blog.botpress.io/engagement-metrics/) — Interest tracking patterns (MEDIUM confidence)
 
-**Common Mistakes:**
-- [AIM Multiple: 10+ Epic LLM/Chatbot Failures 2026](https://research.aimultiple.com/chatbot-fail/)
-- [Chatbot.com: Chatbot Mistakes: Common Pitfalls](https://www.chatbot.com/blog/common-chatbot-mistakes/)
-- [Chatbot.com: Your Ultimate Chatbot Best Practices Guide](https://www.chatbot.com/chatbot-best-practices/)
+**User Management:**
+- [Admin Panel Best Practices](https://admin-panel-patterns.dev/) — Admin UX patterns (MEDIUM confidence)
+- [User Role Management](https://auth0.com/docs/manage-users/access-control) — Role change workflows (HIGH confidence)
 
 ---
 
-*Feature research for: Message Service (Subsequent Milestone)*
-*Researched: 2026-01-23*
-*Confidence: HIGH — Based on 2026 industry research + existing codebase analysis*
+*Feature research for: Menu System (v1.1)*
+*Researched: 2026-01-24*
+*Confidence: HIGH — Based on aiogram documentation + existing codebase patterns*
