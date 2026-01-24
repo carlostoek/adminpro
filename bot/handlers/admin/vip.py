@@ -5,6 +5,8 @@ Handlers para:
 - Submenú VIP
 - Configuración del canal VIP
 - Generación de tokens de invitación con deep links
+
+All messages now use centralized AdminVIPMessages provider for voice consistency.
 """
 import logging
 from datetime import timedelta
@@ -17,47 +19,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.handlers.admin.main import admin_router
 from bot.services.container import ServiceContainer
 from bot.states.admin import ChannelSetupStates
-from bot.utils.formatters import format_currency, format_datetime
-from bot.utils.keyboards import create_inline_keyboard
 from config import Config
 
 logger = logging.getLogger(__name__)
-
-
-def vip_menu_keyboard(is_configured: bool) -> "InlineKeyboardMarkup":
-    """
-    Keyboard del submenú VIP.
-
-    Args:
-        is_configured: Si el canal VIP está configurado
-
-    Returns:
-        InlineKeyboardMarkup con opciones VIP
-    """
-    buttons = []
-
-    if is_configured:
-        buttons.extend([
-            [{"text": "🎟️ Generar Token", "callback_data": "vip:generate_token"}],
-            [
-                {"text": "👥 Suscriptores", "callback_data": "vip:list_subscribers"},
-                {"text": "📊 Estadísticas", "callback_data": "admin:stats:vip"}
-            ],
-            [{"text": "📤 Enviar Publicación", "callback_data": "vip:broadcast"}],
-            [{"text": "⚙️ Configuración", "callback_data": "vip:config"}],
-        ])
-    else:
-        buttons.append([{"text": "⚙️ Configurar Canal VIP", "callback_data": "vip:setup"}])
-
-    buttons.append([{"text": "🔙 Volver", "callback_data": "admin:main"}])
-
-    return create_inline_keyboard(buttons)
 
 
 @admin_router.callback_query(F.data == "admin:vip")
 async def callback_vip_menu(callback: CallbackQuery, session: AsyncSession):
     """
     Muestra el submenú de gestión VIP.
+
+    Migrated to use AdminVIPMessages provider for all text/keyboard generation.
 
     Args:
         callback: Callback query
@@ -70,30 +42,37 @@ async def callback_vip_menu(callback: CallbackQuery, session: AsyncSession):
     # Verificar si canal VIP está configurado
     is_configured = await container.channel.is_vip_channel_configured()
 
+    # Get channel info for configured state
+    channel_name = "Canal VIP"
+    subscriber_count = 0
+
     if is_configured:
         vip_channel_id = await container.channel.get_vip_channel_id()
-
-        # Obtener info del canal
         channel_info = await container.channel.get_channel_info(vip_channel_id)
         channel_name = channel_info.title if channel_info else "Canal VIP"
 
-        text = (
-            f"📺 <b>Gestión Canal VIP</b>\n\n"
-            f"✅ Canal configurado: <b>{channel_name}</b>\n"
-            f"ID: <code>{vip_channel_id}</code>\n\n"
-            f"Selecciona una opción:"
-        )
-    else:
-        text = (
-            "📺 <b>Gestión Canal VIP</b>\n\n"
-            "⚠️ Canal VIP no configurado\n\n"
-            "Configura el canal para comenzar a generar tokens de invitación."
-        )
+        # Get subscriber count (optional - can be 0 if stats not available)
+        try:
+            all_vips = await container.subscription.get_all_vip_subscribers(status="active")
+            subscriber_count = len(all_vips)
+        except Exception as e:
+            logger.warning(f"Could not get VIP count: {e}")
+            subscriber_count = 0
+
+    # Generate message and keyboard from provider
+    session_history = container.session_history
+    text, keyboard = container.message.admin.vip.vip_menu(
+        is_configured=is_configured,
+        channel_name=channel_name,
+        subscriber_count=subscriber_count,
+        user_id=callback.from_user.id,
+        session_history=session_history
+    )
 
     try:
         await callback.message.edit_text(
             text=text,
-            reply_markup=vip_menu_keyboard(is_configured),
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
     except Exception as e:
@@ -113,6 +92,7 @@ async def callback_vip_setup(
     Inicia el proceso de configuración del canal VIP.
 
     Entra en estado FSM esperando que el admin reenvíe un mensaje del canal.
+    Migrated to use AdminVIPMessages provider.
 
     Args:
         callback: Callback query
@@ -124,24 +104,15 @@ async def callback_vip_setup(
     # Entrar en estado FSM
     await state.set_state(ChannelSetupStates.waiting_for_vip_channel)
 
-    text = (
-        "⚙️ <b>Configurar Canal VIP</b>\n\n"
-        "Para configurar el canal VIP, necesito que:\n\n"
-        "1️⃣ Vayas al canal VIP\n"
-        "2️⃣ Reenvíes cualquier mensaje del canal a este chat\n"
-        "3️⃣ Yo extraeré el ID automáticamente\n\n"
-        "⚠️ <b>Importante:</b>\n"
-        "- El bot debe ser administrador del canal\n"
-        "- El bot debe tener permiso para invitar usuarios\n\n"
-        "👉 Reenvía un mensaje del canal ahora..."
-    )
+    container = ServiceContainer(session, callback.bot)
+
+    # Generate message and keyboard from provider
+    text, keyboard = container.message.admin.vip.setup_channel_prompt()
 
     try:
         await callback.message.edit_text(
             text=text,
-            reply_markup=create_inline_keyboard([
-                [{"text": "❌ Cancelar", "callback_data": "admin:vip"}]
-            ]),
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
     except Exception as e:
@@ -198,14 +169,16 @@ async def process_vip_channel_forward(
     success, msg = await container.channel.setup_vip_channel(channel_id)
 
     if success:
-        # Configuración exitosa
+        # Configuración exitosa - use message provider
+        text, keyboard = container.message.admin.vip.channel_configured_success(
+            channel_name=channel_title,
+            channel_id=channel_id
+        )
+
         await message.answer(
-            f"✅ <b>Canal VIP Configurado</b>\n\n"
-            f"Canal: <b>{channel_title}</b>\n"
-            f"ID: <code>{channel_id}</code>\n\n"
-            f"Ya puedes generar tokens de invitación.",
-            parse_mode="HTML",
-            reply_markup=vip_menu_keyboard(True)
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
         )
 
         # Limpiar estado FSM
@@ -255,45 +228,35 @@ async def callback_generate_token_select_plan(
         plans = await container.pricing.get_all_plans(active_only=True)
 
         if not plans:
+            # Use message provider for no plans case
+            text, keyboard = container.message.admin.vip.no_plans_configured()
+
             await callback.message.edit_text(
-                "❌ <b>No Hay Tarifas Configuradas</b>\n\n"
-                "Debes configurar al menos una tarifa antes de generar tokens.\n\n"
-                "Ve a: Configuración → Tarifas → Crear Nueva Tarifa",
-                reply_markup=create_inline_keyboard([
-                    [{"text": "💰 Configurar Tarifas", "callback_data": "admin:pricing"}],
-                    [{"text": "🔙 Volver", "callback_data": "admin:vip"}]
-                ]),
+                text=text,
+                reply_markup=keyboard,
                 parse_mode="HTML"
             )
             await callback.answer()
             return
 
-        # Construir texto con info de planes
-        text = (
-            "🎟️ <b>Generar Token de Invitación VIP</b>\n\n"
-            "Selecciona la tarifa para el token:\n\n"
-        )
+        # Convert SQLAlchemy objects to dicts for message provider
+        plans_data = [
+            {
+                "id": plan.id,
+                "name": plan.name,
+                "duration_days": plan.duration_days,
+                "price": plan.price,
+                "currency": plan.currency
+            }
+            for plan in plans
+        ]
 
-        # Agregar info de cada plan
-        for plan in plans:
-            price_str = format_currency(plan.price, symbol=plan.currency)
-            text += f"• <b>{plan.name}</b>: {plan.duration_days} días • {price_str}\n"
-
-        # Construir keyboard con botones de planes
-        buttons = []
-        for plan in plans:
-            price_str = format_currency(plan.price, symbol=plan.currency)
-
-            buttons.append([{
-                "text": f"{plan.name} - {price_str}",
-                "callback_data": f"vip:generate:plan:{plan.id}"
-            }])
-
-        buttons.append([{"text": "🔙 Volver", "callback_data": "admin:vip"}])
+        # Use message provider for plan selection
+        text, keyboard = container.message.admin.vip.select_plan_for_token(plans_data)
 
         await callback.message.edit_text(
             text=text,
-            reply_markup=create_inline_keyboard(buttons),
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
 
@@ -362,39 +325,23 @@ async def callback_generate_token_with_plan(
         bot_username = (await callback.bot.me()).username
         deep_link = f"https://t.me/{bot_username}?start={token.token}"
 
-        # Formatear mensaje con deep link
-        price_str = format_currency(plan.price, symbol=plan.currency)
-        expiry_str = format_datetime(token.created_at + timedelta(hours=24), include_time=False)
+        # Calculate expiry date
+        expiry_date = token.created_at + timedelta(hours=24)
 
-        text = f"""🎟️ <b>Token VIP Generado</b>
-
-<b>Plan:</b> {plan.name}
-<b>Duración:</b> {plan.duration_days} días
-<b>Precio:</b> {price_str}
-
-<b>Token:</b> <code>{token.token}</code>
-
-<b>🔗 Link de Activación:</b>
-<code>{deep_link}</code>
-
-<b>Válido hasta:</b> {expiry_str}
-
-━━━━━━━━━━━━━━━━━━━━
-<b>Instrucciones:</b>
-
-1. Copia el link de arriba
-2. Envíalo al usuario
-3. Al hacer click, se activará automáticamente su suscripción VIP
-
-⚠️ El link expira en 24 horas."""
+        # Use message provider for token generated message
+        text, keyboard = container.message.admin.vip.token_generated(
+            plan_name=plan.name,
+            duration_days=plan.duration_days,
+            price=plan.price,
+            currency=plan.currency,
+            token=token.token,
+            deep_link=deep_link,
+            expiry_date=expiry_date
+        )
 
         await callback.message.answer(
             text=text,
-            reply_markup=create_inline_keyboard([
-                [{"text": "🔗 Copiar Link", "url": deep_link}],
-                [{"text": "🎟️ Generar Otro Token", "callback_data": "vip:generate_token"}],
-                [{"text": "🔙 Volver", "callback_data": "admin:vip"}]
-            ]),
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
 
@@ -406,9 +353,15 @@ async def callback_generate_token_with_plan(
     except Exception as e:
         logger.error(f"❌ Error generando token: {e}", exc_info=True)
 
+        # Use common error message from message service
+        from bot.utils.keyboards import create_inline_keyboard
+        error_msg = container.message.common.error(
+            context="al generar la invitación",
+            suggestion="Verifique que el plan seleccionado sigue activo"
+        )
+
         await callback.message.edit_text(
-            "❌ <b>Error al Generar Token</b>\n\n"
-            "Ocurrió un error inesperado. Intenta nuevamente.",
+            error_msg,
             reply_markup=create_inline_keyboard([
                 [{"text": "🔄 Reintentar", "callback_data": "vip:generate_token"}],
                 [{"text": "🔙 Volver", "callback_data": "admin:vip"}]

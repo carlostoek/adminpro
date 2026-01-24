@@ -15,35 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.handlers.admin.main import admin_router
 from bot.states.admin import ChannelSetupStates, WaitTimeSetupStates
 from bot.services.container import ServiceContainer
-from bot.utils.keyboards import create_inline_keyboard
 
 logger = logging.getLogger(__name__)
-
-
-def free_menu_keyboard(is_configured: bool) -> "InlineKeyboardMarkup":
-    """
-    Keyboard del submenú Free.
-
-    Args:
-        is_configured: Si el canal Free está configurado
-
-    Returns:
-        InlineKeyboardMarkup con opciones Free
-    """
-    buttons = []
-
-    if is_configured:
-        buttons.extend([
-            [{"text": "📤 Enviar Publicación", "callback_data": "free:broadcast"}],
-            [{"text": "📋 Cola de Solicitudes", "callback_data": "free:view_queue"}],
-            [{"text": "⚙️ Configuración", "callback_data": "free:config"}],
-        ])
-    else:
-        buttons.append([{"text": "⚙️ Configurar Canal Free", "callback_data": "free:setup"}])
-
-    buttons.append([{"text": "🔙 Volver", "callback_data": "admin:main"}])
-
-    return create_inline_keyboard(buttons)
 
 
 @admin_router.callback_query(F.data == "admin:free")
@@ -70,24 +43,28 @@ async def callback_free_menu(callback: CallbackQuery, session: AsyncSession):
         channel_info = await container.channel.get_channel_info(free_channel_id)
         channel_name = channel_info.title if channel_info else "Canal Free"
 
-        text = (
-            f"📺 <b>Gestión Canal Free</b>\n\n"
-            f"✅ Canal configurado: <b>{channel_name}</b>\n"
-            f"ID: <code>{free_channel_id}</code>\n\n"
-            f"⏱️ Tiempo de espera: <b>{wait_time} minutos</b>\n\n"
-            f"Selecciona una opción:"
+        # Get message from provider
+        session_history = container.session_history
+        text, keyboard = container.message.admin.free.free_menu(
+            is_configured=True,
+            channel_name=channel_name,
+            wait_time_minutes=wait_time,
+            user_id=callback.from_user.id,
+            session_history=session_history
         )
     else:
-        text = (
-            "📺 <b>Gestión Canal Free</b>\n\n"
-            "⚠️ Canal Free no configurado\n\n"
-            "Configura el canal para que usuarios puedan solicitar acceso."
+        # Get message from provider
+        session_history = container.session_history
+        text, keyboard = container.message.admin.free.free_menu(
+            is_configured=False,
+            user_id=callback.from_user.id,
+            session_history=session_history
         )
 
     try:
         await callback.message.edit_text(
             text=text,
-            reply_markup=free_menu_keyboard(is_configured),
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
     except Exception as e:
@@ -113,27 +90,18 @@ async def callback_free_setup(
     """
     logger.info(f"⚙️ Usuario {callback.from_user.id} iniciando setup Free")
 
+    container = ServiceContainer(session, callback.bot)
+
     # Entrar en estado FSM
     await state.set_state(ChannelSetupStates.waiting_for_free_channel)
 
-    text = (
-        "⚙️ <b>Configurar Canal Free</b>\n\n"
-        "Para configurar el canal Free:\n\n"
-        "1️⃣ Vayas al canal Free\n"
-        "2️⃣ Reenvíes cualquier mensaje del canal a este chat\n"
-        "3️⃣ Yo extraeré el ID automáticamente\n\n"
-        "⚠️ <b>Importante:</b>\n"
-        "- El bot debe ser administrador del canal\n"
-        "- El bot debe tener permiso para invitar usuarios\n\n"
-        "👉 Reenvía un mensaje del canal ahora..."
-    )
+    # Get message from provider
+    text, keyboard = container.message.admin.free.setup_channel_prompt()
 
     try:
         await callback.message.edit_text(
             text=text,
-            reply_markup=create_inline_keyboard([
-                [{"text": "❌ Cancelar", "callback_data": "admin:free"}]
-            ]),
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
     except Exception as e:
@@ -187,13 +155,16 @@ async def process_free_channel_forward(
     success, msg = await container.channel.setup_free_channel(channel_id)
 
     if success:
+        # Get success message from provider
+        text, keyboard = container.message.admin.free.channel_configured_success(
+            channel_name=channel_title,
+            channel_id=channel_id
+        )
+
         await message.answer(
-            f"✅ <b>Canal Free Configurado</b>\n\n"
-            f"Canal: <b>{channel_title}</b>\n"
-            f"ID: <code>{channel_id}</code>\n\n"
-            f"Los usuarios ya pueden solicitar acceso.",
-            parse_mode="HTML",
-            reply_markup=free_menu_keyboard(True)
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
         )
 
         await state.clear()
@@ -227,20 +198,13 @@ async def callback_set_wait_time(
     # Entrar en estado FSM
     await state.set_state(WaitTimeSetupStates.waiting_for_minutes)
 
-    text = (
-        f"⏱️ <b>Configurar Tiempo de Espera</b>\n\n"
-        f"Tiempo actual: <b>{current_wait_time} minutos</b>\n\n"
-        f"Envía el nuevo tiempo de espera en minutos.\n"
-        f"Ejemplo: <code>5</code>\n\n"
-        f"El tiempo debe ser mayor o igual a 1 minuto."
-    )
+    # Get message from provider
+    text, keyboard = container.message.admin.free.wait_time_setup_prompt(current_wait_time)
 
     try:
         await callback.message.edit_text(
             text=text,
-            reply_markup=create_inline_keyboard([
-                [{"text": "❌ Cancelar", "callback_data": "admin:free"}]
-            ]),
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
     except Exception as e:
@@ -264,38 +228,43 @@ async def process_wait_time_input(
         session: Sesión de BD
         state: FSM context
     """
+    container = ServiceContainer(session, message.bot)
+
     # Intentar convertir a número
     try:
         minutes = int(message.text)
     except ValueError:
+        # Get error message from provider
+        text, keyboard = container.message.admin.free.invalid_wait_time_input("not_number")
         await message.answer(
-            "❌ Debes enviar un número válido.\n\n"
-            "Ejemplo: <code>5</code>",
+            text=text,
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
         return
 
     # Validar rango
     if minutes < 1:
+        # Get error message from provider
+        text, keyboard = container.message.admin.free.invalid_wait_time_input("too_low")
         await message.answer(
-            "❌ El tiempo debe ser al menos 1 minuto.\n\n"
-            "Envía un número mayor o igual a 1.",
+            text=text,
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
         return
-
-    container = ServiceContainer(session, message.bot)
 
     try:
         # Actualizar configuración
         await container.config.set_wait_time(minutes)
 
+        # Get success message from provider
+        text, keyboard = container.message.admin.free.wait_time_updated(minutes)
+
         await message.answer(
-            f"✅ <b>Tiempo de Espera Actualizado</b>\n\n"
-            f"Nuevo tiempo: <b>{minutes} minutos</b>\n\n"
-            f"Las nuevas solicitudes esperarán {minutes} minutos antes de procesarse.",
-            parse_mode="HTML",
-            reply_markup=free_menu_keyboard(True)
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
         )
 
         # Limpiar estado
@@ -326,17 +295,8 @@ async def callback_free_config(callback: CallbackQuery, session: AsyncSession):
     container = ServiceContainer(session, callback.bot)
     wait_time = await container.config.get_wait_time()
 
-    text = (
-        "⚙️ <b>Configuración Canal Free</b>\n\n"
-        f"⏱️ Tiempo de espera actual: <b>{wait_time} minutos</b>\n\n"
-        "Selecciona una opción:"
-    )
-
-    keyboard = create_inline_keyboard([
-        [{"text": "⏱️ Cambiar Tiempo de Espera", "callback_data": "free:set_wait_time"}],
-        [{"text": "🔧 Reconfigurar Canal", "callback_data": "free:setup"}],
-        [{"text": "🔙 Volver", "callback_data": "admin:free"}]
-    ])
+    # Get message from provider
+    text, keyboard = container.message.admin.free.config_menu(wait_time)
 
     try:
         await callback.message.edit_text(

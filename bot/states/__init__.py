@@ -8,7 +8,6 @@ from bot.states.admin import (
     ReactionSetupStates
 )
 from bot.states.user import (
-    TokenRedemptionStates,
     FreeAccessStates
 )
 
@@ -20,6 +19,6 @@ __all__ = [
     "ReactionSetupStates",
 
     # User states
-    "TokenRedemptionStates",
+    # TokenRedemptionStates removed - manual token redemption deprecated
     "FreeAccessStates",
 ]

@@ -1,32 +1,12 @@
 """
 FSM States para handlers de usuarios.
 
-Estados para flujos de usuarios (canje de tokens, solicitud Free).
+Estados para flujos de usuarios (solicitud Free).
+
+Note: TokenRedemptionStates removed - manual token redemption deprecated.
+Only deep link activation exists (no FSM state needed).
 """
 from aiogram.fsm.state import State, StatesGroup
-
-
-class TokenRedemptionStates(StatesGroup):
-    """
-    Estados para canje de tokens VIP.
-
-    Flujo:
-    1. Usuario envía /start
-    2. Bot pregunta por token
-    3. Bot entra en estado waiting_for_token
-    4. Usuario envía token
-    5. Bot valida y canjea
-    6. Bot sale del estado
-
-    Validación de Token:
-    - Usuario envía texto → Bot valida formato y existe en BD
-    - Token debe estar vigente (no expirado)
-    - Token debe no estar ya canjeado
-    - Si token es inválido → Error claro y mantener estado
-    """
-
-    # Esperando que usuario envíe token
-    waiting_for_token = State()
 
 
 class FreeAccessStates(StatesGroup):

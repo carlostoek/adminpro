@@ -18,7 +18,6 @@ from bot.database.enums import UserRole
 from bot.middlewares import DatabaseMiddleware
 from bot.services.container import ServiceContainer
 from bot.utils.formatters import format_currency
-from bot.utils.keyboards import create_inline_keyboard
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -64,12 +63,20 @@ async def cmd_start(message: Message, session: AsyncSession):
     logger.debug(f"👤 Usuario en sistema: {user.user_id} - Rol: {user.role.value}")
 
     # Verificar si es admin PRIMERO
-    if Config.is_admin(user_id):
-        await message.answer(
-            f"👋 Hola <b>{user_name}</b>!\n\n"
-            f"Eres administrador. Usa /admin para gestionar los canales.",
-            parse_mode="HTML"
+    is_admin = Config.is_admin(user_id)
+
+    if is_admin:
+        # Redirect admin to /admin using message provider
+        session_history = container.session_history
+        text, _ = container.message.user.start.greeting(
+            user_name=user_name,
+            user_id=user_id,
+            is_admin=True,
+            is_vip=False,
+            vip_days_remaining=0,
+            session_history=session_history
         )
+        await message.answer(text, parse_mode="HTML")
         return
 
     # Verificar si hay parámetro (deep link)
@@ -114,51 +121,51 @@ async def _activate_token_from_deeplink(
         user: Usuario del sistema
         token_string: String del token a activar
     """
+    # Extraer nombre de usuario
+    user_name = message.from_user.first_name or "Usuario"
+
     try:
         # Validar token
         is_valid, msg_result, token = await container.subscription.validate_token(token_string)
 
         if not is_valid:
-            await message.answer(
-                "❌ <b>Token Inválido</b>\n\n"
-                "El token que intentas usar no es válido.\n\n"
-                "Posibles causas:\n"
-                "• Token incorrecto\n"
-                "• Token ya usado\n"
-                "• Token expirado",
-                parse_mode="HTML"
+            # Token invalid - delegate to provider
+            error_text = container.message.user.start.deep_link_activation_error(
+                error_type="invalid",
+                details=""
             )
+            await message.answer(error_text, parse_mode="HTML")
             return
 
         # Verificar si el token tiene plan asociado (acceso directo a plan_id, sin lazy loading)
         if not token.plan_id:
             # Token antiguo sin plan asociado (compatibilidad)
-            await message.answer(
-                "❌ <b>Token Sin Plan Asociado</b>\n\n"
-                "Este token no tiene un plan de suscripción válido.",
-                parse_mode="HTML"
+            error_text = container.message.user.start.deep_link_activation_error(
+                error_type="no_plan",
+                details=""
             )
+            await message.answer(error_text, parse_mode="HTML")
             return
 
         # Cargar plan explícitamente (sin lazy loading)
         plan = await container.pricing.get_plan_by_id(token.plan_id)
 
         if not plan:
-            await message.answer(
-                "❌ <b>Plan No Encontrado</b>\n\n"
-                "El plan asociado a este token ya no existe en el sistema.\n"
-                "Contacta al administrador.",
-                parse_mode="HTML"
+            # Plan not found - delegate to provider
+            error_text = container.message.user.start.deep_link_activation_error(
+                error_type="no_plan",
+                details="El plan ya no existe en el sistema."
             )
+            await message.answer(error_text, parse_mode="HTML")
             return
 
         if not plan.active:
-            await message.answer(
-                "❌ <b>Plan Desactivado</b>\n\n"
-                "El plan asociado a este token fue desactivado.\n"
-                "Contacta al administrador para más información.",
-                parse_mode="HTML"
+            # Plan deactivated - delegate to provider
+            error_text = container.message.user.start.deep_link_activation_error(
+                error_type="no_plan",
+                details="El plan fue desactivado."
             )
+            await message.answer(error_text, parse_mode="HTML")
             return
 
         # Marcar token como usado
@@ -189,12 +196,12 @@ async def _activate_token_from_deeplink(
         vip_channel_id = await container.channel.get_vip_channel_id()
 
         if not vip_channel_id:
-            await message.answer(
-                "⚠️ <b>Canal VIP No Configurado</b>\n\n"
-                "Tu suscripción fue activada pero el canal VIP no está configurado.\n"
-                "Contacta al administrador.",
-                parse_mode="HTML"
+            # Channel not configured - error
+            error_text = container.message.user.start.deep_link_activation_error(
+                error_type="no_plan",
+                details="El canal VIP no está configurado. Contacte al administrador."
             )
+            await message.answer(error_text, parse_mode="HTML")
             return
 
         try:
@@ -204,8 +211,7 @@ async def _activate_token_from_deeplink(
                 expire_hours=5  # Link válido 5 horas
             )
 
-            # Formatear mensaje de éxito
-            # Asegurar timezone
+            # Calcular días restantes
             expiry = subscriber.expiry_date
             if expiry.tzinfo is None:
                 expiry = expiry.replace(tzinfo=timezone.utc)
@@ -213,51 +219,46 @@ async def _activate_token_from_deeplink(
             now = datetime.now(timezone.utc)
             days_remaining = max(0, (expiry - now).days)
 
+            # Format price
             price_str = format_currency(plan.price, symbol=plan.currency)
 
-            success_text = f"""🎉 <b>¡Suscripción VIP Activada!</b>
-
-<b>Plan:</b> {plan.name}
-<b>Precio:</b> {price_str}
-<b>Duración:</b> {plan.duration_days} días
-<b>Días Restantes:</b> {days_remaining}
-
-{user.role.emoji} Tu rol ha sido actualizado a: <b>{user.role.display_name}</b>
-
-━━━━━━━━━━━━━━━━━━━━
-<b>Siguiente Paso:</b>
-
-Haz click en el botón de abajo para unirte al canal VIP exclusivo.
-
-⚠️ El link expira en 5 horas."""
+            # Use provider for success message
+            session_history = container.session_history
+            success_text, keyboard = container.message.user.start.deep_link_activation_success(
+                user_name=user_name,
+                plan_name=plan.name,
+                duration_days=plan.duration_days,
+                price=price_str,
+                days_remaining=days_remaining,
+                invite_link=invite_link.invite_link,
+                user_id=user.user_id,
+                session_history=session_history
+            )
 
             await message.answer(
                 text=success_text,
-                reply_markup=create_inline_keyboard([
-                    [{"text": "⭐ Unirse al Canal VIP", "url": invite_link.invite_link}]
-                ]),
+                reply_markup=keyboard,
                 parse_mode="HTML"
             )
 
         except Exception as e:
             logger.warning(f"⚠️ No se pudo crear invite link: {e}")
-            await message.answer(
-                "✅ <b>¡Suscripción VIP Activada!</b>\n\n"
-                f"<b>Plan:</b> {plan.name}\n"
-                f"<b>Duración:</b> {plan.duration_days} días\n\n"
-                "Contacta al administrador para acceder al canal VIP.",
-                parse_mode="HTML"
+            # Error creating invite link - show error
+            error_text = container.message.user.start.deep_link_activation_error(
+                error_type="no_plan",
+                details=f"Suscripción activada pero no se pudo crear el enlace de invitación. Plan: {plan.name}"
             )
+            await message.answer(error_text, parse_mode="HTML")
 
     except Exception as e:
         logger.error(f"❌ Error activando token desde deep link: {e}", exc_info=True)
 
-        await message.answer(
-            "❌ <b>Error al Activar Token</b>\n\n"
-            "Ocurrió un error al procesar tu suscripción.\n"
-            "Contacta al administrador.",
-            parse_mode="HTML"
+        # Generic error - delegate to provider
+        error_text = container.message.user.start.deep_link_activation_error(
+            error_type="invalid",
+            details="Error técnico al procesar la invitación."
         )
+        await message.answer(error_text, parse_mode="HTML")
 
 
 async def _send_welcome_message(
@@ -280,11 +281,10 @@ async def _send_welcome_message(
     # Usuario normal: verificar si es VIP activo
     is_vip = await container.subscription.is_vip_active(user_id)
 
+    # Calcular días restantes si es VIP
+    vip_days_remaining = 0
     if is_vip:
-        # Usuario ya tiene acceso VIP
         subscriber = await container.subscription.get_vip_subscriber(user_id)
-
-        # Calcular días restantes
         if subscriber and hasattr(subscriber, 'expiry_date') and subscriber.expiry_date:
             # Asegurar que expiry_date tiene timezone
             expiry = subscriber.expiry_date
@@ -293,34 +293,21 @@ async def _send_welcome_message(
                 expiry = expiry.replace(tzinfo=timezone.utc)
 
             now = datetime.now(timezone.utc)
-            days_remaining = max(0, (expiry - now).days)
-        else:
-            days_remaining = 0
+            vip_days_remaining = max(0, (expiry - now).days)
 
-        await message.answer(
-            f"👋 Hola <b>{user_name}</b>!\n\n"
-            f"✅ Tienes acceso VIP activo\n"
-            f"⏱️ Días restantes: <b>{days_remaining}</b>\n\n"
-            f"Disfruta del contenido exclusivo! 🎉",
-            parse_mode="HTML"
-        )
-        return
-
-    # Usuario no es VIP: mostrar opciones
-    keyboard = create_inline_keyboard([
-        [{"text": "🎟️ Canjear Token VIP", "callback_data": "user:redeem_token"}],
-        [{"text": "📺 Solicitar Acceso Free", "callback_data": "user:request_free"}],
-    ])
+    # Use provider for greeting (handles admin/VIP/free automatically)
+    session_history = container.session_history
+    text, keyboard = container.message.user.start.greeting(
+        user_name=user_name,
+        user_id=user_id,
+        is_admin=False,  # Already filtered admins above
+        is_vip=is_vip,
+        vip_days_remaining=vip_days_remaining,
+        session_history=session_history
+    )
 
     await message.answer(
-        f"👋 Hola <b>{user_name}</b>!\n\n"
-        f"Bienvenido al bot de acceso a canales.\n\n"
-        f"<b>Opciones disponibles:</b>\n\n"
-        f"🎟️ <b>Canjear Token VIP</b>\n"
-        f"Si tienes un token de invitación, canjéalo para acceso VIP.\n\n"
-        f"📺 <b>Solicitar Acceso Free</b>\n"
-        f"Solicita acceso al canal gratuito (con tiempo de espera).\n\n"
-        f"👉 Selecciona una opción:",
+        text=text,
         reply_markup=keyboard,
         parse_mode="HTML"
     )

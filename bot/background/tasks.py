@@ -172,7 +172,7 @@ def start_background_tasks(bot: Bot):
     # Frecuencia: Cada 60 minutos (Config.CLEANUP_INTERVAL_MINUTES)
     _scheduler.add_job(
         expire_and_kick_vip_subscribers,
-        trigger=IntervalTrigger(minutes=Config.CLEANUP_INTERVAL_MINUTES),
+        trigger=IntervalTrigger(minutes=Config.CLEANUP_INTERVAL_MINUTES, timezone="UTC"),
         args=[bot],
         id="expire_vip",
         name="Expulsar VIPs expirados",
@@ -187,7 +187,7 @@ def start_background_tasks(bot: Bot):
     # Frecuencia: Cada 5 minutos (Config.PROCESS_FREE_QUEUE_MINUTES)
     _scheduler.add_job(
         process_free_queue,
-        trigger=IntervalTrigger(minutes=Config.PROCESS_FREE_QUEUE_MINUTES),
+        trigger=IntervalTrigger(minutes=Config.PROCESS_FREE_QUEUE_MINUTES, timezone="UTC"),
         args=[bot],
         id="process_free_queue",
         name="Procesar cola Free",

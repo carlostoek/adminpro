@@ -35,8 +35,12 @@ async def callback_request_free(
 
     # Verificar que canal Free está configurado
     if not await container.channel.is_free_channel_configured():
+        # Use provider for error message
+        error_text = container.message.user.flows.free_request_error(
+            error_type="channel_not_configured"
+        )
         await callback.answer(
-            "⚠️ Canal Free no está configurado. Contacta al administrador.",
+            error_text.replace("<b>", "").replace("</b>", "").replace("🎩 ", ""),
             show_alert=True
         )
         return
@@ -45,21 +49,23 @@ async def callback_request_free(
     existing_request = await container.subscription.get_free_request(user_id)
 
     if existing_request:
-        # Calcular tiempo restante
-        from datetime import datetime, timezone, timedelta
+        # Calcular tiempo restante (business logic stays in handler)
+        from datetime import datetime, timezone
 
         wait_time_minutes = await container.config.get_wait_time()
         time_since_request = (datetime.now(timezone.utc) - existing_request.request_date).total_seconds() / 60
-        minutes_remaining = max(0, int(wait_time_minutes - time_since_request))
+        time_elapsed_minutes = int(time_since_request)
+        time_remaining_minutes = max(0, int(wait_time_minutes - time_since_request))
+
+        # Use provider for duplicate message
+        duplicate_text = container.message.user.flows.free_request_duplicate(
+            time_elapsed_minutes=time_elapsed_minutes,
+            time_remaining_minutes=time_remaining_minutes
+        )
 
         try:
             await callback.message.edit_text(
-                f"⏱️ <b>Solicitud Pendiente</b>\n\n"
-                f"Ya tienes una solicitud en proceso.\n\n"
-                f"Tiempo transcurrido: <b>{int(time_since_request)} minutos</b>\n"
-                f"Tiempo restante: <b>{minutes_remaining} minutos</b>\n\n"
-                f"Recibirás el link de acceso automáticamente cuando el tiempo se cumpla.\n\n"
-                f"💡 <i>Puedes cerrar este chat, te notificaré cuando esté listo.</i>",
+                duplicate_text,
                 parse_mode="HTML"
             )
         except Exception as e:
@@ -69,18 +75,18 @@ async def callback_request_free(
         await callback.answer()
         return
 
-    # Crear nueva solicitud
+    # Crear nueva solicitud (business logic stays in handler)
     request = await container.subscription.create_free_request(user_id)
     wait_time = await container.config.get_wait_time()
 
+    # Use provider for success message
+    success_text = container.message.user.flows.free_request_success(
+        wait_time_minutes=wait_time
+    )
+
     try:
         await callback.message.edit_text(
-            f"✅ <b>Solicitud Recibida</b>\n\n"
-            f"Tu solicitud de acceso al canal Free ha sido registrada.\n\n"
-            f"⏱️ Tiempo de espera: <b>{wait_time} minutos</b>\n\n"
-            f"📨 Recibirás un mensaje con el link de invitación cuando el tiempo se cumpla.\n\n"
-            f"💡 <i>No necesitas hacer nada más, el proceso es automático.</i>\n\n"
-            f"Puedes cerrar este chat, te notificaré cuando esté listo! 🔔",
+            success_text,
             parse_mode="HTML"
         )
     except Exception as e:

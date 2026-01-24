@@ -1418,6 +1418,39 @@ bash scripts/run_tests.sh
 
 Ver `tests/README.md` para documentacion completa.
 
+## 🛠️ Message Preview CLI
+
+Herramienta de linea de comandos para previsualizar variaciones de mensajes sin necesidad de iniciar el bot completo. Permite iterar rapidamente sobre cambios de voz durante el desarrollo.
+
+**Beneficios:**
+- Mas rapido que reiniciar el bot (~500ms vs ~10s de inicio)
+- No requiere cliente de Telegram
+- Genera multiples variaciones para verificar distribucion
+- Muestra tanto el texto como los teclados inline
+
+### Uso
+
+```bash
+# Previsualizar saludo para usuario VIP
+python tools/preview_messages.py greeting --user-name "Juan" --vip --days 15
+
+# Previsualizar activacion de deep link
+python tools/preview_messages.py deep-link-success --plan "Premium" --days 30
+
+# Generar 30 variaciones para verificar distribucion
+python tools/preview_messages.py variations greeting --count 30
+
+# Listar todos los metodos de mensaje disponibles
+python tools/preview_messages.py list
+```
+
+### Comandos Disponibles
+
+- `greeting` - Previsualiza mensaje de /start con contexto de usuario
+- `deep-link-success` - Previsualiza mensaje de exito de activacion deep link
+- `variations` - Genera multiples muestras para ver todas las variaciones
+- `list` - Lista todos los metodos de mensaje organizados por proveedor
+
 ## 🔧 Desarrollo
 
 Este proyecto está en desarrollo iterativo. Consulta las tareas completadas:

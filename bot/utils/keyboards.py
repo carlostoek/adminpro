@@ -60,24 +60,24 @@ def admin_main_menu_keyboard() -> InlineKeyboardMarkup:
     """
     Keyboard del menú principal de admin.
 
-    Opciones:
+    Opciones con Lucien voice terminology:
     - Dashboard completo
-    - Gestión VIP
-    - Gestión Free
-    - Configuración
-    - Tarifas
-    - Estadísticas
+    - Círculo Exclusivo VIP
+    - Vestíbulo de Acceso
+    - Calibración del Reino
+    - Planes de Suscripción
+    - Observaciones del Reino
 
     Returns:
         InlineKeyboardMarkup con menú principal
     """
     return create_inline_keyboard([
         [{"text": "📊 Dashboard Completo", "callback_data": "admin:dashboard"}],
-        [{"text": "📺 Gestión Canal VIP", "callback_data": "admin:vip"}],
-        [{"text": "📺 Gestión Canal Free", "callback_data": "admin:free"}],
-        [{"text": "⚙️ Configuración", "callback_data": "admin:config"}],
-        [{"text": "💰 Tarifas", "callback_data": "admin:pricing"}],
-        [{"text": "📊 Estadísticas", "callback_data": "admin:stats"}],
+        [{"text": "👑 Círculo Exclusivo VIP", "callback_data": "admin:vip"}],
+        [{"text": "📺 Vestíbulo de Acceso", "callback_data": "admin:free"}],
+        [{"text": "⚙️ Calibración del Reino", "callback_data": "admin:config"}],
+        [{"text": "💰 Planes de Suscripción", "callback_data": "admin:pricing"}],
+        [{"text": "📈 Observaciones del Reino", "callback_data": "admin:stats"}],
     ])
 
 
@@ -99,21 +99,21 @@ def stats_menu_keyboard() -> InlineKeyboardMarkup:
     """
     Keyboard del menú de estadísticas.
 
-    Opciones:
-    - Ver Stats VIP Detalladas
-    - Ver Stats Free Detalladas
-    - Ver Stats de Tokens
-    - Actualizar Estadísticas (force refresh)
+    Opciones con Lucien voice terminology:
+    - Observaciones del Círculo (VIP)
+    - Observaciones del Vestíbulo (Free)
+    - Registro de Invitaciones (tokens)
+    - Actualizar Observaciones
     - Volver al Menú Principal
 
     Returns:
         InlineKeyboardMarkup con menú de stats
     """
     return create_inline_keyboard([
-        [{"text": "📊 Ver Stats VIP Detalladas", "callback_data": "admin:stats:vip"}],
-        [{"text": "📊 Ver Stats Free Detalladas", "callback_data": "admin:stats:free"}],
-        [{"text": "🎟️ Ver Stats de Tokens", "callback_data": "admin:stats:tokens"}],
-        [{"text": "🔄 Actualizar Estadísticas", "callback_data": "admin:stats:refresh"}],
+        [{"text": "📊 Observaciones del Círculo", "callback_data": "admin:stats:vip"}],
+        [{"text": "📊 Observaciones del Vestíbulo", "callback_data": "admin:stats:free"}],
+        [{"text": "🎟️ Registro de Invitaciones", "callback_data": "admin:stats:tokens"}],
+        [{"text": "🔄 Actualizar Observaciones", "callback_data": "admin:stats:refresh"}],
         [{"text": "🔙 Volver al Menú Principal", "callback_data": "admin:main"}],
     ])
 
@@ -144,18 +144,18 @@ def config_menu_keyboard() -> InlineKeyboardMarkup:
     """
     Keyboard del menú de configuración.
 
-    Opciones:
-    - Ver estado de configuración
-    - Configurar reacciones VIP
-    - Configurar reacciones Free
+    Opciones con Lucien voice terminology:
+    - Estado del Reino
+    - Reacciones del Círculo (VIP)
+    - Reacciones del Vestíbulo (Free)
     - Volver al menú principal
 
     Returns:
         InlineKeyboardMarkup con menú de configuración
     """
     return create_inline_keyboard([
-        [{"text": "📊 Ver Estado de Configuración", "callback_data": "config:status"}],
-        [{"text": "⚙️ Configurar Reacciones VIP", "callback_data": "config:reactions:vip"}],
-        [{"text": "⚙️ Configurar Reacciones Free", "callback_data": "config:reactions:free"}],
+        [{"text": "📊 Estado del Reino", "callback_data": "config:status"}],
+        [{"text": "👑 Reacciones del Círculo", "callback_data": "config:reactions:vip"}],
+        [{"text": "📺 Reacciones del Vestíbulo", "callback_data": "config:reactions:free"}],
         [{"text": "🔙 Volver al Menú Principal", "callback_data": "admin:main"}],
     ])
