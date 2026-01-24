@@ -34,7 +34,9 @@ class AdminFreeMessages(BaseMessageProvider):
         self,
         is_configured: bool,
         channel_name: str = "Canal Free",
-        wait_time_minutes: int = 0
+        wait_time_minutes: int = 0,
+        user_id: Optional[int] = None,
+        session_history: Optional["SessionMessageHistory"] = None
     ) -> Tuple[str, InlineKeyboardMarkup]:
         """
         Generate Free menu message with conditional content.
@@ -43,6 +45,8 @@ class AdminFreeMessages(BaseMessageProvider):
             is_configured: Whether Free channel is configured
             channel_name: Name of the Free channel
             wait_time_minutes: Current wait time in minutes
+            user_id: Optional Telegram user ID for session-aware selection
+            session_history: Optional SessionMessageHistory for context awareness
 
         Returns:
             Tuple of (message_text, inline_keyboard)
@@ -61,7 +65,10 @@ class AdminFreeMessages(BaseMessageProvider):
 
         greeting = self._choose_variant(
             [g[0] for g in greetings],
-            weights=[g[1] for g in greetings]
+            weights=[g[1] for g in greetings],
+            user_id=user_id,
+            method_name="free_menu",
+            session_history=session_history
         )
 
         if is_configured:
