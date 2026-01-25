@@ -8,6 +8,7 @@ Tablas:
 - invitation_tokens: Tokens de invitación generados
 - free_channel_requests: Solicitudes de acceso al canal Free
 - subscription_plans: Planes de suscripción/tarifas configurables
+- content_packages: Paquetes de contenido (FREE/VIP/PREMIUM)
 """
 import logging
 from datetime import datetime
@@ -15,7 +16,7 @@ from typing import Optional, List
 
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime,
-    BigInteger, JSON, ForeignKey, Index, Float, Enum
+    BigInteger, JSON, ForeignKey, Index, Float, Enum, Numeric
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -334,3 +335,86 @@ class FreeChannelRequest(Base):
     def __repr__(self):
         status = "PROCESADA" if self.processed else f"PENDIENTE ({self.minutes_since_request()}min)"
         return f"<FreeRequest(user={self.user_id}, {status})>"
+
+
+class ContentPackage(Base):
+    """
+    Paquete de contenido para el sistema.
+
+    Representa un paquete de contenido que puede ser:
+    - Gratuito (acceso para todos)
+    - VIP (requiere suscripción activa)
+    - Premium (contenido exclusivo de alto valor)
+
+    Attributes:
+        id: ID único del paquete (Primary Key)
+        name: Nombre del paquete (ej: "Pack Fotos Enero")
+        description: Descripción detallada del contenido
+        price: Precio en moneda base (Decimal para precisión)
+        is_active: Estado activo/inactivo (soft delete)
+        category: Categoría (FREE_CONTENT, VIP_CONTENT, VIP_PREMIUM)
+        type: Tipo de paquete (STANDARD, BUNDLE, COLLECTION)
+        media_url: URL del contenido (opcional)
+        created_at: Fecha de creación
+        updated_at: Última actualización (auto onupdate)
+
+    Relaciones:
+        interests: Lista de usuarios interesados en este paquete
+    """
+
+    __tablename__ = "content_packages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Basic info
+    name = Column(String(200), nullable=False)
+    description = Column(String(500), nullable=True)
+
+    # Price (Numeric for currency precision - NOT Float)
+    price = Column(Numeric(10, 2), nullable=True)
+
+    # Classification
+    category = Column(
+        Enum("bot.database.enums.ContentCategory"),
+        nullable=False,
+        default="free_content"
+    )
+    type = Column(
+        Enum("bot.database.enums.PackageType"),
+        nullable=False,
+        default="standard"
+    )
+
+    # Media
+    media_url = Column(String(500), nullable=True)
+
+    # State
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Relationships
+    interests = relationship(
+        "UserInterest",
+        back_populates="package",
+        cascade="all, delete-orphan"
+    )
+
+    def __repr__(self):
+        return (
+            f"<ContentPackage(id={self.id}, name='{self.name}', "
+            f"category={self.category}, is_active={self.is_active})>"
+        )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        Index('idx_content_category_active', 'category', 'is_active'),
+        Index('idx_content_type_active', 'type', 'is_active'),
+    )
