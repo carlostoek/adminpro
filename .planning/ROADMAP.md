@@ -88,13 +88,13 @@ Plans:
   3. Usuario Free abre menú con "Mi Contenido" listando paquetes disponibles
   4. Cada paquete muestra información con botón "Me interesa" que crea registro de interés
   5. Menú Free tiene opción "Canal VIP" con información de suscripción
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 06-01: UserMenuProvider with VIP and Free menu messages
-- [ ] 06-02: VIP menu handlers with subscription info and Premium section
-- [ ] 06-03: Free menu handlers with content browsing and VIP upgrade option
-- [ ] 06-04: Menu navigation with back buttons replacing hardcoded keyboards.py
+- [ ] 06-01-PLAN.md — UserMenuProvider with VIP and Free menu messages
+- [ ] 06-02-PLAN.md — VIP menu handlers with subscription info and Premium section
+- [ ] 06-03-PLAN.md — Free menu handlers with content browsing and VIP upgrade option
+- [ ] 06-04-PLAN.md — Menu navigation with back buttons replacing hardcoded keyboards.py
 
 ### Phase 7: Admin Menu with Content Management
 **Goal**: Menú admin con gestión completa de paquetes de contenido (crear, editar, desactivar) y navegación centralizada.
