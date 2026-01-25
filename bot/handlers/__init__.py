@@ -12,6 +12,7 @@ from aiogram import Dispatcher
 
 from bot.handlers.admin import admin_router
 from bot.handlers.user import user_router, free_join_router
+from bot.handlers.vip import vip_callbacks_router
 
 # Menu Router
 from bot.handlers.menu_router import MenuRouter
@@ -37,6 +38,7 @@ def register_all_handlers(dispatcher: Dispatcher) -> None:
     dispatcher.include_router(admin_router)
     dispatcher.include_router(user_router)
     dispatcher.include_router(free_join_router)  # ChatJoinRequest para Free
+    dispatcher.include_router(vip_callbacks_router)  # VIP menu callbacks
 
     # Registrar menu router
     menu_router = MenuRouter()
@@ -50,6 +52,7 @@ __all__ = [
     "admin_router",
     "user_router",
     "free_join_router",
+    "vip_callbacks_router",
     "MenuRouter",
     "show_admin_menu",
     "show_vip_menu",
