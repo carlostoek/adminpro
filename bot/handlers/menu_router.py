@@ -47,20 +47,19 @@ class MenuRouter:
         # /menu command - main entry point
         self.router.message.register(self._route_to_menu, Command("menu"))
 
-    async def _route_to_menu(self, message: Message, **kwargs):
+    async def _route_to_menu(self, message: Message, data: Dict[str, Any]):
         """
         Handler principal que enruta a menú basado en rol.
 
         Args:
             message: Mensaje de Telegram
-            **kwargs: Data del handler (incluye user_role inyectado por middleware)
+            data: Data del handler (incluye user_role inyectado por middleware)
 
         Flujo:
-            1. Obtener user_role de kwargs["data"] (inyectado por RoleDetectionMiddleware)
+            1. Obtener user_role de data (inyectado por RoleDetectionMiddleware)
             2. Redirigir a handler apropiado según rol
             3. Fallback a menú Free si rol no detectado
         """
-        data = kwargs.get("data", {})
         user_role = data.get("user_role")
 
         if user_role is None:

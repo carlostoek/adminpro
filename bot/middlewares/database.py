@@ -1,7 +1,7 @@
 """
-Database Middleware - Inyecta sesión de base de datos en handlers.
+Database Middleware - Inyecta sesión de base de datos y ServiceContainer en handlers.
 
-Proporciona una sesión de SQLAlchemy a cada handler automáticamente.
+Proporciona una sesión de SQLAlchemy y ServiceContainer a cada handler automáticamente.
 """
 import logging
 from typing import Callable, Dict, Any, Awaitable
@@ -11,6 +11,7 @@ from aiogram.types import TelegramObject
 from aiogram.exceptions import TelegramNetworkError, TelegramBadRequest
 
 from bot.database import get_session
+from bot.services.container import ServiceContainer
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +47,8 @@ class DatabaseMiddleware(BaseMiddleware):
         """
         Ejecuta el middleware.
 
-        Crea una sesión de base de datos y la inyecta en data["session"].
-        El handler puede acceder a ella como parámetro.
+        Crea una sesión de base de datos, ServiceContainer, y los inyecta en data.
+        El handler puede acceder a ellos como parámetros o desde data dict.
 
         Args:
             handler: Handler a ejecutar
@@ -61,6 +62,12 @@ class DatabaseMiddleware(BaseMiddleware):
         async with get_session() as session:
             # Inyectar sesión en data
             data["session"] = session
+
+            # Inyectar ServiceContainer en data (para handlers que necesitan acceso completo a servicios)
+            bot = data.get("bot")
+            if bot:
+                data["container"] = ServiceContainer(session, bot)
+                logger.debug("✅ ServiceContainer inyectado en data")
 
             try:
                 # Ejecutar handler
