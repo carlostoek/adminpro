@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-01-24)
 Phase: 5 of 11 (Role Detection & Database Foundation)
 Plan: 05 of 05 complete
 Status: Phase complete
-Last activity: 2026-01-25 — Phase 5 completed with all 5 plans executed
+Last activity: 2026-01-25 — Quick task 001 completed (fix Phase 5 gaps)
 
 Progress: ██░░░░░░░░░ 14% (v1.1 milestone)
 
@@ -54,6 +54,11 @@ Recent decisions affecting current work:
 - [05-05]: Auto-detection of previous_role via UserRoleChangeLog query
 - [05-05]: changed_by=0 for SYSTEM automatic changes
 
+**Quick Task 001 Decisions (Phase 5 gap fixes):**
+- [QT-001-01]: RoleDetectionMiddleware registered on both dispatcher.update (global) and dispatcher.callback_query (specific) for complete coverage
+- [QT-001-02]: expire_vip_subscribers() accepts optional container parameter for role change logging (backward compatible)
+- [QT-001-03]: VIP expiration role changes logged with changed_by=0 (SYSTEM) and RoleChangeReason.VIP_EXPIRED
+
 **Previous decisions:**
 - [v1.0]: Stateless architecture with session context passed as parameters instead of stored in __init__
 - [v1.0]: Session-aware variation selection with ~80 bytes/user memory overhead
@@ -74,13 +79,13 @@ None.
 
 **Remaining concerns:**
 
-- **Phase 6 (VIP/Free User Menus):** Role detection logic needs validation for edge cases around role changes during active menu session (VIP expired but not yet kicked from channel).
+- **Phase 6 (VIP/Free User Menus):** Role detection logic needs validation for edge cases around role changes during active menu session (VIP expired but not yet kicked from channel). *Note: RoleDetectionMiddleware registration gap fixed in Quick Task 001.*
 - **Phase 8 (Interest Notification System):** Admin notification UX needs validation - optimal batching interval (5 min, 10 min, 30 min) and how many admins is "too many" for real-time.
 - **Phase 9 (User Management Features):** Permission model needs clarification - can admins modify other admins? Can admins block themselves?
 
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Phase 5 complete - All 5 plans executed (01, 02A, 02B, 03, 04, 05)
+Stopped at: Quick Task 001 complete - Phase 5 gaps fixed (middleware registration, role change integration)
 Resume file: None
 Next phase: Phase 6 (VIP/Free User Menus) or Phase 7 (Content Management Features)
