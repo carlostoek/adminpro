@@ -67,13 +67,16 @@ Plans:
   3. Sistema recalcula rol automáticamente cuando cambia estado (Free→VIP, VIP expira)
   4. Base de datos tiene tablas ContentPackage y UserInterest para gestionar contenido e intereses
   5. ContentService existe con métodos CRUD para paquetes de contenido
-**Plans**: 4 plans
+**Plans**: 6 plans
 
 Plans:
 - [ ] 05-01-PLAN.md — Role detection service with automatic role calculation
-- [ ] 05-02-PLAN.md — Database models (ContentPackage, UserInterest, UserRoleChangeLog)
+- [ ] 05-02A-PLAN.md — Database enums and ContentPackage model
+- [ ] 05-02B-PLAN.md — UserInterest and UserRoleChangeLog models with table creation
 - [ ] 05-03-PLAN.md — ContentService with CRUD operations for content packages
-- [ ] 05-04-PLAN.md — Role-based menu routing system (MENU-02)
+- [ ] 05-04A-PLAN.md — MenuRouter and admin menu handler
+- [ ] 05-04B-PLAN.md — VIP and Free menu handlers with exports
+- [ ] 05-05-PLAN.md — RoleChangeService for audit logging (MENU-04)
 
 ### Phase 6: VIP/Free User Menus
 **Goal**: Menús de usuario VIP y Free con información de suscripción, contenido Premium y botones "Me interesa" que notifican al admin.
