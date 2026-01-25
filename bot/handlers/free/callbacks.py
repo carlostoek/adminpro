@@ -16,7 +16,6 @@ from typing import Dict, Any
 
 from aiogram import Router
 from aiogram.types import CallbackQuery
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.database.enums import ContentCategory
 
@@ -131,16 +130,19 @@ async def handle_vip_info(callback: CallbackQuery, **kwargs):
                 f"una vez que Diana active el canal.</i>"
             )
 
-        # Create keyboard with navigation
-        keyboard = InlineKeyboardBuilder()
-        keyboard.button(text="⬅️ Volver al Menú Free", callback_data="menu:free:main")
-        keyboard.button(text="🚪 Salir", callback_data="menu:exit")
-        keyboard.adjust(1)
+        # Create keyboard with navigation using helper
+        from bot.utils.keyboards import create_content_with_navigation
+
+        keyboard = create_content_with_navigation(
+            content_buttons=[],
+            back_text="⬅️ Volver al Menú Free",
+            back_callback="menu:free:main"
+        )
 
         await callback.message.edit_text(
             message_text,
             parse_mode="HTML",
-            reply_markup=keyboard.as_markup()
+            reply_markup=keyboard
         )
         await callback.answer()
 
@@ -181,16 +183,19 @@ async def handle_social_media(callback: CallbackQuery, **kwargs):
             f"su acceso al canal Free.</i>"
         )
 
-        # Create keyboard with navigation
-        keyboard = InlineKeyboardBuilder()
-        keyboard.button(text="⬅️ Volver al Menú Free", callback_data="menu:free:main")
-        keyboard.button(text="🚪 Salir", callback_data="menu:exit")
-        keyboard.adjust(1)
+        # Create keyboard with navigation using helper
+        from bot.utils.keyboards import create_content_with_navigation
+
+        keyboard = create_content_with_navigation(
+            content_buttons=[],
+            back_text="⬅️ Volver al Menú Free",
+            back_callback="menu:free:main"
+        )
 
         await callback.message.edit_text(
             message_text,
             parse_mode="HTML",
-            reply_markup=keyboard.as_markup()
+            reply_markup=keyboard
         )
         await callback.answer()
 

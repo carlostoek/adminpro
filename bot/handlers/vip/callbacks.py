@@ -123,17 +123,20 @@ async def handle_vip_status(callback: CallbackQuery, **kwargs):
                 f"<i>Por favor, contacte a los custodios del sanctum.</i>"
             )
 
-        # Create navigation keyboard
-        from aiogram.utils.keyboard import InlineKeyboardBuilder
-        keyboard = InlineKeyboardBuilder()
-        keyboard.button(text="🔙 Volver al Menú VIP", callback_data="menu:back")
-        keyboard.button(text="🚪 Salir", callback_data="menu:exit")
-        keyboard.adjust(1)
+        # Create navigation keyboard using helper
+        from bot.utils.keyboards import create_content_with_navigation
+
+        # Empty content + navigation only (back and exit)
+        keyboard = create_content_with_navigation(
+            content_buttons=[],
+            back_text="⬅️ Volver al Menú VIP",
+            back_callback="menu:back"
+        )
 
         await callback.message.edit_text(
             status_text,
             parse_mode="HTML",
-            reply_markup=keyboard.as_markup()
+            reply_markup=keyboard
         )
         await callback.answer()
 
