@@ -84,14 +84,16 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
         logger.error(f"❌ Error al inicializar BD: {e}")
         sys.exit(1)
 
-    # TODO: Registrar handlers (ONDA 1 - Fases siguientes)
-    # from bot.handlers import register_all_handlers
-    # register_all_handlers(dispatcher)
+    # Registrar handlers (ONDA 1 - Fases siguientes)
+    from bot.handlers import register_all_handlers
+    register_all_handlers(dispatcher)
 
-    # TODO: Registrar middlewares (ONDA 1 - Fase 1.3)
-    # from bot.middlewares import DatabaseMiddleware, AdminAuthMiddleware
-    # dispatcher.update.middleware(DatabaseMiddleware())
-    # dispatcher.message.middleware(AdminAuthMiddleware())
+    # Registrar middlewares (ONDA 1 - Fase 1.3)
+    from bot.middlewares import DatabaseMiddleware, AdminAuthMiddleware, RoleDetectionMiddleware
+    dispatcher.update.middleware(DatabaseMiddleware())
+    dispatcher.message.middleware(AdminAuthMiddleware())
+    dispatcher.update.middleware(RoleDetectionMiddleware())
+    dispatcher.callback_query.middleware(RoleDetectionMiddleware())
 
     # Iniciar background tasks
     start_background_tasks(bot)
