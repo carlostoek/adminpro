@@ -34,8 +34,16 @@ must_haves:
       pattern: "container\.(subscription|channel|config)"
     - from: "bot/handlers/menu_router.py"
       to: "bot/handlers/admin/menu.py"
-      via: "Delegation to admin menu handler"
-      pattern: "from bot\.handlers\.admin\.menu import show_admin_menu"
+      via: "Delegation to admin menu handler with graceful fallback"
+      pattern: "try:.*from bot\.handlers\.admin\.menu import show_admin_menu"
+    - from: "bot/handlers/menu_router.py"
+      to: "bot/handlers/vip/menu.py"
+      via: "Delegation to VIP menu handler with graceful fallback"
+      pattern: "try:.*from bot\.handlers\.vip\.menu import show_vip_menu"
+    - from: "bot/handlers/menu_router.py"
+      to: "bot/handlers/free/menu.py"
+      via: "Delegation to Free menu handler with graceful fallback"
+      pattern: "try:.*from bot\.handlers\.free\.menu import show_free_menu"
 ---
 
 <objective>
@@ -170,8 +178,17 @@ class MenuRouter:
             message: Mensaje de Telegram
             data: Data del handler (incluye container, session, etc.)
         """
-        from bot.handlers.admin.menu import show_admin_menu
-        await show_admin_menu(message, data)
+        try:
+            from bot.handlers.admin.menu import show_admin_menu
+            await show_admin_menu(message, data)
+        except ImportError:
+            logger.warning("Admin menu handler not available, showing placeholder")
+            await message.answer(
+                "👑 *Menú de Administrador*\n\n"
+                "Funcionalidad de menú admin en desarrollo.\n\n"
+                "⚠️ Admin menu handler no disponible aún.",
+                parse_mode="Markdown"
+            )
 
     async def _show_vip_menu(self, message: Message, data: Dict[str, Any]):
         """
@@ -181,8 +198,17 @@ class MenuRouter:
             message: Mensaje de Telegram
             data: Data del handler (incluye container, session, etc.)
         """
-        from bot.handlers.vip.menu import show_vip_menu
-        await show_vip_menu(message, data)
+        try:
+            from bot.handlers.vip.menu import show_vip_menu
+            await show_vip_menu(message, data)
+        except ImportError:
+            logger.warning("VIP menu handler not available, showing placeholder")
+            await message.answer(
+                "⭐ *Menú VIP*\n\n"
+                "Funcionalidad de menú VIP en desarrollo.\n\n"
+                "⚠️ VIP menu handler no disponible aún.",
+                parse_mode="Markdown"
+            )
 
     async def _show_free_menu(self, message: Message, data: Dict[str, Any]):
         """
@@ -192,8 +218,17 @@ class MenuRouter:
             message: Mensaje de Telegram
             data: Data del handler (incluye container, session, etc.)
         """
-        from bot.handlers.free.menu import show_free_menu
-        await show_free_menu(message, data)
+        try:
+            from bot.handlers.free.menu import show_free_menu
+            await show_free_menu(message, data)
+        except ImportError:
+            logger.warning("Free menu handler not available, showing placeholder")
+            await message.answer(
+                "🆓 *Menú Free*\n\n"
+                "Funcionalidad de menú Free en desarrollo.\n\n"
+                "⚠️ Free menu handler no disponible aún.",
+                parse_mode="Markdown"
+            )
 
     def register_routes(self, dispatcher):
         """
@@ -211,7 +246,7 @@ Key requirements:
 - Use data["user_role"] injected by RoleDetectionMiddleware
 - Implement fallback to FREE menu if role not detected
 - Add comprehensive logging for routing decisions
-- Delegate to role-specific handlers (admin handler in this plan, vip/free in next plan)
+- Delegate to role-specific handlers with graceful fallback (try/except ImportError for vip/free handlers created in next plan)
 - Type hints for all parameters
 - Google Style docstrings
   </action>

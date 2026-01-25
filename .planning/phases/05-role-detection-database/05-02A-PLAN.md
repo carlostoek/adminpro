@@ -67,6 +67,8 @@ Output: Working database enums and ContentPackage model ready for table creation
   <action>
 Modify bot/database/enums.py to add ContentCategory, PackageType, and RoleChangeReason enums:
 
+**IMPORTANT:** UserRole enum already exists in the file (line 9). DO NOT recreate it. Only add the new enums after the existing UserRole class.
+
 Add after the UserRole class (after line 52):
 
 ```python
