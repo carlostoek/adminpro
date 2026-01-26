@@ -199,3 +199,21 @@ class ContentPackageStates(StatesGroup):
 
     # Para editar campos de paquetes existentes (name, price, description)
     waiting_for_edit = State()  # For inline prompt editing
+
+
+class UserManagementStates(StatesGroup):
+    """
+    Estados para gestión de usuarios.
+
+    Flujo de búsqueda:
+    1. Admin selecciona "Buscar Usuario"
+    2. Bot entra en searching_user
+    3. Admin envía query: username o ID
+    4. Bot muestra resultados y sale del estado
+
+    Estados:
+    - searching_user: Esperando query de búsqueda (username o ID)
+    """
+
+    # Esperando que admin envíe query de búsqueda
+    searching_user = State()
