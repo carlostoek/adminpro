@@ -71,39 +71,61 @@ result: pending
 ## Summary
 
 total: 12
-passed: 0
-issues: 2
-pending: 10
+passed: 2
+issues: 3
+pending: 7
 skipped: 0
 
 ## Gaps
 
 - truth: "VIP user can access 'Tesoros del Sanctum' menu to see VIP Premium packages with 'Me interesa' buttons"
-  status: failed
-  reason: "User reported: No se puede acceder al botón 'Tesoros del Sanctum'. Sale error en ventanita: 'Error: servicio no disponible'. En consola no sale ningún error y los marca como handled."
+  status: passed
+  reason: ""
   severity: major
   test: 1
-  root_cause: ""
+  root_cause: "Fixed by applying DatabaseMiddleware directly to vip_callbacks_router"
   artifacts: []
   missing: []
   debug_session: ""
 
 - truth: "Free user can access 'Muestras del Jardín' and 'Círculo Exclusivo' menus"
-  status: failed
-  reason: "User reported: Los botones de 'muestras del jardín' y 'círculo exclusivo' dan error 'Error: servicio no disponible'. El tercer botón 'jardines públicos' sí funciona. Botón de regresar al menú free también da error."
+  status: passed
+  reason: ""
   severity: major
   test: 2
+  root_cause: "Fixed by applying DatabaseMiddleware directly to free_callbacks_router"
+  artifacts: []
+  missing: []
+  debug_session: ""
+
+- truth: "VIP 'Estado de la Membresía' button works without error"
+  status: failed
+  reason: "User reported: En VIP manda 'error cargando estado de la membresía' en el botón 'estado de la membresía'"
+  severity: major
+  test: 3
   root_cause: ""
   artifacts: []
   missing: []
   debug_session: ""
 
-- truth: "Deprecated /menu command removed cleanly"
+- truth: "Free 'Muestras del Jardín' works consistently after bot restart"
   status: failed
-  reason: "User reported: El comando /menu todavía está registrado pero causa error 'MenuRouter._menu_wrapper() missing 1 required positional argument: data'. Ya no se usa porque el menú ahora se muestra directamente."
+  reason: "User reported: En la primera ejecución pudo entrar al botón 'muestras del jardín', después de reiniciar el bot ya no puedo entrar a muestras del jardín"
   severity: major
-  test: 0
+  test: 4
   root_cause: ""
   artifacts: []
+  missing: []
+  debug_session: ""
+
+- truth: "Admin can create content packages through wizard without enum errors"
+  status: failed
+  reason: "User reported: El wizard funciona todos los pasos pero al parecer no se crea al final el paquete. Error: 'free_content' is not among the defined enum values"
+  severity: major
+  test: 5
+  root_cause: "Fixed - ContentPackage model was using string references to enums instead of importing the actual enum classes"
+  artifacts:
+    - path: "bot/database/models.py"
+      issue: "Enum('bot.database.enums.ContentCategory') should be Enum(ContentCategory)"
   missing: []
   debug_session: ""

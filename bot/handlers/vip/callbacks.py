@@ -17,6 +17,7 @@ from aiogram import Router
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.database.enums import ContentCategory
+from bot.middlewares import DatabaseMiddleware
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -24,18 +25,20 @@ logger = logging.getLogger(__name__)
 # Create router
 vip_callbacks_router = Router()
 
+# Apply middleware to this router (required for container injection)
+vip_callbacks_router.callback_query.middleware(DatabaseMiddleware())
+
 
 @vip_callbacks_router.callback_query(lambda c: c.data == "vip:premium")
-async def handle_vip_premium(callback: CallbackQuery, **kwargs):
+async def handle_vip_premium(callback: CallbackQuery, container):
     """
     Muestra sección premium con paquetes VIP_PREMIUM.
 
     Args:
         callback: CallbackQuery de Telegram
-        **kwargs: Data del handler (container, session, etc.)
+        container: ServiceContainer inyectado por middleware
     """
-    data = kwargs.get("data", {})
-    container = data.get("container")
+    logger.info(f"🔍 VIP PREMIUM callback: data={callback.data}, container={container is not None}")
     user = callback.from_user
 
     if not container:
@@ -72,16 +75,14 @@ async def handle_vip_premium(callback: CallbackQuery, **kwargs):
 
 
 @vip_callbacks_router.callback_query(lambda c: c.data == "vip:status")
-async def handle_vip_status(callback: CallbackQuery, **kwargs):
+async def handle_vip_status(callback: CallbackQuery, container):
     """
     Muestra el estado de la membresía VIP del usuario.
 
     Args:
         callback: CallbackQuery de Telegram
-        **kwargs: Data del handler (container, session, etc.)
+        container: ServiceContainer inyectado por middleware
     """
-    data = kwargs.get("data", {})
-    container = data.get("container")
     user = callback.from_user
 
     if not container:
@@ -149,7 +150,7 @@ async def handle_vip_status(callback: CallbackQuery, **kwargs):
 
 
 @vip_callbacks_router.callback_query(lambda c: c.data and c.data.startswith("interest:package:"))
-async def handle_package_interest(callback: CallbackQuery, **kwargs):
+async def handle_package_interest(callback: CallbackQuery, container):
     """
     Registra interés de usuario en paquete y notifica a admins.
 
@@ -168,10 +169,8 @@ async def handle_package_interest(callback: CallbackQuery, **kwargs):
 
     Args:
         callback: CallbackQuery de Telegram
-        **kwargs: Data del handler (container, session, etc.)
+        container: ServiceContainer inyectado por middleware
     """
-    data = kwargs.get("data", {})
-    container = data.get("container")
     user = callback.from_user
 
     if not container:
@@ -364,16 +363,14 @@ async def _send_admin_interest_notification(
 
 
 @vip_callbacks_router.callback_query(lambda c: c.data == "menu:back")
-async def handle_menu_back(callback: CallbackQuery, **kwargs):
+async def handle_menu_back(callback: CallbackQuery, container):
     """
     Vuelve al menú principal VIP.
 
     Args:
         callback: CallbackQuery de Telegram
-        **kwargs: Data del handler (container, session, etc.)
+        container: ServiceContainer inyectado por middleware
     """
-    data = kwargs.get("data", {})
-    container = data.get("container")
     user = callback.from_user
 
     if not container:
@@ -381,6 +378,8 @@ async def handle_menu_back(callback: CallbackQuery, **kwargs):
         return
 
     try:
+        # Build data dict for menu handler
+        data = {"container": container}
         # Re-show VIP menu (reusing show_vip_menu logic)
         from .menu import show_vip_menu
         await show_vip_menu(callback.message, data)

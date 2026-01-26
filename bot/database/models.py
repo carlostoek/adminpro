@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from bot.database.base import Base
-from bot.database.enums import UserRole
+from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType
 
 logger = logging.getLogger(__name__)
 
@@ -432,12 +432,12 @@ class UserRoleChangeLog(Base):
     user_id = Column(BigInteger, nullable=False, index=True)
 
     # Role change
-    previous_role = Column(Enum("bot.database.enums.UserRole"), nullable=True)  # None for new users
-    new_role = Column(Enum("bot.database.enums.UserRole"), nullable=False)
+    previous_role = Column(Enum(UserRole), nullable=True)  # None for new users
+    new_role = Column(Enum(UserRole), nullable=False)
 
     # Metadata
     changed_by = Column(BigInteger, nullable=False, index=True)  # Admin ID or 0 for SYSTEM
-    reason = Column(Enum("bot.database.enums.RoleChangeReason"), nullable=False)
+    reason = Column(Enum(RoleChangeReason), nullable=False)
     change_source = Column(String(50), nullable=False)  # 'ADMIN_PANEL', 'SYSTEM', 'API'
     change_metadata = Column(JSON, nullable=True)  # Optional: {"duration_hours": 24, "token": "ABC..."}
 
@@ -498,14 +498,14 @@ class ContentPackage(Base):
 
     # Classification
     category = Column(
-        Enum("bot.database.enums.ContentCategory"),
+        Enum(ContentCategory),
         nullable=False,
-        default="free_content"
+        default=ContentCategory.FREE_CONTENT
     )
     type = Column(
-        Enum("bot.database.enums.PackageType"),
+        Enum(PackageType),
         nullable=False,
-        default="standard"
+        default=PackageType.STANDARD
     )
 
     # Media

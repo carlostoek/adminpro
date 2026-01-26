@@ -18,6 +18,7 @@ from aiogram import Router
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.database.enums import ContentCategory
+from bot.middlewares import DatabaseMiddleware
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -25,18 +26,19 @@ logger = logging.getLogger(__name__)
 # Create router
 free_callbacks_router = Router()
 
+# Apply middleware to this router (required for container injection)
+free_callbacks_router.callback_query.middleware(DatabaseMiddleware())
+
 
 @free_callbacks_router.callback_query(lambda c: c.data == "menu:free:content")
-async def handle_free_content(callback: CallbackQuery, **kwargs):
+async def handle_free_content(callback: CallbackQuery, container):
     """
     Muestra sección "Mi Contenido" con paquetes FREE_CONTENT.
 
     Args:
         callback: CallbackQuery de Telegram
-        **kwargs: Data del handler (container, session, etc.)
+        container: ServiceContainer inyectado por middleware
     """
-    data = kwargs.get("data", {})
-    container = data.get("container")
     user = callback.from_user
 
     if not container:
@@ -77,16 +79,14 @@ async def handle_free_content(callback: CallbackQuery, **kwargs):
 
 
 @free_callbacks_router.callback_query(lambda c: c.data == "menu:free:vip")
-async def handle_vip_info(callback: CallbackQuery, **kwargs):
+async def handle_vip_info(callback: CallbackQuery, container):
     """
     Muestra información sobre el canal VIP y suscripción.
 
     Args:
         callback: CallbackQuery de Telegram
-        **kwargs: Data del handler (container, session, etc.)
+        container: ServiceContainer inyectado por middleware
     """
-    data = kwargs.get("data", {})
-    container = data.get("container")
     user = callback.from_user
 
     if not container:
@@ -155,16 +155,13 @@ async def handle_vip_info(callback: CallbackQuery, **kwargs):
 
 
 @free_callbacks_router.callback_query(lambda c: c.data == "menu:free:social")
-async def handle_social_media(callback: CallbackQuery, **kwargs):
+async def handle_social_media(callback: CallbackQuery):
     """
     Muestra redes sociales y contenido gratuito adicional.
 
     Args:
         callback: CallbackQuery de Telegram
-        **kwargs: Data del handler (container, session, etc.)
     """
-    data = kwargs.get("data", {})
-    container = data.get("container")
     user = callback.from_user
 
     try:
@@ -208,7 +205,7 @@ async def handle_social_media(callback: CallbackQuery, **kwargs):
 
 
 @free_callbacks_router.callback_query(lambda c: c.data and c.data.startswith("interest:package:"))
-async def handle_package_interest(callback: CallbackQuery, **kwargs):
+async def handle_package_interest(callback: CallbackQuery, container):
     """
     Registra interés de usuario en paquete FREE_CONTENT y notifica a admins.
 
@@ -229,10 +226,8 @@ async def handle_package_interest(callback: CallbackQuery, **kwargs):
 
     Args:
         callback: CallbackQuery de Telegram
-        **kwargs: Data del handler (container, session, etc.)
+        container: ServiceContainer inyectado por middleware
     """
-    data = kwargs.get("data", {})
-    container = data.get("container")
     user = callback.from_user
 
     if not container:
@@ -428,16 +423,14 @@ async def _send_admin_interest_notification(
 
 
 @free_callbacks_router.callback_query(lambda c: c.data == "menu:free:main")
-async def handle_menu_back(callback: CallbackQuery, **kwargs):
+async def handle_menu_back(callback: CallbackQuery, container):
     """
     Vuelve al menú principal Free.
 
     Args:
         callback: CallbackQuery de Telegram
-        **kwargs: Data del handler (container, session, etc.)
+        container: ServiceContainer inyectado por middleware
     """
-    data = kwargs.get("data", {})
-    container = data.get("container")
     user = callback.from_user
 
     if not container:
@@ -445,6 +438,8 @@ async def handle_menu_back(callback: CallbackQuery, **kwargs):
         return
 
     try:
+        # Build data dict for menu handler
+        data = {"container": container}
         from .menu import show_free_menu
         await show_free_menu(callback.message, data)
         await callback.answer()

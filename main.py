@@ -61,7 +61,7 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
     Tareas:
     - Validar configuración
     - Inicializar base de datos
-    - Registrar handlers y middlewares
+    - Iniciar background tasks
     - Notificar a admins que el bot está online
 
     Args:
@@ -83,19 +83,6 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
     except Exception as e:
         logger.error(f"❌ Error al inicializar BD: {e}")
         sys.exit(1)
-
-    # Registrar handlers (ONDA 1 - Fases siguientes)
-    # NOTA: Los handlers ya están registrados en main()
-    # from bot.handlers import register_all_handlers
-    # register_all_handlers(dispatcher)
-
-    # Registrar middlewares (ONDA 1 - Fase 1.3)
-    from bot.middlewares import DatabaseMiddleware, RoleDetectionMiddleware
-    dispatcher.update.middleware(DatabaseMiddleware())
-    # AdminAuthMiddleware se aplica solo al router admin (ver bot/handlers/admin/main.py)
-    # dispatcher.message.middleware(AdminAuthMiddleware())
-    # RoleDetectionMiddleware en update.middleware() cubre ambos Message y CallbackQuery
-    dispatcher.update.middleware(RoleDetectionMiddleware())
 
     # Iniciar background tasks
     start_background_tasks(bot)
@@ -198,7 +185,13 @@ async def main() -> None:
     # Crear dispatcher
     dp = Dispatcher(storage=storage)
 
-    # Registrar handlers ANTES de empezar el polling
+    # Registrar middlewares ANTES de los handlers (orden crítico)
+    from bot.middlewares import DatabaseMiddleware, RoleDetectionMiddleware
+    dp.update.middleware(DatabaseMiddleware())
+    dp.update.middleware(RoleDetectionMiddleware())
+    # AdminAuthMiddleware se aplica solo al router admin (ver bot/handlers/admin/main.py)
+
+    # Registrar handlers DESPUÉS de los middlewares
     from bot.handlers import register_all_handlers
     register_all_handlers(dp)
 

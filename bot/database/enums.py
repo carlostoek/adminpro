@@ -22,9 +22,9 @@ class UserRole(str, Enum):
         - Asignación manual → ADMIN
     """
 
-    FREE = "free"
-    VIP = "vip"
-    ADMIN = "admin"
+    FREE = "FREE"
+    VIP = "VIP"
+    ADMIN = "ADMIN"
 
     def __str__(self) -> str:
         """Retorna valor string del enum."""
@@ -61,9 +61,9 @@ class ContentCategory(str, Enum):
         VIP_PREMIUM: Contenido premium VIP (contenido exclusivo de alto valor)
     """
 
-    FREE_CONTENT = "free_content"
-    VIP_CONTENT = "vip_content"
-    VIP_PREMIUM = "vip_premium"
+    FREE_CONTENT = "FREE_CONTENT"
+    VIP_CONTENT = "VIP_CONTENT"
+    VIP_PREMIUM = "VIP_PREMIUM"
 
     def __str__(self) -> str:
         """Retorna valor string del enum."""
@@ -100,9 +100,9 @@ class PackageType(str, Enum):
         COLLECTION: Colección de contenido relacionado
     """
 
-    STANDARD = "standard"
-    BUNDLE = "bundle"
-    COLLECTION = "collection"
+    STANDARD = "STANDARD"
+    BUNDLE = "BUNDLE"
+    COLLECTION = "COLLECTION"
 
     def __str__(self) -> str:
         """Retorna valor string del enum."""
@@ -134,14 +134,14 @@ class RoleChangeReason(str, Enum):
         SYSTEM_AUTOMATIC: Cambio automático por el sistema
     """
 
-    ADMIN_GRANTED = "admin_granted"
-    ADMIN_REVOKED = "admin_revoked"
-    VIP_PURCHASED = "vip_purchased"
-    VIP_REDEEMED = "vip_redeemed"
-    VIP_EXPIRED = "vip_expired"
-    VIP_EXTENDED = "vip_extended"
-    MANUAL_CHANGE = "manual_change"
-    SYSTEM_AUTOMATIC = "system_automatic"
+    ADMIN_GRANTED = "ADMIN_GRANTED"
+    ADMIN_REVOKED = "ADMIN_REVOKED"
+    VIP_PURCHASED = "VIP_PURCHASED"
+    VIP_REDEEMED = "VIP_REDEEMED"
+    VIP_EXPIRED = "VIP_EXPIRED"
+    VIP_EXTENDED = "VIP_EXTENDED"
+    MANUAL_CHANGE = "MANUAL_CHANGE"
+    SYSTEM_AUTOMATIC = "SYSTEM_AUTOMATIC"
 
     def __str__(self) -> str:
         """Retorna valor string del enum."""

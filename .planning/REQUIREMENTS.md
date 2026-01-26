@@ -11,7 +11,7 @@ Requerimientos para el milestone "Sistema de Menús". Cada requerimiento mapea a
 
 - [x] **MENU-01**: Sistema detecta automáticamente el rol del usuario (Admin/VIP/Free)
 - [x] **MENU-02**: Menú principal de usuario se adapta según rol detectado
-- [ ] **MENU-03**: Admin puede ver rol de cualquier usuario en el sistema
+- [x] **MENU-03**: Admin puede ver rol de cualquier usuario en el sistema
 - [x] **MENU-04**: Sistema recalcula rol automáticamente cuando cambia estado (Free→VIP, VIP expira)
 
 ### Lucien Menu Providers (VOICE)
@@ -66,11 +66,11 @@ Requerimientos para el milestone "Sistema de Menús". Cada requerimiento mapea a
 
 ### Admin Menu: User Management (ADMIN-USR)
 
-- [ ] **ADMIN-USR-01**: Menú admin tiene opción "Gestión de Usuarios"
-- [ ] **ADMIN-USR-02**: Admin puede ver información detallada de cualquier usuario
-- [ ] **ADMIN-USR-03**: Admin puede cambiar rol de usuario (Free↔VIP)
-- [ ] **ADMIN-USR-04**: Admin puede bloquear usuario (impide usar el bot)
-- [ ] **ADMIN-USR-05**: Admin puede expulsar usuario (elimina del canal)
+- [x] **ADMIN-USR-01**: Menú admin tiene opción "Gestión de Usuarios"
+- [x] **ADMIN-USR-02**: Admin puede ver información detallada de cualquier usuario
+- [x] **ADMIN-USR-03**: Admin puede cambiar rol de usuario (Free↔VIP)
+- [x] **ADMIN-USR-04**: Admin puede bloquear usuario (impide usar el bot)
+- [x] **ADMIN-USR-05**: Admin puede expulsar usuario (elimina del canal)
 
 ### Admin Menu: Interests (ADMIN-INT)
 

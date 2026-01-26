@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy import select, and_, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from bot.database.models import UserInterest, ContentPackage, User
 from bot.database.enums import ContentCategory
@@ -115,8 +116,10 @@ class InterestService:
                 logger.error(f"Package {package_id} not found for interest registration")
                 return (False, "error", None)
 
-            # Check existing interest
-            existing_stmt = select(UserInterest).where(
+            # Check existing interest with eager load of package
+            existing_stmt = select(UserInterest).options(
+                selectinload(UserInterest.package)
+            ).where(
                 and_(
                     UserInterest.user_id == user_id,
                     UserInterest.package_id == package_id
@@ -151,6 +154,14 @@ class InterestService:
                     created_at=datetime.utcnow()
                 )
                 self.session.add(new_interest)
+                # Flush to get ID and then refresh with package relationship
+                await self.session.flush()
+                # Reload with eager load to get package relationship
+                reloaded_stmt = select(UserInterest).options(
+                    selectinload(UserInterest.package)
+                ).where(UserInterest.id == new_interest.id)
+                reloaded_result = await self.session.execute(reloaded_stmt)
+                new_interest = reloaded_result.scalar_one()
                 logger.info(
                     f"Registered new interest for user {user_id}, package {package_id}"
                 )
