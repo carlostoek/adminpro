@@ -672,13 +672,18 @@ class AdminContentMessages(BaseMessageProvider):
 
         Voice Rationale:
             Action buttons adapt based on package state.
-            "Editar", "Desactivar"/"Reactivar", "Volver".
+            Edit buttons for each field (name, price, description),
+            toggle activate/deactivate button, and back button.
         """
         action_text = "🚫 Desactivar" if is_active else "✅ Reactivar"
         action_callback = f"admin:content:deactivate:{package_id}" if is_active else f"admin:content:reactivate:{package_id}"
 
         return create_inline_keyboard([
-            [{"text": "✏️ Editar", "callback_data": f"admin:content:edit:{package_id}"}],
+            [
+                {"text": "✏️ Nombre", "callback_data": f"admin:content:edit:{package_id}:name"},
+                {"text": "💰 Precio", "callback_data": f"admin:content:edit:{package_id}:price"}
+            ],
+            [{"text": "📄 Descripción", "callback_data": f"admin:content:edit:{package_id}:description"}],
             [{"text": action_text, "callback_data": action_callback}],
             [{"text": "🔙 Volver", "callback_data": "admin:content:list"}],
         ])
