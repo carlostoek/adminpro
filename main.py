@@ -94,8 +94,8 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
     dispatcher.update.middleware(DatabaseMiddleware())
     # AdminAuthMiddleware se aplica solo al router admin (ver bot/handlers/admin/main.py)
     # dispatcher.message.middleware(AdminAuthMiddleware())
+    # RoleDetectionMiddleware en update.middleware() cubre ambos Message y CallbackQuery
     dispatcher.update.middleware(RoleDetectionMiddleware())
-    dispatcher.callback_query.middleware(RoleDetectionMiddleware())
 
     # Iniciar background tasks
     start_background_tasks(bot)

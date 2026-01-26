@@ -27,7 +27,16 @@ content_router.message.middleware(DatabaseMiddleware())
 
 # ===== MENU NAVIGATION =====
 
-@content_router.callback_query(F.data == "admin:content")
+@content_router.callback_query(
+    F.data == "admin:content",
+    ~F.state.in_([
+        ContentPackageStates.waiting_for_name,
+        ContentPackageStates.waiting_for_type,
+        ContentPackageStates.waiting_for_price,
+        ContentPackageStates.waiting_for_description,
+        ContentPackageStates.waiting_for_edit
+    ])
+)
 async def callback_content_menu(callback: CallbackQuery, session: AsyncSession):
     """
     Show content management submenu.
@@ -781,12 +790,17 @@ async def callback_content_reactivate(callback: CallbackQuery, session: AsyncSes
 
 @content_router.callback_query(
     F.data == "admin:content",
-    ContentPackageStates.waiting_for_name | ContentPackageStates.waiting_for_type |
-    ContentPackageStates.waiting_for_price | ContentPackageStates.waiting_for_description
+    F.state.in_([
+        ContentPackageStates.waiting_for_name,
+        ContentPackageStates.waiting_for_type,
+        ContentPackageStates.waiting_for_price,
+        ContentPackageStates.waiting_for_description,
+        ContentPackageStates.waiting_for_edit
+    ])
 )
 async def callback_content_create_cancel(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     """
-    Cancela creación de paquete (desde cualquier paso del wizard).
+    Cancela creación o edición de paquete (desde cualquier paso del wizard).
 
     Args:
         callback: Callback query
