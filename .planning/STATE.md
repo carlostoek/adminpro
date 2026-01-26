@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Cada usuario recibe una experiencia de menú personalizada según su rol (Admin/VIP/Free), con la voz consistente de Lucien y opciones relevantes a su contexto.
-**Current focus:** Phase 9 (User Management Features) - Plan 02 COMPLETE
+**Current focus:** Phase 9 (User Management Features) - Plans 01-03 COMPLETE
 
 ## Current Position
 
 Phase: 9 of 11 (User Management Features) - 🔄 IN PROGRESS
-Plan: 02 of 4 (Admin User Messages) - ✅ COMPLETE
-Status: AdminUserMessages provider with 13 message methods for user management UI including tabbed user detail views, role badge system, and action confirmation dialogs (2026-01-26)
+Plan: 03 of 4 (Admin User Handlers) - ✅ COMPLETE
+Status: User management interface with FSM states, 13 callback handlers for navigation/listing/search/detail view/role change/expulsion, integrated into admin router with menu button (2026-01-26)
 
-Progress: ████████░░░ 82.5% (33/40 plans complete)
+Progress: ███████░░░ 85% (34/40 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 33 (v1.0 + v1.1 + Phase 6 Plans 01-04 + Phase 7 Plans 01-04 + Phase 8 Plans 01-04 + Phase 9 Plan 02)
-- Average duration: ~14.0 min (updated with Phase 9 Plan 02: 4 min duration)
-- Total execution time: ~7.7 hours
+- Total plans completed: 34 (v1.0 + v1.1 + Phase 6 Plans 01-04 + Phase 7 Plans 01-04 + Phase 8 Plans 01-04 + Phase 9 Plans 01-03)
+- Average duration: ~13.7 min (updated with Phase 9 Plans 01-03: 5+4+5 min durations)
+- Total execution time: ~7.8 hours
 
 **By Phase:**
 
@@ -34,10 +34,10 @@ Progress: ████████░░░ 82.5% (33/40 plans complete)
 | 6 | 4 | ~47 min | ~11.8 min |
 | 7 | 4 | ~23 min | ~5.8 min |
 | 8 | 4 | ~16 min | ~4 min |
-| 9 | 1 | ~4 min | ~4 min |
+| 9 | 3 | ~14 min | ~4.7 min |
 
 **Recent Trend:**
-- Last 11 plans: ~7.0 min each (Phase 5 + Phase 6 + Phase 7 + Phase 8 Plans 01-04 + Phase 9 Plan 02)
+- Last 12 plans: ~7.3 min each (Phase 5 + Phase 6 + Phase 7 + Phase 8 Plans 01-04 + Phase 9 Plans 01-03)
 - Trend: Stable efficiency (established patterns enable faster execution)
 
 ## Accumulated Context
@@ -118,6 +118,11 @@ Recent decisions affecting current work:
 - [08-04]: interests_router follows admin callback router pattern with DatabaseMiddleware, inherited AdminAuthMiddleware from main admin_router
 
 **Phase 9 Decisions (v1.1 - User Management Features):**
+- [09-01-01]: UserManagementService follows established service pattern - uses AsyncSession injection, no session.commit(), no Telegram messages
+- [09-01-02]: Block/unblock are placeholders pending DB migration - functions return error message about future implementation
+- [09-01-03]: Super admin is first admin in ADMIN_USER_IDS list - simple pattern without database storage
+- [09-01-04]: Role changes use RoleChangeService for audit logging - integrates with existing audit infrastructure
+- [09-01-05]: Permission validation is async (database query required) - returns Tuple[bool, Optional[str]]
 - [09-02-01]: AdminUserMessages follows BaseMessageProvider stateless pattern (no session/bot in __init__)
 - [09-02-02]: Role badge system uses ROLE_EMOJIS and ROLE_NAMES constants for consistent role display
 - [09-02-03]: Tabbed user detail interface with 4 views (Overview, Subscription, Activity, Interests)
@@ -126,6 +131,13 @@ Recent decisions affecting current work:
 - [09-02-06]: User list uses tg://user?id= links for clickability to user profiles
 - [09-02-07]: User detail views have tab navigation buttons for switching between detail sections
 - [09-02-08]: Action confirmation dialogs (change_role, expel) follow established pattern from AdminContentMessages
+- [09-03-01]: User management handlers follow interests.py pattern - same router structure, callback answer pattern, error handling
+- [09-03-02]: Role selection uses InlineKeyboardBuilder for dynamic options - role options exclude current role
+- [09-03-03]: Search uses FSM state with state clearing after results - prevents FSM state leaks (Pitfall 1 prevention)
+- [09-03-04]: Users button grouped with management features - positioned after Content and Interests, before Config
+- [09-03-05]: All navigation uses admin:users:* and admin:user:* patterns - hierarchical callback structure
+- [09-03-06]: Pagination uses 20 users per page - configured in handlers, calculates total pages with round-up
+- [09-03-07]: Filter mapping uses UserRole enum - filter types: all (None), vip (UserRole.VIP), free (UserRole.FREE)
 
 **Previous decisions:**
 - [v1.0]: Stateless architecture with session context passed as parameters instead of stored in __init__
@@ -154,7 +166,7 @@ None.
 - **Phase 6 (VIP/Free User Menus):** Phase 6 complete - all 4 plans executed successfully. Navigation system unified across VIP and Free menus.
 - **Phase 7 (Content Management Features):** Phase 7 COMPLETE - AdminContentMessages provider, navigation handlers, FSM states, and CRUD operations implemented. Admin can create, view, edit, and toggle content packages.
 - **Phase 8 (Interest Notification System):** Phase 8 COMPLETE - InterestService with 5-minute debounce, VIP/Free interest handlers with real-time Telegram admin notifications, AdminInterestMessages provider, and interest management admin interface with 8 callback handlers. Fixed enum values (ContentCategory, PackageType, UserRole, RoleChangeReason) to use uppercase format matching enum names. Fixed eager load for package relationship in InterestService.
-- **Phase 9 (User Management Features):** Permission model needs clarification - can admins modify other admins? Can admins block themselves?
+- **Phase 9 (User Management Features):** Plans 01-03 COMPLETE - UserManagementService with permission validation, AdminUserMessages provider, user management handlers with full interface. Permission model clarified: admins cannot modify themselves, only super admin can modify other admins. Block/unblock deferred to future phase (requires DB migration).
 - **Phase 12 (Rediseño de Menú de Paquetes):** NEW PHASE - Added during Phase 8 testing to address UX issue. Current package menu shows generic "Me interesa" buttons without package information. Needs redesign to show individual package buttons with detail view before registering interest.
 
 ### Quick Tasks Completed
@@ -170,6 +182,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-26
-Stopped at: Completed Phase 9 Plan 02 - AdminUserMessages provider created with 13 message methods, tabbed user detail interface, role badge system, and action confirmation dialogs
+Stopped at: Completed Phase 9 Plans 01-03 - UserManagementService, AdminUserMessages provider, and user management handlers with full interface including FSM states, 13 callback handlers, router integration, and menu button
 Resume file: None
-Next phase: Phase 9 Plan 03 (Admin User Handlers) - implementing user management callback handlers
+Next phase: Phase 9 Plan 04 (Admin User Management Integration) - testing and UAT for user management features
