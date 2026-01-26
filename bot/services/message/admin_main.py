@@ -225,6 +225,7 @@ class AdminMainMessages(BaseMessageProvider):
             - "Vestíbulo de Acceso" not "Free Channel"
             - "Paquetes de Contenido" not "Content Packages"
             - "Intereses" not "User Interests"
+            - "Gestión de Usuarios" not "User Management"
             - "Calibración del Reino" not "Configuration"
             - "Planes de Suscripción" not "Pricing"
             - "Observaciones del Reino" not "Stats"
@@ -235,6 +236,7 @@ class AdminMainMessages(BaseMessageProvider):
             [{"text": "📺 Vestíbulo de Acceso", "callback_data": "admin:free"}],
             [{"text": "📦 Paquetes de Contenido", "callback_data": "admin:content"}],
             [{"text": "🔔 Intereses", "callback_data": "admin:interests"}],
+            [{"text": "👥 Gestión de Usuarios", "callback_data": "admin:users"}],
             [{"text": "⚙️ Calibración del Reino", "callback_data": "admin:config"}],
             [{"text": "💰 Planes de Suscripción", "callback_data": "admin:pricing"}],
             [{"text": "📈 Observaciones del Reino", "callback_data": "admin:stats"}],
