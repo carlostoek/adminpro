@@ -713,7 +713,10 @@ class AdminUserMessages(BaseMessageProvider):
             ],
             [
                 {"text": "🔄 Cambiar Rol", "callback_data": f"admin:user:role:{user_id}"},
-                {"text": "🚫 Expulsar", "callback_data": f"admin:user:expel:{user_id}"}
+                {"text": "🚫 Bloquear", "callback_data": f"admin:user:block:{user_id}"}
+            ],
+            [
+                {"text": "🚪 Expulsar", "callback_data": f"admin:user:expel:{user_id}"}
             ],
             [{"text": "🔙 Volver a la Lista", "callback_data": "admin:users:list:all"}],
         ])
