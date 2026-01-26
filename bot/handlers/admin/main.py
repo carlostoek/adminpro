@@ -13,6 +13,7 @@ from bot.middlewares import AdminAuthMiddleware, DatabaseMiddleware
 from bot.services.container import ServiceContainer
 from bot.handlers.admin import content as admin_content
 from bot.handlers.admin import interests as admin_interests
+from bot.handlers.admin import users as admin_users
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,9 @@ admin_router.include_router(admin_content.content_router)
 
 # Include interest management router
 admin_router.include_router(admin_interests.interests_router)
+
+# Include user management router
+admin_router.include_router(admin_users.users_router)
 
 # Importar handlers para que se registren sus callbacks
 # (usan @admin_router.callback_query decorator)
