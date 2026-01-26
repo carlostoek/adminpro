@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Cada usuario recibe una experiencia de menú personalizada según su rol (Admin/VIP/Free), con la voz consistente de Lucien y opciones relevantes a su contexto.
-**Current focus:** Phase 7 COMPLETE - Phase 8 (Interest Notification System) or Phase 9 (User Management Features) next
+**Current focus:** Phase 8 (Interest Notification System) - Plan 01 of 4 complete
 
 ## Current Position
 
-Phase: 7 of 11 (Admin Menu with Content Management) - ✅ COMPLETE
-Plan: 04 of 4 (Content CRUD Operations) - ✅ COMPLETE
-Status: Phase 7 execution complete (2026-01-26)
+Phase: 8 of 11 (Interest Notification System) - 🔄 IN PROGRESS
+Plan: 01 of 4 (InterestService) - ✅ COMPLETE
+Status: InterestService created with deduplication logic (2026-01-26)
 
-Progress: ███████████ 100% (28/28 plans completed)
+Progress: ████████░░░ 72% (29/40 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 28 (v1.0 + v1.1 + Phase 6 Plans 01-04 + Phase 7 Plans 01-04)
-- Average duration: ~15 min (updated with Phase 7 Plan 04: ~8 min duration)
+- Total plans completed: 29 (v1.0 + v1.1 + Phase 6 Plans 01-04 + Phase 7 Plans 01-04 + Phase 8 Plan 01)
+- Average duration: ~15 min (updated with Phase 8 Plan 01: ~4 min duration)
 - Total execution time: ~7.5 hours
 
 **By Phase:**
@@ -33,9 +33,10 @@ Progress: ███████████ 100% (28/28 plans completed)
 | 5 | 5 | ~17 min | ~3.4 min |
 | 6 | 4 | ~47 min | ~11.8 min |
 | 7 | 4 | ~23 min | ~5.8 min |
+| 8 | 1 | ~4 min | ~4 min |
 
 **Recent Trend:**
-- Last 10 plans: ~9 min each (Phase 5 + Phase 6 + Phase 7)
+- Last 10 plans: ~9 min each (Phase 5 + Phase 6 + Phase 7 + Phase 8 Plan 01)
 - Trend: Stable efficiency (established patterns enable faster execution)
 
 ## Accumulated Context
@@ -96,6 +97,12 @@ Recent decisions affecting current work:
 - [07-04]: Message middleware registered for FSM message handlers (session injection)
 - [07-04]: FSM state cleanup enforced on all completion/cancellation paths (Pitfall 1 prevention)
 
+**Phase 8 Decisions (v1.1 - Interest Notification System):**
+- [08-01]: Used 5-minute debounce window (DEBOUNCE_WINDOW_MINUTES = 5) to prevent notification spam while allowing re-expression of interest
+- [08-01]: register_interest returns (success, status, interest) tuple - handlers check if status != "debounce" before notifying admin
+- [08-01]: InterestService follows established service pattern - no session.commit(), no Telegram messages, business logic only
+- [08-01]: ServiceContainer.interest uses lazy loading pattern like other services (content, stats, role_change)
+
 **Previous decisions:**
 - [v1.0]: Stateless architecture with session context passed as parameters instead of stored in __init__
 - [v1.0]: Session-aware variation selection with ~80 bytes/user memory overhead
@@ -118,7 +125,7 @@ None.
 
 - **Phase 6 (VIP/Free User Menus):** Phase 6 complete - all 4 plans executed successfully. Navigation system unified across VIP and Free menus.
 - **Phase 7 (Content Management Features):** Phase 7 COMPLETE - AdminContentMessages provider, navigation handlers, FSM states, and CRUD operations implemented. Admin can create, view, edit, and toggle content packages.
-- **Phase 8 (Interest Notification System):** Admin notification UX needs validation - optimal batching interval (5 min, 10 min, 30 min) and how many admins is "too many" for real-time. Free user interests now also logged with "📢 ADMIN NOTIFICATION" prefix.
+- **Phase 8 (Interest Notification System):** InterestService complete with 5-minute debounce deduplication. Admin interest handlers and notification batching pending. Debounce window duration validated as balance between spam prevention and UX.
 - **Phase 9 (User Management Features):** Permission model needs clarification - can admins modify other admins? Can admins block themselves?
 
 ### Quick Tasks Completed
@@ -130,6 +137,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-26
-Stopped at: Completed 07-04-PLAN.md execution - Content CRUD operations (create wizard, edit handlers, toggle handlers)
+Stopped at: Completed 08-01-PLAN.md execution - InterestService with deduplication logic
 Resume file: None
-Next phase: Phase 8 (Interest Notification System) or Phase 9 (User Management Features)
+Next phase: Phase 8 Plan 02 (Admin Interest Handlers)
