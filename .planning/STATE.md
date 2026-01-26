@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Cada usuario recibe una experiencia de menú personalizada según su rol (Admin/VIP/Free), con la voz consistente de Lucien y opciones relevantes a su contexto.
-**Current focus:** Phase 8 COMPLETE - Phase 9 (User Management Features) next
+**Current focus:** Phase 9 (User Management Features) - Plan 02 COMPLETE
 
 ## Current Position
 
-Phase: 8 of 11 (Interest Notification System) - ✅ COMPLETE
-Plan: 04 of 4 (Admin Interest Handlers) - ✅ COMPLETE
-Status: Interest management admin interface with 8 callback handlers for listing, viewing, filtering, and marking interests as attended (2026-01-26)
+Phase: 9 of 11 (User Management Features) - 🔄 IN PROGRESS
+Plan: 02 of 4 (Admin User Messages) - ✅ COMPLETE
+Status: AdminUserMessages provider with 13 message methods for user management UI including tabbed user detail views, role badge system, and action confirmation dialogs (2026-01-26)
 
-Progress: ████████░░░ 80% (32/40 plans complete)
+Progress: ████████░░░ 82.5% (33/40 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 32 (v1.0 + v1.1 + Phase 6 Plans 01-04 + Phase 7 Plans 01-04 + Phase 8 Plans 01-04)
-- Average duration: ~14.4 min (updated with Phase 8 Plans 01-04: ~4 min duration each)
+- Total plans completed: 33 (v1.0 + v1.1 + Phase 6 Plans 01-04 + Phase 7 Plans 01-04 + Phase 8 Plans 01-04 + Phase 9 Plan 02)
+- Average duration: ~14.0 min (updated with Phase 9 Plan 02: 4 min duration)
 - Total execution time: ~7.7 hours
 
 **By Phase:**
@@ -34,9 +34,10 @@ Progress: ████████░░░ 80% (32/40 plans complete)
 | 6 | 4 | ~47 min | ~11.8 min |
 | 7 | 4 | ~23 min | ~5.8 min |
 | 8 | 4 | ~16 min | ~4 min |
+| 9 | 1 | ~4 min | ~4 min |
 
 **Recent Trend:**
-- Last 10 plans: ~7.3 min each (Phase 5 + Phase 6 + Phase 7 + Phase 8 Plans 01-04)
+- Last 11 plans: ~7.0 min each (Phase 5 + Phase 6 + Phase 7 + Phase 8 Plans 01-04 + Phase 9 Plan 02)
 - Trend: Stable efficiency (established patterns enable faster execution)
 
 ## Accumulated Context
@@ -116,6 +117,16 @@ Recent decisions affecting current work:
 - [08-04]: User blocking deferred to Phase 9 with placeholder message in menu_callbacks.py (maintains callback structure without premature implementation)
 - [08-04]: interests_router follows admin callback router pattern with DatabaseMiddleware, inherited AdminAuthMiddleware from main admin_router
 
+**Phase 9 Decisions (v1.1 - User Management Features):**
+- [09-02-01]: AdminUserMessages follows BaseMessageProvider stateless pattern (no session/bot in __init__)
+- [09-02-02]: Role badge system uses ROLE_EMOJIS and ROLE_NAMES constants for consistent role display
+- [09-02-03]: Tabbed user detail interface with 4 views (Overview, Subscription, Activity, Interests)
+- [09-02-04]: Session-aware greeting variations with weighted choices (50% common, 30% alternate, 20% poetic)
+- [09-02-05]: Lazy loading via AdminMessages.user property with lazy instantiation
+- [09-02-06]: User list uses tg://user?id= links for clickability to user profiles
+- [09-02-07]: User detail views have tab navigation buttons for switching between detail sections
+- [09-02-08]: Action confirmation dialogs (change_role, expel) follow established pattern from AdminContentMessages
+
 **Previous decisions:**
 - [v1.0]: Stateless architecture with session context passed as parameters instead of stored in __init__
 - [v1.0]: Session-aware variation selection with ~80 bytes/user memory overhead
@@ -130,7 +141,11 @@ None.
 
 ### Blockers/Concerns
 
-**Resolved in Phase 5:**
+**Resolved in Phase 8:**
+- **Enum format mismatch**: Fixed ContentCategory, PackageType, UserRole, RoleChangeReason enums to use uppercase values (FREE_CONTENT, VIP_CONTENT, etc.) matching enum names instead of lowercase values. Updated all database records to match.
+- **Interest notification NoneType error**: Fixed InterestService.register_interest() to use eager loading (selectinload) for package relationship, ensuring interest.package is loaded when returned to handlers.
+
+**Remaining concerns:**
 - ~~Content package types: How many types needed?~~ RESOLVED: 3 types (FREE_CONTENT, VIP_CONTENT, VIP_PREMIUM)
 - ~~Role change audit trail: How to track changes?~~ RESOLVED: UserRoleChangeLog with RoleChangeReason enum
 
@@ -138,8 +153,9 @@ None.
 
 - **Phase 6 (VIP/Free User Menus):** Phase 6 complete - all 4 plans executed successfully. Navigation system unified across VIP and Free menus.
 - **Phase 7 (Content Management Features):** Phase 7 COMPLETE - AdminContentMessages provider, navigation handlers, FSM states, and CRUD operations implemented. Admin can create, view, edit, and toggle content packages.
-- **Phase 8 (Interest Notification System):** Phase 8 COMPLETE - InterestService with 5-minute debounce, VIP/Free interest handlers with real-time Telegram admin notifications, AdminInterestMessages provider, and interest management admin interface with 8 callback handlers for listing, viewing, filtering, and marking interests as attended.
+- **Phase 8 (Interest Notification System):** Phase 8 COMPLETE - InterestService with 5-minute debounce, VIP/Free interest handlers with real-time Telegram admin notifications, AdminInterestMessages provider, and interest management admin interface with 8 callback handlers. Fixed enum values (ContentCategory, PackageType, UserRole, RoleChangeReason) to use uppercase format matching enum names. Fixed eager load for package relationship in InterestService.
 - **Phase 9 (User Management Features):** Permission model needs clarification - can admins modify other admins? Can admins block themselves?
+- **Phase 12 (Rediseño de Menú de Paquetes):** NEW PHASE - Added during Phase 8 testing to address UX issue. Current package menu shows generic "Me interesa" buttons without package information. Needs redesign to show individual package buttons with detail view before registering interest.
 
 ### Quick Tasks Completed
 
@@ -147,9 +163,13 @@ None.
 |---|-------------|------|--------|-----------|
 | 001 | Fix Phase 5 gaps | 2026-01-25 | 9b82088 | [001-fix-phase-5-gaps](./quick/001-fix-phase-5-gaps/) |
 
+### Roadmap Evolution
+
+- **Phase 12 added (2026-01-26):** "Rediseño de Menú de Paquetes con Vista de Detalles" - Discovered during Phase 8 UAT testing. Current UX shows generic "Me interesa" buttons without package information. Needs redesign to show individual package buttons with detail view (description, price) before allowing interest registration. |
+
 ## Session Continuity
 
 Last session: 2026-01-26
-Stopped at: Completed 08-04-PLAN.md execution - Admin interest management callback handlers
+Stopped at: Completed Phase 9 Plan 02 - AdminUserMessages provider created with 13 message methods, tabbed user detail interface, role badge system, and action confirmation dialogs
 Resume file: None
-Next phase: Phase 9 (User Management Features) - after ROADMAP.md update
+Next phase: Phase 9 Plan 03 (Admin User Handlers) - implementing user management callback handlers
