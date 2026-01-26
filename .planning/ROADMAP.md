@@ -121,13 +121,15 @@ Plans:
   3. Admin puede ver lista de intereses organizada por fecha (último arriba)
   4. Admin puede marcar interés como "Atendido"
   5. InterestService existe para gestionar intereses con deduplicación
-**Plans**: TBD
+**Status**: ✅ Complete
+**Completed**: 2026-01-26
+**Plans**: 4 plans
 
 Plans:
-- [ ] 08-01: Interest notification handler with deduplication
-- [ ] 08-02: Admin notification sender with user info and package details
-- [ ] 08-03: Interest list viewer for admins with pagination
-- [ ] 08-04: Mark interest as attended functionality
+- [x] 08-01-PLAN.md — InterestService with deduplication (5-min window), filtering, pagination
+- [x] 08-02-PLAN.md — Admin notifications to Telegram with user info, package details, Lucien's voice
+- [x] 08-03-PLAN.md — AdminInterestMessages provider for interest UI
+- [x] 08-04-PLAN.md — Interest management handlers (list, view filters, mark attended)
 
 ### Phase 9: User Management Features
 **Goal**: Admin puede gestionar usuarios (ver info, cambiar rol, bloquear, expulsar) con registro de auditoría.
@@ -201,9 +203,9 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
 | 5. Role Detection & Database Foundation | v1.1 | 5/5 | Complete | 2026-01-25 |
 | 6. VIP/Free User Menus | v1.1 | 4/4 | Complete | 2026-01-25 |
 | 7. Admin Menu with Content Management | v1.1 | 4/4 | Complete | 2026-01-26 |
-| 8. Interest Notification System | v1.1 | 0/TBD | Not started | - |
+| 8. Interest Notification System | v1.1 | 4/4 | Complete | 2026-01-26 |
 | 9. User Management Features | v1.1 | 0/TBD | Not started | - |
 | 10. Free Channel Entry Flow | v1.1 | 0/TBD | Not started | - |
 | 11. Documentation | v1.1 | 0/TBD | Not started | - |
 
-**v1.1 Progress:** ██████░░░░░ 33% (20/60 requirements complete)
+**v1.1 Progress:** ████████░░░ 46% (30/60 requirements complete)

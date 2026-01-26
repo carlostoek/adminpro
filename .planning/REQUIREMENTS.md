@@ -60,9 +60,9 @@ Requerimientos para el milestone "Sistema de Menús". Cada requerimiento mapea a
 
 - [x] **INTEREST-01**: Botón "Me interesa" en paquetes crea registro de interés
 - [x] **INTEREST-02**: Base de datos con tabla UserInterest (id, user_id, package_id, created_at, is_attended)
-- [ ] **INTEREST-03**: Admin recibe mensaje privado cuando usuario marca "Me interesa"
-- [ ] **INTEREST-04**: Notificación incluye: nombre de usuario, link al perfil, paquete de interés
-- [ ] **INTEREST-05**: Servicio InterestService para gestión de intereses
+- [x] **INTEREST-03**: Admin recibe mensaje privado cuando usuario marca "Me interesa"
+- [x] **INTEREST-04**: Notificación incluye: nombre de usuario, link al perfil, paquete de interés
+- [x] **INTEREST-05**: Servicio InterestService para gestión de intereses
 
 ### Admin Menu: User Management (ADMIN-USR)
 
@@ -74,11 +74,11 @@ Requerimientos para el milestone "Sistema de Menús". Cada requerimiento mapea a
 
 ### Admin Menu: Interests (ADMIN-INT)
 
-- [ ] **ADMIN-INT-01**: Menú admin tiene opción "Intereses" para ver notificaciones pendientes
-- [ ] **ADMIN-INT-02**: Lista de intereses organizada por fecha (último arriba)
-- [ ] **ADMIN-INT-03**: Admin puede marcar interés como "Atendido"
-- [ ] **ADMIN-INT-04**: Admin tiene link directo al perfil de Telegram del usuario
-- [ ] **ADMIN-INT-05**: Admin puede ver qué paquete interesó al usuario
+- [x] **ADMIN-INT-01**: Menú admin tiene opción "Intereses" para ver notificaciones pendientes
+- [x] **ADMIN-INT-02**: Lista de intereses organizada por fecha (último arriba)
+- [x] **ADMIN-INT-03**: Admin puede marcar interés como "Atendido"
+- [x] **ADMIN-INT-04**: Admin tiene link directo al perfil de Telegram del usuario
+- [x] **ADMIN-INT-05**: Admin puede ver qué paquete interesó al usuario
 
 ### Admin Menu: Content Packages (ADMIN-CONTENT)
 
@@ -141,21 +141,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CONTENT-05 | Phase 7 | Complete |
 | CONTENT-06 | Phase 7 | Complete |
 | CONTENT-07 | Phase 6 | Complete |
-| INTEREST-01 | Phase 8 | Pending |
-| INTEREST-02 | Phase 8 | Pending |
-| INTEREST-03 | Phase 8 | Pending |
-| INTEREST-04 | Phase 8 | Pending |
-| INTEREST-05 | Phase 8 | Pending |
+| INTEREST-01 | Phase 8 | Complete |
+| INTEREST-02 | Phase 8 | Complete |
+| INTEREST-03 | Phase 8 | Complete |
+| INTEREST-04 | Phase 8 | Complete |
+| INTEREST-05 | Phase 8 | Complete |
 | ADMIN-USR-01 | Phase 9 | Pending |
 | ADMIN-USR-02 | Phase 9 | Pending |
 | ADMIN-USR-03 | Phase 9 | Pending |
 | ADMIN-USR-04 | Phase 9 | Pending |
 | ADMIN-USR-05 | Phase 9 | Pending |
-| ADMIN-INT-01 | Phase 8 | Pending |
-| ADMIN-INT-02 | Phase 8 | Pending |
-| ADMIN-INT-03 | Phase 8 | Pending |
-| ADMIN-INT-04 | Phase 8 | Pending |
-| ADMIN-INT-05 | Phase 8 | Pending |
+| ADMIN-INT-01 | Phase 8 | Complete |
+| ADMIN-INT-02 | Phase 8 | Complete |
+| ADMIN-INT-03 | Phase 8 | Complete |
+| ADMIN-INT-04 | Phase 8 | Complete |
+| ADMIN-INT-05 | Phase 8 | Complete |
 | ADMIN-CONTENT-01 | Phase 7 | Complete |
 | ADMIN-CONTENT-02 | Phase 7 | Complete |
 | ADMIN-CONTENT-03 | Phase 7 | Complete |
@@ -175,6 +175,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 **Coverage:**
 - v1.1 requirements: 60 total
 - Mapped to phases: 60
+- Complete: 30 (50%)
+- Pending: 30
 - Unmapped: 0 ✓
 
 ## Out of Scope
