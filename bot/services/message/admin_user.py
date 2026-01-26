@@ -318,7 +318,11 @@ class AdminUserMessages(BaseMessageProvider):
 
                 from_role_str = from_role.value if from_role else "N/A"
                 to_role_str = to_role.value if to_role else "N/A"
-                reason_str = reason.value.replace("_", " ").title() if reason else "Desconocido"
+                # Handle reason as either enum or string
+                if hasattr(reason, 'value'):
+                    reason_str = reason.value.replace("_", " ").title()
+                else:
+                    reason_str = str(reason).replace("_", " ").title() if reason else "Desconocido"
                 changed_at_str = changed_at.strftime('%d/%m/%Y %H:%M')
 
                 body += f"• {from_role_str} → {to_role_str}\n"
@@ -603,7 +607,7 @@ class AdminUserMessages(BaseMessageProvider):
         header = f"🎩 <b>Lucien:</b>\n\n<i>Los resultados de la búsqueda...</i>"
 
         body = (
-            f"🔍 <b>Resultados: "{query}"</b>\n\n"
+            f'🔍 <b>Resultados: "{query}"</b>\n\n'
             f"<i>{len(users)} encontrado(s)</i>\n\n"
         )
 
