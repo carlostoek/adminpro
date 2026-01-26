@@ -28,6 +28,7 @@ from .admin_vip import AdminVIPMessages
 from .admin_free import AdminFreeMessages
 from .admin_content import AdminContentMessages
 from .admin_interest import AdminInterestMessages
+from .admin_user import AdminUserMessages
 from .user_start import UserStartMessages
 from .user_flows import UserFlowMessages
 from .user_menu import UserMenuMessages
@@ -42,6 +43,7 @@ __all__ = [
     "AdminFreeMessages",
     "AdminContentMessages",
     "AdminInterestMessages",
+    "AdminUserMessages",
     "UserMessages",
     "UserStartMessages",
     "UserFlowMessages",
@@ -63,7 +65,8 @@ class AdminMessages:
                 ├─ vip: AdminVIPMessages (Phase 2 Plan 01) ✅
                 ├─ free: AdminFreeMessages (Phase 2 Plan 02) ✅
                 ├─ content: AdminContentMessages (Phase 7 Plan 01) ✅
-                └─ interest: AdminInterestMessages (Phase 8 Plan 03) ✅
+                ├─ interest: AdminInterestMessages (Phase 8 Plan 03) ✅
+                └─ user: AdminUserMessages (Phase 9 Plan 02) ✅
 
     Usage:
         container = ServiceContainer(session, bot)
@@ -83,6 +86,14 @@ class AdminMessages:
         # Access Interest messages
         text, kb = container.message.admin.interest.interests_menu(pending_count=5, total_count=23)
 
+        # Access User messages
+        text, kb = container.message.admin.user.users_menu(
+            total_users=100,
+            vip_count=25,
+            free_count=70,
+            admin_count=5
+        )
+
     Stateless Design:
         All sub-providers are lazy-loaded and stateless.
         No session or bot stored as instance variables.
@@ -99,6 +110,7 @@ class AdminMessages:
         self._free = None
         self._content = None
         self._interest = None
+        self._user = None
 
     @property
     def main(self):
@@ -204,6 +216,32 @@ class AdminMessages:
             from .admin_interest import AdminInterestMessages
             self._interest = AdminInterestMessages()
         return self._interest
+
+    @property
+    def user(self):
+        """
+        Admin user management messages (Phase 9 Plan 02) ✅ COMPLETE.
+
+        Lazy-loaded: creates AdminUserMessages instance on first access.
+
+        Returns:
+            AdminUserMessages: Provider for user management messages
+
+        Examples:
+            >>> admin = AdminMessages()
+            >>> text, kb = admin.user.users_menu(
+            ...     total_users=100,
+            ...     vip_count=25,
+            ...     free_count=70,
+            ...     admin_count=5
+            ... )
+            >>> '🎩' in text and 'Gestión de Usuarios' in text and 'custodio' in text.lower()
+            True
+        """
+        if self._user is None:
+            from .admin_user import AdminUserMessages
+            self._user = AdminUserMessages()
+        return self._user
 
 
 class UserMessages:
@@ -328,12 +366,13 @@ class LucienVoiceService:
         ServiceContainer
             └─ LucienVoiceService (this class)
                 ├─ common: CommonMessages ✅
-                ├─ admin: AdminMessages ✅ PHASE 2 COMPLETE, PHASE 7 COMPLETE, PHASE 8 IN PROGRESS
+                ├─ admin: AdminMessages ✅ PHASE 2 COMPLETE, PHASE 7 COMPLETE, PHASE 8 COMPLETE, PHASE 9 IN PROGRESS
                 │   ├─ main: AdminMainMessages ✅
                 │   ├─ vip: AdminVIPMessages ✅
                 │   ├─ free: AdminFreeMessages ✅
                 │   ├─ content: AdminContentMessages ✅
-                │   └─ interest: AdminInterestMessages ✅ NEW (Plan 03)
+                │   ├─ interest: AdminInterestMessages ✅
+                │   └─ user: AdminUserMessages ✅ NEW (Plan 02)
                 └─ user: UserMessages ✅ PHASE 3 COMPLETE, PHASE 6 COMPLETE
                     ├─ start: UserStartMessages ✅ (Plan 01)
                     ├─ flows: UserFlowMessages ✅ (Plan 02)
