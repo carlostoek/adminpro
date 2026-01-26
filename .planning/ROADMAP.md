@@ -142,15 +142,16 @@ Plans:
   4. Admin puede bloquear usuario (impide usar el bot) con confirmación
   5. Admin puede expulsar usuario (elimina del canal) con confirmación
   6. Admin puede ver rol de cualquier usuario en el sistema
-**Status**: ✅ Complete
-**Completed**: 2026-01-26
-**Plans**: 4 plans
+**Status**: 🔄 Gap Closure (2 UAT issues)
+**Plans**: 6 plans (4 complete + 2 gap closure)
 
 Plans:
 - [x] 09-01-PLAN.md — UserManagementService with user info, role change, block, expel operations, permission validation
 - [x] 09-02-PLAN.md — AdminUserMessages provider with Lucien's voice for user management UI
 - [x] 09-03-PLAN.md — User management handlers (navigation, listing, search, detail view, role change)
 - [x] 09-04-PLAN.md — User expel and block functionality with confirmation
+- [ ] 09-05-PLAN.md — Fix Interests tab MissingGreenlet error (eager loading)
+- [ ] 09-06-PLAN.md — Fix role change confirmation callback parsing
 
 ### Phase 10: Free Channel Entry Flow
 **Goal**: Flujo de ingreso al canal Free con voz de Lucien, redes sociales de la creadora, tiempo de espera y aprobación automática.
@@ -222,7 +223,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12
 | 6. VIP/Free User Menus | v1.1 | 4/4 | Complete | 2026-01-25 |
 | 7. Admin Menu with Content Management | v1.1 | 4/4 | Complete | 2026-01-26 |
 | 8. Interest Notification System | v1.1 | 4/4 | Complete | 2026-01-26 |
-| 9. User Management Features | v1.1 | 4/4 | Complete | 2026-01-26 |
+| 9. User Management Features | v1.1 | 4/6 | Gap Closure | 2026-01-26 |
 | 10. Free Channel Entry Flow | v1.1 | 0/TBD | Not started | - |
 | 11. Documentation | v1.1 | 0/TBD | Not started | - |
 | 12. Rediseño de Menú de Paquetes con Vista de Detalles | v1.1 | 0/TBD | Not started | - |
