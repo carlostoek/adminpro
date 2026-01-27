@@ -180,7 +180,7 @@ class AdminUserMessages(BaseMessageProvider):
             body += "<i>No hay usuarios para mostrar.</i>"
 
         text = header + body
-        keyboard = self._users_list_keyboard(page, total_pages, filter_type)
+        keyboard = self._users_list_keyboard(users, page, total_pages, filter_type)
         return text, keyboard
 
     def user_detail_overview(
@@ -676,9 +676,26 @@ class AdminUserMessages(BaseMessageProvider):
             [{"text": "🔙 Volver al Menú Principal", "callback_data": "admin:main"}],
         ])
 
-    def _users_list_keyboard(self, page: int, total_pages: int, filter_type: str) -> InlineKeyboardMarkup:
-        """Generate keyboard for paginated users list."""
+    def _users_list_keyboard(self, users: List[Any], page: int, total_pages: int, filter_type: str) -> InlineKeyboardMarkup:
+        """Generate keyboard for paginated users list with profile buttons."""
         buttons = []
+
+        # User buttons (one per row)
+        for user in users:
+            role_emoji = self.ROLE_EMOJIS.get(user.role, "❓")
+            name_display = user.first_name or "Sin nombre"
+            # Truncate name if too long for button
+            if len(name_display) > 20:
+                name_display = name_display[:17] + "..."
+            buttons.append([
+                {
+                    "text": f"{role_emoji} {name_display} - Ver Perfil",
+                    "callback_data": f"admin:user:view:{user.user_id}:overview"
+                }
+            ])
+
+        # Separator
+        buttons.append([{"text": "─" * 15, "callback_data": "admin:users:noop"}])
 
         # Pagination row
         nav_buttons = []
