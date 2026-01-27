@@ -14,7 +14,14 @@ import subprocess
 from pathlib import Path
 
 # Add parent directory to sys.path to import bot.utils.voice_linter
-project_root = Path(__file__).parent.parent
+# Use git rev-parse to get the true project root (more reliable than __file__)
+result = subprocess.run(
+    ["git", "rev-parse", "--show-toplevel"],
+    capture_output=True,
+    text=True,
+    check=True
+)
+project_root = Path(result.stdout.strip())
 sys.path.insert(0, str(project_root))
 
 from bot.utils.voice_linter import check_file
