@@ -349,6 +349,117 @@ class UserMenuMessages(BaseMessageProvider):
 
         return text, keyboard
 
+    def package_detail_view(
+        self,
+        package: ContentPackage,
+        user_role: str = "VIP",
+        user_id: Optional[int] = None,
+        session_history: Optional["SessionMessageHistory"] = None
+    ) -> Tuple[str, InlineKeyboardMarkup]:
+        """
+        Generate detailed package view with all user-facing information.
+
+        Args:
+            package: ContentPackage object to display
+            user_role: User role for context-aware messages ("VIP" or "Free")
+            user_id: Optional Telegram user ID for session-aware selection
+            session_history: Optional SessionMessageHistory for context awareness
+
+        Returns:
+            Tuple of (text, keyboard) for package detail view
+
+        Voice Rationale:
+            Shows complete package information before user registers interest.
+            Price formatted elegantly: "Acceso gratuito" for None, "$X.XX" for paid.
+            Category badges with emoji: VIP_PREMIUM="💎", VIP_CONTENT="👑", FREE_CONTENT="🌸".
+            Lucien's closing adapts to user role ("círculo" for VIP, "jardín" for Free).
+
+        Examples:
+            >>> provider = UserMenuMessages()
+            >>> from bot.database.models import ContentPackage
+            >>> pkg = ContentPackage(id=1, name="Pack Premium", price=15.00)
+            >>> text, kb = provider.package_detail_view(pkg, user_role="VIP")
+            >>> '💎' in text and 'Pack Premium' in text
+            True
+        """
+        # Weighted introductions based on user role
+        if user_role == "VIP":
+            introductions = [
+                "Un tesoro del sanctum seleccionado...",
+                "Diana ha preparado este contenido exclusivo...",
+                "Los detalles del círculo exclusivo..."
+            ]
+            context_closing = "¿Desea manifestar su interés en este tesoro del círculo?"
+        else:  # Free
+            introductions = [
+                "Una muestra del jardín seleccionada...",
+                "Diana permite contemplar este contenido...",
+                "Los detalles del jardín público..."
+            ]
+            context_closing = "¿Desea manifestar su interés en esta muestra del jardín?"
+
+        introduction = self._choose_variant(
+            introductions,
+            user_id=user_id,
+            method_name="package_detail_view",
+            session_history=session_history
+        )
+
+        header = f"🎩 <b>Lucien:</b>\n\n<i>{introduction}</i>"
+
+        # Category badge mapping
+        category_emoji = {
+            "VIP_PREMIUM": "💎",
+            "VIP_CONTENT": "👑",
+            "FREE_CONTENT": "🌸"
+        }
+
+        category_label = {
+            "VIP_PREMIUM": "Premium Exclusivo",
+            "VIP_CONTENT": "Contenido VIP",
+            "FREE_CONTENT": "Contenido Gratuito"
+        }
+
+        # Get category value (handle both enum and string)
+        category_value = package.category.value if hasattr(package.category, 'value') else str(package.category)
+        emoji = category_emoji.get(category_value, "📦")
+        label = category_label.get(category_value, "Paquete")
+
+        # Format price
+        if package.price is None:
+            price_section = "💰 <b>Precio:</b> Acceso gratuito"
+        else:
+            price_section = f"💰 <b>Precio:</b> ${package.price:.2f}"
+
+        # Format description
+        description_text = package.description if package.description else "Sin descripción"
+
+        # Build body
+        body = (
+            f"<b>{emoji} {escape_html(package.name)}</b>\n\n"
+            f"<i>{description_text}</i>\n\n"
+            f"{price_section}\n"
+            f"{emoji} <b>Categoría:</b> {label}\n\n"
+            f"<i>{context_closing}</i>"
+        )
+
+        text = self._compose(header, body)
+
+        # Create keyboard with action and navigation
+        content_buttons = [
+            [{"text": "⭐ Me interesa", "callback_data": f"user:package:interest:{package.id}"}]
+        ]
+
+        keyboard = create_content_with_navigation(
+            content_buttons,
+            include_back=True,
+            include_exit=False,  # Only back button, no exit
+            back_text="⬅️ Volver",
+            back_callback="user:packages:back"
+        )
+
+        return text, keyboard
+
     def _create_package_buttons(self, packages: List[ContentPackage]) -> List[List[dict]]:
         """
         Convierte lista de ContentPackage a filas de botones "Me interesa".
