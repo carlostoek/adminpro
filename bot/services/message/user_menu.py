@@ -217,7 +217,7 @@ class UserMenuMessages(BaseMessageProvider):
         session_history: Optional["SessionMessageHistory"] = None
     ) -> Tuple[str, InlineKeyboardMarkup]:
         """
-        Generate VIP premium content section.
+        Generate VIP premium content section with minimalist package list.
 
         Args:
             user_name: User's first name (will be HTML-escaped)
@@ -230,17 +230,18 @@ class UserMenuMessages(BaseMessageProvider):
 
         Voice Rationale:
             VIP premium content is "tesoros del sanctum" (sanctum treasures).
-            Package count shown: "[count] tesoros disponibles"
-            Dynamic "Me interesa" buttons generated from ContentPackage list.
+            Minimalist list format: only package names (no prices or categories).
+            Packages sorted by price: free first, then lowest to highest.
+            Individual buttons navigate to detail view before registering interest.
 
         Examples:
             >>> provider = UserMenuMessages()
             >>> from bot.database.models import ContentPackage
-            >>> packages = [ContentPackage(id=1, title="Tesoro 1"), ContentPackage(id=2, title="Tesoro 2")]
+            >>> packages = [ContentPackage(id=1, name="Tesoro 1")]
             >>> text, kb = provider.vip_premium_section("Juan", packages)
             >>> '🎩' in text and 'Juan' in text
             True
-            >>> 'tesoros' in text.lower() and '2' in text
+            >>> 'tesoros' in text.lower()
             True
         """
         safe_name = escape_html(user_name)
@@ -261,19 +262,28 @@ class UserMenuMessages(BaseMessageProvider):
 
         header = f"🎩 <b>Lucien:</b>\n\n<i>{introduction}</i>"
 
-        package_count = len(packages)
+        # Sort packages by price (free first, then ascending)
+        sorted_packages = self._sort_packages_by_price(packages)
+
         body = (
             f"<b>💎 Sección Premium VIP</b>\n\n"
-            f"<b>{safe_name}</b>, estos son los tesoros disponibles:\n\n"
-            f"<b>📦 {package_count} tesoros disponibles</b>\n\n"
-            f"<i>Seleccione aquellos que despierten su interés...</i>"
+            f"<b>{safe_name}</b>, explore los tesoros del sanctum...\n\n"
+            f"<i>Seleccione un paquete para ver detalles completos antes de manifestar interés...</i>"
         )
 
         text = self._compose(header, body)
 
-        # Create keyboard with package buttons and navigation
-        package_buttons = self._create_package_buttons(packages)
-        keyboard = create_content_with_navigation(package_buttons)
+        # Create minimalist package buttons (one per row, name only)
+        package_buttons = [
+            [{"text": f"📦 {pkg.name}", "callback_data": f"user:packages:{pkg.id}"}]
+            for pkg in sorted_packages
+        ]
+
+        keyboard = create_content_with_navigation(
+            package_buttons,
+            back_text="⬅️ Volver al Menú VIP",
+            back_callback="menu:back"
+        )
 
         return text, keyboard
 
@@ -285,7 +295,7 @@ class UserMenuMessages(BaseMessageProvider):
         session_history: Optional["SessionMessageHistory"] = None
     ) -> Tuple[str, InlineKeyboardMarkup]:
         """
-        Generate Free content browsing section.
+        Generate Free content browsing section with minimalist package list.
 
         Args:
             user_name: User's first name (will be HTML-escaped)
@@ -298,17 +308,18 @@ class UserMenuMessages(BaseMessageProvider):
 
         Voice Rationale:
             Free content is "muestras del jardín" (garden samples).
-            Package count shown: "[count] muestras disponibles"
-            Dynamic "Me interesa" buttons generated from ContentPackage list.
+            Minimalist list format: only package names (no prices or categories).
+            Packages sorted by price: free first, then lowest to highest.
+            Individual buttons navigate to detail view before registering interest.
 
         Examples:
             >>> provider = UserMenuMessages()
             >>> from bot.database.models import ContentPackage
-            >>> packages = [ContentPackage(id=1, title="Muestra 1"), ContentPackage(id=2, title="Muestra 2")]
+            >>> packages = [ContentPackage(id=1, name="Muestra 1")]
             >>> text, kb = provider.free_content_section("Ana", packages)
             >>> '🎩' in text and 'Ana' in text
             True
-            >>> 'muestras' in text.lower() and '2' in text
+            >>> 'muestras' in text.lower()
             True
         """
         safe_name = escape_html(user_name)
@@ -329,18 +340,23 @@ class UserMenuMessages(BaseMessageProvider):
 
         header = f"🎩 <b>Lucien:</b>\n\n<i>{introduction}</i>"
 
-        package_count = len(packages)
+        # Sort packages by price (free first, then ascending)
+        sorted_packages = self._sort_packages_by_price(packages)
+
         body = (
             f"<b>🌸 Sección de Contenido Free</b>\n\n"
-            f"<b>{safe_name}</b>, estas son las muestras disponibles:\n\n"
-            f"<b>📦 {package_count} muestras disponibles</b>\n\n"
-            f"<i>Seleccione aquellas que despierten su curiosidad...</i>"
+            f"<b>{safe_name}</b>, explore las muestras del jardín...\n\n"
+            f"<i>Seleccione un paquete para ver detalles completos antes de manifestar interés...</i>"
         )
 
         text = self._compose(header, body)
 
-        # Create keyboard with package buttons and navigation
-        package_buttons = self._create_package_buttons(packages)
+        # Create minimalist package buttons (one per row, name only)
+        package_buttons = [
+            [{"text": f"📦 {pkg.name}", "callback_data": f"user:packages:{pkg.id}"}]
+            for pkg in sorted_packages
+        ]
+
         keyboard = create_content_with_navigation(
             package_buttons,
             back_text="⬅️ Volver al Menú Free",
@@ -348,6 +364,42 @@ class UserMenuMessages(BaseMessageProvider):
         )
 
         return text, keyboard
+
+    def _sort_packages_by_price(self, packages: List[ContentPackage]) -> List[ContentPackage]:
+        """
+        Sort packages by price: free packages first (price is None), then paid packages by price ascending.
+
+        Args:
+            packages: List of ContentPackage objects to sort
+
+        Returns:
+            Sorted list with free packages first, then paid packages sorted by price (lowest first)
+
+        Examples:
+            >>> provider = UserMenuMessages()
+            >>> from bot.database.models import ContentPackage
+            >>> pkg1 = ContentPackage(id=1, name="Free", price=None)
+            >>> pkg2 = ContentPackage(id=2, name="Cheap", price=5.00)
+            >>> pkg3 = ContentPackage(id=3, name="Expensive", price=20.00)
+            >>> sorted_pkgs = provider._sort_packages_by_price([pkg3, pkg1, pkg2])
+            >>> sorted_pkgs[0].name, sorted_pkgs[1].name, sorted_pkgs[2].name
+            ('Free', 'Cheap', 'Expensive')
+        """
+        if not packages:
+            return []
+
+        # Separate free (price is None) and paid packages
+        free_packages = [p for p in packages if p.price is None]
+        paid_packages = [p for p in packages if p.price is not None]
+
+        # Sort free packages by name (alphabetically)
+        free_packages_sorted = sorted(free_packages, key=lambda p: p.name)
+
+        # Sort paid packages by price (ascending), then by name for ties
+        paid_packages_sorted = sorted(paid_packages, key=lambda p: (p.price, p.name))
+
+        # Return free packages first, then paid packages
+        return free_packages_sorted + paid_packages_sorted
 
     def package_detail_view(
         self,
@@ -459,35 +511,6 @@ class UserMenuMessages(BaseMessageProvider):
         )
 
         return text, keyboard
-
-    def _create_package_buttons(self, packages: List[ContentPackage]) -> List[List[dict]]:
-        """
-        Convierte lista de ContentPackage a filas de botones "Me interesa".
-
-        Args:
-            packages: Lista de ContentPackage objects
-
-        Returns:
-            Lista de filas de botones para create_inline_keyboard
-        """
-        if not packages:
-            return []
-
-        buttons = []
-        for package in packages:
-            # Truncate name if too long for button text
-            # Note: ContentPackage uses 'name' field, not 'title'
-            name = package.name
-            if len(name) > 30:
-                name = name[:27] + "..."
-
-            button_row = [{
-                "text": f"⭐ {name} - Me interesa",
-                "callback_data": f"interest:package:{package.id}"
-            }]
-            buttons.append(button_row)
-
-        return buttons
 
     # ===== PRIVATE KEYBOARD FACTORY METHODS =====
 
