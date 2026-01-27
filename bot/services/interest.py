@@ -215,8 +215,10 @@ class InterestService:
             ... )
         """
         try:
-            # Build base query with joins
-            stmt = select(UserInterest).join(ContentPackage)
+            # Build base query with joins and eager load package relationship
+            stmt = select(UserInterest).options(
+                selectinload(UserInterest.package)
+            ).join(ContentPackage)
 
             # Apply filters
             conditions = []
@@ -272,7 +274,9 @@ class InterestService:
             Objeto UserInterest o None si no existe
         """
         try:
-            stmt = select(UserInterest).where(UserInterest.id == interest_id)
+            stmt = select(UserInterest).options(
+                selectinload(UserInterest.package)
+            ).where(UserInterest.id == interest_id)
             result = await self.session.execute(stmt)
             return result.scalar_one_or_none()
         except Exception as e:
@@ -295,7 +299,9 @@ class InterestService:
             Lista de UserInterest ordenados por fecha (más reciente primero)
         """
         try:
-            stmt = select(UserInterest).where(
+            stmt = select(UserInterest).options(
+                selectinload(UserInterest.package)
+            ).where(
                 UserInterest.user_id == user_id
             ).order_by(
                 desc(UserInterest.created_at)
@@ -377,7 +383,9 @@ class InterestService:
             total_attended = len(attended_result.scalars().all())
 
             # By package type
-            stmt = select(UserInterest).join(ContentPackage)
+            stmt = select(UserInterest).options(
+                selectinload(UserInterest.package)
+            ).join(ContentPackage)
             result = await self.session.execute(stmt)
             all_interests = result.scalars().all()
 
@@ -387,7 +395,9 @@ class InterestService:
                 by_package_type[pkg_type] = by_package_type.get(pkg_type, 0) + 1
 
             # Recent interests (last 5)
-            recent_stmt = select(UserInterest).order_by(
+            recent_stmt = select(UserInterest).options(
+                selectinload(UserInterest.package)
+            ).order_by(
                 desc(UserInterest.created_at)
             ).limit(5)
             recent_result = await self.session.execute(recent_stmt)
