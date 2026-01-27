@@ -88,7 +88,7 @@ class UserManagementService:
             if user.role == UserRole.VIP:
                 vip_stmt = select(VIPSubscriber).where(
                     VIPSubscriber.user_id == user_id
-                ).order_by(desc(VIPSubscriber.created_at))
+                ).order_by(desc(VIPSubscriber.join_date))
                 vip_result = await self.session.execute(vip_stmt)
                 vip_sub = vip_result.scalar_one_or_none()
 
@@ -190,7 +190,7 @@ class UserManagementService:
                 user_id=user_id,
                 new_role=new_role,
                 changed_by=changed_by,
-                reason=RoleChangeReason.ADMIN_ACTION,
+                reason=RoleChangeReason.MANUAL_CHANGE,
                 previous_role=old_role,
                 change_source="ADMIN_PANEL"
             )
