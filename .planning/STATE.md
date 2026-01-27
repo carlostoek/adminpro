@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Cada usuario recibe una experiencia de menú personalizada según su rol (Admin/VIP/Free), con la voz consistente de Lucien y opciones relevantes a su contexto.
-**Current focus:** Phase 7 - Admin Menu with Content Management (Plan 03 complete, Plan 04 next)
+**Current focus:** Phase 8 COMPLETE - Phase 9 (User Management Features) next
 
 ## Current Position
 
-Phase: 7 of 11 (Admin Menu with Content Management) - 🔄 IN PROGRESS
-Plan: 03 of 4 (FSM States for Content Creation) - ✅ COMPLETE
-Status: Plan 03 execution complete (2026-01-26)
+Phase: 8 of 11 (Interest Notification System) - ✅ COMPLETE
+Plan: 04 of 4 (Admin Interest Handlers) - ✅ COMPLETE
+Status: Interest management admin interface with 8 callback handlers for listing, viewing, filtering, and marking interests as attended (2026-01-26)
 
-Progress: ██████████░░ 96% (27/27 plans completed - Phase 7 is 4 plans, not 3)
+Progress: ████████░░░ 80% (32/40 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 27 (v1.0 + v1.1 + Phase 6 Plans 01-04 + Phase 7 Plans 01-03)
-- Average duration: ~16 min (updated with Phase 7 Plan 03: ~10 min avg)
-- Total execution time: ~7.3 hours
+- Total plans completed: 32 (v1.0 + v1.1 + Phase 6 Plans 01-04 + Phase 7 Plans 01-04 + Phase 8 Plans 01-04)
+- Average duration: ~14.4 min (updated with Phase 8 Plans 01-04: ~4 min duration each)
+- Total execution time: ~7.7 hours
 
 **By Phase:**
 
@@ -32,10 +32,11 @@ Progress: ██████████░░ 96% (27/27 plans completed - Phas
 | 4 | 4 | ~80 min | ~20 min |
 | 5 | 5 | ~17 min | ~3.4 min |
 | 6 | 4 | ~47 min | ~11.8 min |
-| 7 | 3 | ~15 min | ~5 min |
+| 7 | 4 | ~23 min | ~5.8 min |
+| 8 | 4 | ~16 min | ~4 min |
 
 **Recent Trend:**
-- Last 10 plans: ~9 min each (Phase 5 + Phase 6 + Phase 7 Plans 01-03)
+- Last 10 plans: ~7.3 min each (Phase 5 + Phase 6 + Phase 7 + Phase 8 Plans 01-04)
 - Trend: Stable efficiency (established patterns enable faster execution)
 
 ## Accumulated Context
@@ -92,6 +93,28 @@ Recent decisions affecting current work:
 - [07-03]: ContentPackageStates follows PricingSetupStates pattern for consistency
 - [07-03]: Package type is NOT editable post-creation (must select via buttons during creation)
 - [07-03]: /skip command dual purpose: omit optional fields (creation) or keep current values (editing)
+- [07-04]: Field-specific edit buttons for inline prompt pattern (admin:content:edit:{id}:{field})
+- [07-04]: Message middleware registered for FSM message handlers (session injection)
+- [07-04]: FSM state cleanup enforced on all completion/cancellation paths (Pitfall 1 prevention)
+
+**Phase 8 Decisions (v1.1 - Interest Notification System):**
+- [08-01]: Used 5-minute debounce window (DEBOUNCE_WINDOW_MINUTES = 5) to prevent notification spam while allowing re-expression of interest
+- [08-01]: register_interest returns (success, status, interest) tuple - handlers check if status != "debounce" before notifying admin
+- [08-01]: InterestService follows established service pattern - no session.commit(), no Telegram messages, business logic only
+- [08-01]: ServiceContainer.interest uses lazy loading pattern like other services (content, stats, role_change)
+- [08-02]: Used Config.ADMIN_USER_IDS from environment variable (existing pattern) instead of database query for admin identification
+- [08-02]: VIP and Free handlers have duplicate _send_admin_interest_notification functions for consistency (future refactoring candidate)
+- [08-02]: Contextual Lucien voice closing: "círculo" for VIP users, "jardín" for Free users
+- [08-03]: AdminInterestMessages follows BaseMessageProvider stateless pattern (no session/bot in __init__)
+- [08-03]: Filter system supports 6 types: all, pending, attended, vip_premium, vip_content, free_content
+- [08-03]: In-memory pagination with page/total_pages parameters (consistent with AdminContentMessages)
+- [08-03]: Lucien's Spanish terminology for interests: "manifestaciones de interés", "custodio" (admin), "tesoros" (packages)
+- [08-03]: Callback pattern: admin:interests:* for hierarchical navigation (admin:interests, admin:interests:list, admin:interest:view, admin:interest:attend)
+- [08-03]: Interests button positioned after Content and before Config in admin main menu (grouped with management features)
+- [08-04]: Filter selection buttons directly trigger list handler with filter parameter (cleaner than separate filter_select handler)
+- [08-04]: Mock redirect pattern used for notification callbacks to sub-router handlers (avoids circular imports, keeps logic in one place)
+- [08-04]: User blocking deferred to Phase 9 with placeholder message in menu_callbacks.py (maintains callback structure without premature implementation)
+- [08-04]: interests_router follows admin callback router pattern with DatabaseMiddleware, inherited AdminAuthMiddleware from main admin_router
 
 **Previous decisions:**
 - [v1.0]: Stateless architecture with session context passed as parameters instead of stored in __init__
@@ -114,8 +137,8 @@ None.
 **Remaining concerns:**
 
 - **Phase 6 (VIP/Free User Menus):** Phase 6 complete - all 4 plans executed successfully. Navigation system unified across VIP and Free menus.
-- **Phase 7 (Content Management Features):** Plans 01-03 complete - AdminContentMessages provider, navigation handlers, and FSM states implemented. Plan 04 pending (create/edit handlers, deactivate handlers).
-- **Phase 8 (Interest Notification System):** Admin notification UX needs validation - optimal batching interval (5 min, 10 min, 30 min) and how many admins is "too many" for real-time. Free user interests now also logged with "📢 ADMIN NOTIFICATION" prefix.
+- **Phase 7 (Content Management Features):** Phase 7 COMPLETE - AdminContentMessages provider, navigation handlers, FSM states, and CRUD operations implemented. Admin can create, view, edit, and toggle content packages.
+- **Phase 8 (Interest Notification System):** Phase 8 COMPLETE - InterestService with 5-minute debounce, VIP/Free interest handlers with real-time Telegram admin notifications, AdminInterestMessages provider, and interest management admin interface with 8 callback handlers for listing, viewing, filtering, and marking interests as attended.
 - **Phase 9 (User Management Features):** Permission model needs clarification - can admins modify other admins? Can admins block themselves?
 
 ### Quick Tasks Completed
@@ -127,6 +150,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-26
-Stopped at: Completed 07-03-PLAN.md execution - FSM states for content package creation and editing
+Stopped at: Completed 08-04-PLAN.md execution - Admin interest management callback handlers
 Resume file: None
-Next phase: Phase 7 Plan 04 (Admin Content Create/Edit Handlers) or Phase 8 (Interest Notification System)
+Next phase: Phase 9 (User Management Features) - after ROADMAP.md update

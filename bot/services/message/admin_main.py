@@ -224,6 +224,7 @@ class AdminMainMessages(BaseMessageProvider):
             - "Círculo Exclusivo VIP" not "VIP Channel"
             - "Vestíbulo de Acceso" not "Free Channel"
             - "Paquetes de Contenido" not "Content Packages"
+            - "Intereses" not "User Interests"
             - "Calibración del Reino" not "Configuration"
             - "Planes de Suscripción" not "Pricing"
             - "Observaciones del Reino" not "Stats"
@@ -233,6 +234,7 @@ class AdminMainMessages(BaseMessageProvider):
             [{"text": "👑 Círculo Exclusivo VIP", "callback_data": "admin:vip"}],
             [{"text": "📺 Vestíbulo de Acceso", "callback_data": "admin:free"}],
             [{"text": "📦 Paquetes de Contenido", "callback_data": "admin:content"}],
+            [{"text": "🔔 Intereses", "callback_data": "admin:interests"}],
             [{"text": "⚙️ Calibración del Reino", "callback_data": "admin:config"}],
             [{"text": "💰 Planes de Suscripción", "callback_data": "admin:pricing"}],
             [{"text": "📈 Observaciones del Reino", "callback_data": "admin:stats"}],

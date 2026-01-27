@@ -87,5 +87,8 @@ class RoleDetectionMiddleware(BaseMiddleware):
             f"→ {user_role.value}"
         )
 
+        # Log data keys para debugging
+        logger.debug(f"📊 Data keys antes de handler: {list(data.keys())}")
+
         # Ejecutar handler con user_role disponible en data
         return await handler(event, data)

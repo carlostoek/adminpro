@@ -56,6 +56,7 @@ class ServiceContainer:
         self._role_detection_service = None
         self._content_service = None
         self._role_change_service = None
+        self._interest_service = None
 
         logger.debug("🏭 ServiceContainer inicializado (modo lazy)")
 
@@ -285,6 +286,56 @@ class ServiceContainer:
 
         return self._role_change_service
 
+    # ===== INTEREST SERVICE =====
+
+    @property
+    def interest(self):
+        """
+        Service de gestión de intereses de usuarios en paquetes.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            InterestService: Instancia del service
+
+        Usage:
+            # Registrar interés (con debounce)
+            success, status, interest = await container.interest.register_interest(
+                user_id=123, package_id=456
+            )
+            if success and status != "debounce":
+                # Notificar al admin
+                pass
+
+            # Listar intereses pendientes
+            interests, total = await container.interest.get_interests(is_attended=False)
+
+            # Marcar como atendido
+            success, msg = await container.interest.mark_as_attended(interest_id=789)
+        """
+        if self._interest_service is None:
+            from bot.services.interest import InterestService
+            logger.debug("🔄 Lazy loading: InterestService")
+            self._interest_service = InterestService(self._session, self._bot)
+
+        return self._interest_service
+
+    # ===== UTILIDADES =====
+        """
+        Service de registro de cambios de rol (auditoría).
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            RoleChangeService: Instancia del service
+        """
+        if self._role_change_service is None:
+            from bot.services.role_change import RoleChangeService
+            logger.debug("🔄 Lazy loading: RoleChangeService")
+            self._role_change_service = RoleChangeService(self._session)
+
+        return self._role_change_service
+
     # ===== UTILIDADES =====
 
     def get_loaded_services(self) -> list[str]:
@@ -320,6 +371,8 @@ class ServiceContainer:
             loaded.append("content")
         if self._role_change_service is not None:
             loaded.append("role_change")
+        if self._interest_service is not None:
+            loaded.append("interest")
 
         return loaded
 

@@ -17,6 +17,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 from bot.database.enums import UserRole
+from bot.middlewares import DatabaseMiddleware, RoleDetectionMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +40,25 @@ class MenuRouter:
     def __init__(self):
         """Inicializa el router."""
         self.router = Router()
+
+        # Aplicar middlewares al router (necesario para que funcionen con este router)
+        self.router.message.middleware(DatabaseMiddleware())
+        self.router.callback_query.middleware(DatabaseMiddleware())
+        self.router.message.middleware(RoleDetectionMiddleware())
+        self.router.callback_query.middleware(RoleDetectionMiddleware())
+
         self._setup_routes()
-        logger.debug("✅ MenuRouter inicializado")
+        logger.debug("✅ MenuRouter inicializado con middlewares")
 
     def _setup_routes(self):
         """Configura las rutas del router."""
         # /menu command - main entry point
-        self.router.message.register(self._route_to_menu, Command("menu"))
+        self.router.message.register(self._menu_wrapper, Command("menu"))
+
+    async def _menu_wrapper(self, message: Message, data: Dict[str, Any]):
+        """Wrapper que registra el handler como método de instancia."""
+        logger.debug(f"📦 _menu_wrapper llamado con: message={message.text}, data_keys={list(data.keys()) if data else None}")
+        return await self._route_to_menu(message, data)
 
     async def _route_to_menu(self, message: Message, data: Dict[str, Any]):
         """
@@ -60,6 +73,7 @@ class MenuRouter:
             2. Redirigir a handler apropiado según rol
             3. Fallback a menú Free si rol no detectado
         """
+        logger.debug(f"📨 _route_to_menu llamado con: message={message}, data_keys={list(data.keys()) if data else None}")
         user_role = data.get("user_role")
 
         if user_role is None:

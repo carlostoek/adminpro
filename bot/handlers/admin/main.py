@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.middlewares import AdminAuthMiddleware, DatabaseMiddleware
 from bot.services.container import ServiceContainer
 from bot.handlers.admin import content as admin_content
+from bot.handlers.admin import interests as admin_interests
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,17 @@ admin_router = Router(name="admin")
 
 # Include content management router
 admin_router.include_router(admin_content.content_router)
+
+# Include interest management router
+admin_router.include_router(admin_interests.interests_router)
+
+# Importar handlers para que se registren sus callbacks
+# (usan @admin_router.callback_query decorator)
+from bot.handlers.admin import vip, free, pricing, stats, dashboard
+
+# Registrar handlers de callbacks del menú
+from bot.handlers.admin.menu_callbacks import register_menu_callbacks
+register_menu_callbacks(admin_router)
 
 # Aplicar middlewares (Database ya está global, solo AdminAuth para este router)
 admin_router.message.middleware(AdminAuthMiddleware())

@@ -25,9 +25,9 @@ Requerimientos para el milestone "Sistema de Menús". Cada requerimiento mapea a
 
 ### Keyboard & Navigation (NAV)
 
-- [ ] **NAV-01**: MenuService centraliza lógica de navegación entre menús
-- [ ] **NAV-02**: Sistema de callbacks unificado para navegación (menu:main, menu:vip, menu:free)
-- [ ] **NAV-03**: Navegación jerárquica con botón "Volver" en submenús
+- [x] **NAV-01**: MenuService centraliza lógica de navegación entre menús
+- [x] **NAV-02**: Sistema de callbacks unificado para navegación (menu:main, menu:vip, menu:free)
+- [x] **NAV-03**: Navegación jerárquica con botón "Volver" en submenús
 - [x] **NAV-04**: Handlers de menú usuario integrados con LucienVoiceService
 - [x] **NAV-05**: Sistema de menús reemplaza completamente keyboards.py hardcoded
 
@@ -51,18 +51,18 @@ Requerimientos para el milestone "Sistema de Menús". Cada requerimiento mapea a
 - [x] **CONTENT-01**: Base de datos con tabla ContentPackage (id, name, description, price, category)
 - [x] **CONTENT-02**: Categorías de paquetes: FREE_CONTENT, VIP_CONTENT, VIP_PREMIUM
 - [x] **CONTENT-03**: Servicio ContentService para CRUD de paquetes
-- [ ] **CONTENT-04**: Admin puede crear paquetes de contenido
-- [ ] **CONTENT-05**: Admin puede editar paquetes existentes
-- [ ] **CONTENT-06**: Admin puede eliminar paquetes (soft delete con is_active)
+- [x] **CONTENT-04**: Admin puede crear paquetes de contenido
+- [x] **CONTENT-05**: Admin puede editar paquetes existentes
+- [x] **CONTENT-06**: Admin puede eliminar paquetes (soft delete con is_active)
 - [x] **CONTENT-07**: Menús de usuario muestran solo paquetes activos (is_active=True)
 
 ### Interest Notifications (INTEREST)
 
 - [x] **INTEREST-01**: Botón "Me interesa" en paquetes crea registro de interés
 - [x] **INTEREST-02**: Base de datos con tabla UserInterest (id, user_id, package_id, created_at, is_attended)
-- [ ] **INTEREST-03**: Admin recibe mensaje privado cuando usuario marca "Me interesa"
-- [ ] **INTEREST-04**: Notificación incluye: nombre de usuario, link al perfil, paquete de interés
-- [ ] **INTEREST-05**: Servicio InterestService para gestión de intereses
+- [x] **INTEREST-03**: Admin recibe mensaje privado cuando usuario marca "Me interesa"
+- [x] **INTEREST-04**: Notificación incluye: nombre de usuario, link al perfil, paquete de interés
+- [x] **INTEREST-05**: Servicio InterestService para gestión de intereses
 
 ### Admin Menu: User Management (ADMIN-USR)
 
@@ -74,19 +74,19 @@ Requerimientos para el milestone "Sistema de Menús". Cada requerimiento mapea a
 
 ### Admin Menu: Interests (ADMIN-INT)
 
-- [ ] **ADMIN-INT-01**: Menú admin tiene opción "Intereses" para ver notificaciones pendientes
-- [ ] **ADMIN-INT-02**: Lista de intereses organizada por fecha (último arriba)
-- [ ] **ADMIN-INT-03**: Admin puede marcar interés como "Atendido"
-- [ ] **ADMIN-INT-04**: Admin tiene link directo al perfil de Telegram del usuario
-- [ ] **ADMIN-INT-05**: Admin puede ver qué paquete interesó al usuario
+- [x] **ADMIN-INT-01**: Menú admin tiene opción "Intereses" para ver notificaciones pendientes
+- [x] **ADMIN-INT-02**: Lista de intereses organizada por fecha (último arriba)
+- [x] **ADMIN-INT-03**: Admin puede marcar interés como "Atendido"
+- [x] **ADMIN-INT-04**: Admin tiene link directo al perfil de Telegram del usuario
+- [x] **ADMIN-INT-05**: Admin puede ver qué paquete interesó al usuario
 
 ### Admin Menu: Content Packages (ADMIN-CONTENT)
 
-- [ ] **ADMIN-CONTENT-01**: Menú admin tiene opción "Paquetes de Contenido"
-- [ ] **ADMIN-CONTENT-02**: Admin puede listar todos los paquetes (activos e inactivos)
-- [ ] **ADMIN-CONTENT-03**: Admin puede crear nuevo paquete con wizard
-- [ ] **ADMIN-CONTENT-04**: Admin puede editar paquete existente
-- [ ] **ADMIN-CONTENT-05**: Admin puede desactivar paquete (soft delete)
+- [x] **ADMIN-CONTENT-01**: Menú admin tiene opción "Paquetes de Contenido"
+- [x] **ADMIN-CONTENT-02**: Admin puede listar todos los paquetes (activos e inactivos)
+- [x] **ADMIN-CONTENT-03**: Admin puede crear nuevo paquete con wizard
+- [x] **ADMIN-CONTENT-04**: Admin puede editar paquete existente
+- [x] **ADMIN-CONTENT-05**: Admin puede desactivar paquete (soft delete)
 
 ### Free Channel Entry Flow (FLOW-FREE)
 
@@ -110,57 +110,57 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MENU-01 | Phase 5 | Pending |
-| MENU-02 | Phase 5 | Pending |
+| MENU-01 | Phase 5 | Complete |
+| MENU-02 | Phase 5 | Complete |
 | MENU-03 | Phase 9 | Pending |
-| MENU-04 | Phase 5 | Pending |
-| VOICE-01 | Phase 6 | Pending |
-| VOICE-02 | Phase 6 | Pending |
+| MENU-04 | Phase 5 | Complete |
+| VOICE-01 | Phase 6 | Complete |
+| VOICE-02 | Phase 6 | Complete |
 | VOICE-03 | Phase 10 | Pending |
 | VOICE-04 | Phase 10 | Pending |
 | VOICE-05 | Phase 10 | Pending |
-| VOICE-06 | Phase 6 | Pending |
-| NAV-01 | Phase 7 | Pending |
-| NAV-02 | Phase 7 | Pending |
-| NAV-03 | Phase 7 | Pending |
-| NAV-04 | Phase 6 | Pending |
-| NAV-05 | Phase 6 | Pending |
-| VIPMENU-01 | Phase 6 | Pending |
-| VIPMENU-02 | Phase 6 | Pending |
-| VIPMENU-03 | Phase 6 | Pending |
-| VIPMENU-04 | Phase 6 | Pending |
-| FREEMENU-01 | Phase 6 | Pending |
-| FREEMENU-02 | Phase 6 | Pending |
-| FREEMENU-03 | Phase 6 | Pending |
-| FREEMENU-04 | Phase 6 | Pending |
-| FREEMENU-05 | Phase 6 | Pending |
-| CONTENT-01 | Phase 5 | Pending |
-| CONTENT-02 | Phase 5 | Pending |
-| CONTENT-03 | Phase 5 | Pending |
-| CONTENT-04 | Phase 7 | Pending |
-| CONTENT-05 | Phase 7 | Pending |
-| CONTENT-06 | Phase 7 | Pending |
-| CONTENT-07 | Phase 6 | Pending |
-| INTEREST-01 | Phase 8 | Pending |
-| INTEREST-02 | Phase 8 | Pending |
-| INTEREST-03 | Phase 8 | Pending |
-| INTEREST-04 | Phase 8 | Pending |
-| INTEREST-05 | Phase 8 | Pending |
+| VOICE-06 | Phase 6 | Complete |
+| NAV-01 | Phase 7 | Complete |
+| NAV-02 | Phase 7 | Complete |
+| NAV-03 | Phase 7 | Complete |
+| NAV-04 | Phase 6 | Complete |
+| NAV-05 | Phase 6 | Complete |
+| VIPMENU-01 | Phase 6 | Complete |
+| VIPMENU-02 | Phase 6 | Complete |
+| VIPMENU-03 | Phase 6 | Complete |
+| VIPMENU-04 | Phase 6 | Complete |
+| FREEMENU-01 | Phase 6 | Complete |
+| FREEMENU-02 | Phase 6 | Complete |
+| FREEMENU-03 | Phase 6 | Complete |
+| FREEMENU-04 | Phase 6 | Complete |
+| FREEMENU-05 | Phase 6 | Complete |
+| CONTENT-01 | Phase 5 | Complete |
+| CONTENT-02 | Phase 5 | Complete |
+| CONTENT-03 | Phase 5 | Complete |
+| CONTENT-04 | Phase 7 | Complete |
+| CONTENT-05 | Phase 7 | Complete |
+| CONTENT-06 | Phase 7 | Complete |
+| CONTENT-07 | Phase 6 | Complete |
+| INTEREST-01 | Phase 8 | Complete |
+| INTEREST-02 | Phase 8 | Complete |
+| INTEREST-03 | Phase 8 | Complete |
+| INTEREST-04 | Phase 8 | Complete |
+| INTEREST-05 | Phase 8 | Complete |
 | ADMIN-USR-01 | Phase 9 | Pending |
 | ADMIN-USR-02 | Phase 9 | Pending |
 | ADMIN-USR-03 | Phase 9 | Pending |
 | ADMIN-USR-04 | Phase 9 | Pending |
 | ADMIN-USR-05 | Phase 9 | Pending |
-| ADMIN-INT-01 | Phase 8 | Pending |
-| ADMIN-INT-02 | Phase 8 | Pending |
-| ADMIN-INT-03 | Phase 8 | Pending |
-| ADMIN-INT-04 | Phase 8 | Pending |
-| ADMIN-INT-05 | Phase 8 | Pending |
-| ADMIN-CONTENT-01 | Phase 7 | Pending |
-| ADMIN-CONTENT-02 | Phase 7 | Pending |
-| ADMIN-CONTENT-03 | Phase 7 | Pending |
-| ADMIN-CONTENT-04 | Phase 7 | Pending |
-| ADMIN-CONTENT-05 | Phase 7 | Pending |
+| ADMIN-INT-01 | Phase 8 | Complete |
+| ADMIN-INT-02 | Phase 8 | Complete |
+| ADMIN-INT-03 | Phase 8 | Complete |
+| ADMIN-INT-04 | Phase 8 | Complete |
+| ADMIN-INT-05 | Phase 8 | Complete |
+| ADMIN-CONTENT-01 | Phase 7 | Complete |
+| ADMIN-CONTENT-02 | Phase 7 | Complete |
+| ADMIN-CONTENT-03 | Phase 7 | Complete |
+| ADMIN-CONTENT-04 | Phase 7 | Complete |
+| ADMIN-CONTENT-05 | Phase 7 | Complete |
 | FLOW-FREE-01 | Phase 10 | Pending |
 | FLOW-FREE-02 | Phase 10 | Pending |
 | FLOW-FREE-03 | Phase 10 | Pending |
@@ -175,6 +175,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 **Coverage:**
 - v1.1 requirements: 60 total
 - Mapped to phases: 60
+- Complete: 30 (50%)
+- Pending: 30
 - Unmapped: 0 ✓
 
 ## Out of Scope
