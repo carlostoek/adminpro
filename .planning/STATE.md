@@ -10,10 +10,10 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 12 of 13 (Rediseño de Menú de Paquetes con Vista de Detalles) - 🔄 IN PROGRESS
-Plan: 01 of 5 (Package List Redesign) - ✅ COMPLETE
-Status: Phase 12 Plan 01 COMPLETE - Minimalist package list with individual buttons, sorted by price (free first, then ascending). Callback pattern migrated to user:packages:{id}. (2026-01-27)
+Plan: 04 of 5 (Navigation Handlers) - ✅ COMPLETE
+Status: Phase 12 Plan 04 COMPLETE - Navigation system for package flow with handler reuse pattern. Implemented user:packages:back (VIP/Free), menu:vip:main, and menu:free:main callbacks. Circular navigation without dead ends. (2026-01-27)
 
-Progress: █████████░ 95% (44/47 plans complete)
+Progress: ██████████ 96% (45/47 plans complete)
 
 ## Performance Metrics
 
@@ -181,6 +181,10 @@ Recent decisions affecting current work:
 - [12-02-02]: Detail view includes only back button (no exit) - maintains navigation context per spec
 - [12-02-03]: user:package:interest:{id} callback pattern for interest registration (separate from navigation callbacks)
 - [12-02-04]: Callback handlers follow same structure for VIP and Free routers (consistency pattern)
+- [12-04-01]: Handler reuse pattern for navigation - user:packages:back delegates to handle_vip_premium()/handle_free_content(), menu:vip:main delegates to handle_menu_back() - ensures consistency and reduces duplication
+- [12-04-02]: Dual-purpose callback for Free router - menu:free:main handles both "Inicio" from confirmation and "menu:back" from other sections - simplifies router registration
+- [12-04-03]: Navigation callbacks placed after interest handlers but before menu handlers - follows callback priority pattern (more specific matches first)
+- [12-04-04]: Circular navigation flow without dead ends - users can navigate list → detail → confirmation → back/home seamlessly
 
 **Previous decisions:**
 - [v1.0]: Stateless architecture with session context passed as parameters instead of stored in __init__
@@ -211,7 +215,7 @@ None.
 - **Phase 8 (Interest Notification System):** Phase 8 COMPLETE - InterestService with 5-minute debounce, VIP/Free interest handlers with real-time Telegram admin notifications, AdminInterestMessages provider, and interest management admin interface with 8 callback handlers. Fixed enum values (ContentCategory, PackageType, UserRole, RoleChangeReason) to use uppercase format matching enum names. Fixed eager load for package relationship in InterestService.
 - **Phase 9 (User Management Features):** Phase 9 COMPLETE - UserManagementService with permission validation, AdminUserMessages provider, user management handlers with expel from channels (with permission validation and confirmation dialog), block placeholder for future implementation, Block button in all user detail tabs. All UAT gaps closed including role change confirmation callback data parsing fix and Interests tab MissingGreenlet error with eager loading. Permission model: admins cannot modify themselves, only super admin can modify other admins. Block/unblock requires DB migration for User.is_blocked field (Phase 10).
 - **Phase 10 (Free Channel Entry Flow):** Phase 10 COMPLETE - All 5 plans executed: Database extension (BotConfig social fields + ConfigService), UserFlowMessages with Lucien voice + social keyboard, handler integration, approval message with channel button, migration documentation. Social media buttons show in fixed order (IG → TikTok → X), no specific wait time mentioned (mystery approach), approval sends NEW message with "🚀 Acceder al canal" button. Setup script and README instructions for admin configuration.
-- **Phase 12 (Rediseño de Menú de Paquetes):** Phase 12 Plan 01 COMPLETE - Minimalist package list with individual buttons, sorted by price (free first, then ascending). Callback pattern migrated to user:packages:{id}. Old _create_package_buttons() method removed. Detail view handler (user:packages:{id}) already exists from Plan 02. Ready for interest confirmation flow (plan 03).
+- **Phase 12 (Rediseño de Menú de Paquetes):** Phase 12 Plan 04 COMPLETE - Navigation system implemented with handler reuse pattern. user:packages:back (VIP/Free) returns to package list, menu:vip:main/menu:free:main returns to main menu. Circular navigation without dead ends. Ready for plan 05 (interest confirmation flow) or skip to Phase 13.
 
 ### Quick Tasks Completed
 
@@ -227,6 +231,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Phase 12 Plan 01 COMPLETE - Package list redesigned with minimalist format, sorting by price, and new callback pattern user:packages:{id}. All 4 tasks completed in ~5 minutes.
+Stopped at: Phase 12 Plan 04 COMPLETE - Navigation handlers for package flow implemented. user:packages:back, menu:vip:main, and menu:free:main callbacks working. All 3 tasks completed in ~3 minutes.
 Resume file: None
-Next phase: Phase 12 Plan 02 (Package Detail View - already complete)
+Next phase: Phase 12 Plan 05 (Interest Confirmation Flow) or Phase 13 (VIP Ritualized Entry)
