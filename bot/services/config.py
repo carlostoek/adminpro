@@ -117,6 +117,46 @@ class ConfigService:
         config = await self.get_config()
         return config.subscription_fees if config.subscription_fees else {}
 
+    async def get_social_instagram(self) -> Optional[str]:
+        """
+        Get Instagram handle or URL.
+
+        Returns:
+            Instagram handle or URL, or None if not configured
+        """
+        config = await self.get_config()
+        return config.social_instagram if config.social_instagram else None
+
+    async def get_social_tiktok(self) -> Optional[str]:
+        """
+        Get TikTok handle or URL.
+
+        Returns:
+            TikTok handle or URL, or None if not configured
+        """
+        config = await self.get_config()
+        return config.social_tiktok if config.social_tiktok else None
+
+    async def get_social_x(self) -> Optional[str]:
+        """
+        Get X/Twitter handle or URL.
+
+        Returns:
+            X/Twitter handle or URL, or None if not configured
+        """
+        config = await self.get_config()
+        return config.social_x if config.social_x else None
+
+    async def get_free_channel_invite_link(self) -> Optional[str]:
+        """
+        Get stored Free channel invite link.
+
+        Returns:
+            Invite link for Free channel, or None if not configured
+        """
+        config = await self.get_config()
+        return config.free_channel_invite_link if config.free_channel_invite_link else None
+
     # ===== SETTERS =====
 
     async def set_wait_time(self, minutes: int) -> None:
@@ -213,6 +253,86 @@ class ConfigService:
         await self.session.commit()
 
         logger.info(f"💰 Tarifas actualizadas: {fees}")
+
+    async def set_social_instagram(self, handle: str) -> None:
+        """
+        Set Instagram handle or URL.
+
+        Args:
+            handle: Instagram handle (e.g., "@diana") or full URL
+
+        Raises:
+            ValueError: If handle is empty or only whitespace
+        """
+        if not handle or not handle.strip():
+            raise ValueError("Instagram handle cannot be empty")
+
+        config = await self.get_config()
+        config.social_instagram = handle.strip()
+
+        await self.session.commit()
+
+        logger.info(f"📸 Instagram actualizado: {handle.strip()}")
+
+    async def set_social_tiktok(self, handle: str) -> None:
+        """
+        Set TikTok handle or URL.
+
+        Args:
+            handle: TikTok handle (e.g., "@diana_tiktok") or full URL
+
+        Raises:
+            ValueError: If handle is empty or only whitespace
+        """
+        if not handle or not handle.strip():
+            raise ValueError("TikTok handle cannot be empty")
+
+        config = await self.get_config()
+        config.social_tiktok = handle.strip()
+
+        await self.session.commit()
+
+        logger.info(f"🎵 TikTok actualizado: {handle.strip()}")
+
+    async def set_social_x(self, handle: str) -> None:
+        """
+        Set X/Twitter handle or URL.
+
+        Args:
+            handle: X/Twitter handle (e.g., "@diana_x") or full URL
+
+        Raises:
+            ValueError: If handle is empty or only whitespace
+        """
+        if not handle or not handle.strip():
+            raise ValueError("X handle cannot be empty")
+
+        config = await self.get_config()
+        config.social_x = handle.strip()
+
+        await self.session.commit()
+
+        logger.info(f"🐦 X actualizado: {handle.strip()}")
+
+    async def set_free_channel_invite_link(self, link: str) -> None:
+        """
+        Set Free channel invite link for approval messages.
+
+        Args:
+            link: Invite link for Free channel
+
+        Raises:
+            ValueError: If link is empty or only whitespace
+        """
+        if not link or not link.strip():
+            raise ValueError("Invite link cannot be empty")
+
+        config = await self.get_config()
+        config.free_channel_invite_link = link.strip()
+
+        await self.session.commit()
+
+        logger.info(f"🔗 Invite link Free actualizado")
 
     # ===== VALIDACIÓN =====
 
