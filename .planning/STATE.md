@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Cada usuario recibe una experiencia de menú personalizada según su rol (Admin/VIP/Free), con la voz consistente de Lucien y opciones relevantes a su contexto.
-**Current focus:** Phase 9 (User Management Features) - Plans 01-05 COMPLETE
+**Current focus:** Phase 9 (User Management Features) - ALL 6 PLANS COMPLETE
 
 ## Current Position
 
 Phase: 9 of 11 (User Management Features) - ✅ COMPLETE
-Plan: 05 of 5 (Gap Closure Plans) - ✅ COMPLETE
-Status: User management complete with all UAT gaps closed - Interests tab MissingGreenlet error fixed with eager loading, role change confirmation flow fixed, expel from channels with permission validation, block placeholder handler, all user management features functional (2026-01-27)
+Plan: 06 of 6 (Gap Closure - Interests Tab & Role Change) - ✅ COMPLETE
+Status: Phase 9 COMPLETE - All user management features implemented including gap closures. Fixed Interests tab eager loading (MissingGreenlet error) with selectinload across 5 query methods, fixed role change confirmation callback parsing (parts[3] == "confirm", parts[4] for user_id). All UAT issues resolved. (2026-01-27)
 
-Progress: ███████░░░ 88% (35/40 plans complete)
+Progress: ████████░ 90% (37/41 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 35 (v1.0 + v1.1 + Phase 6 Plans 01-04 + Phase 7 Plans 01-04 + Phase 8 Plans 01-04 + Phase 9 Plans 01-05)
-- Average duration: ~13.1 min (updated with Phase 9 Plans 01-05: 5+4+5+2+1 min durations)
-- Total execution time: ~7.8 hours
+- Total plans completed: 37 (v1.0 + v1.1 + Phase 6 Plans 01-04 + Phase 7 Plans 01-04 + Phase 8 Plans 01-04 + Phase 9 Plans 01-06)
+- Average duration: ~12.9 min (updated with Phase 9 Plans 01-06: 5+4+5+2+1+2 min durations)
+- Total execution time: ~8 hours
 
 **By Phase:**
 
@@ -143,6 +143,7 @@ Recent decisions affecting current work:
 - [09-04-03]: Block button with placeholder handler - UI ready for future implementation, shows clear message about pending DB migration
 - [09-04-04]: Expulsar button in separate row - emphasizes destructive action by separating from other action buttons
 - [09-05-01]: Eager loading with selectinload() applied to all InterestService queries that access UserInterest.package relationship - prevents MissingGreenlet error when accessing relationship outside async session context
+- [09-06-01]: Callback data format for role change confirmation is admin:user:role:confirm:{user_id}:{role} - parts[3]="confirm", parts[4]=user_id, parts[5]=role - fixed incorrect index checking that caused "ID is invalid" error
 
 **Previous decisions:**
 - [v1.0]: Stateless architecture with session context passed as parameters instead of stored in __init__
@@ -187,6 +188,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Completed Phase 9 Plan 05 - Fixed Interests tab MissingGreenlet error by adding selectinload(UserInterest.package) to all InterestService queries
+Stopped at: Completed Phase 9 ALL PLANS (01-06) - All user management features implemented including gap closures. Fixed Interests tab eager loading and role change confirmation callback parsing.
 Resume file: None
-Next phase: Phase 10 (User Blocking Features) or Phase 11 (Bot Configuration)
+Next phase: Phase 10 (Free Channel Entry Flow)
