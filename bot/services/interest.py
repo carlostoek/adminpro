@@ -153,15 +153,11 @@ class InterestService:
                     attended_at=None,
                     created_at=datetime.utcnow()
                 )
+                # Set the package relationship to avoid extra query
+                new_interest.package = package
                 self.session.add(new_interest)
-                # Flush to get ID and then refresh with package relationship
+                # Flush to get ID
                 await self.session.flush()
-                # Reload with eager load to get package relationship
-                reloaded_stmt = select(UserInterest).options(
-                    selectinload(UserInterest.package)
-                ).where(UserInterest.id == new_interest.id)
-                reloaded_result = await self.session.execute(reloaded_stmt)
-                new_interest = reloaded_result.scalar_one()
                 logger.info(
                     f"Registered new interest for user {user_id}, package {package_id}"
                 )

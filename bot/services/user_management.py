@@ -307,6 +307,8 @@ class UserManagementService:
         channel_service = ChannelService(self.session, self.bot)
         expelled_from = []
         errors = []
+        vip_channel_id = None
+        free_channel_id = None
 
         try:
             # Validate permissions
