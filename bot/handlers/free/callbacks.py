@@ -30,6 +30,65 @@ free_callbacks_router = Router()
 free_callbacks_router.callback_query.middleware(DatabaseMiddleware())
 
 
+@free_callbacks_router.callback_query(lambda c: c.data and c.data.startswith("user:packages:"))
+async def handle_package_detail(callback: CallbackQuery, container):
+    """
+    Muestra vista detallada de un paquete específico.
+
+    Callback data format: "user:packages:{package_id}"
+
+    Args:
+        callback: CallbackQuery de Telegram
+        container: ServiceContainer inyectado por middleware
+    """
+    user = callback.from_user
+
+    if not container:
+        await callback.answer("⚠️ Error: servicio no disponible", show_alert=True)
+        return
+
+    try:
+        # Extract package ID from callback data
+        package_id_str = callback.data.split(":")[-1]
+        package_id = int(package_id_str)
+
+        # Fetch package from ContentService
+        package = await container.content.get_package(package_id)
+
+        if not package:
+            await callback.answer("⚠️ Paquete no encontrado", show_alert=True)
+            logger.warning(f"⚠️ Usuario Free {user.id} solicitó paquete inexistente: {package_id}")
+            return
+
+        # Get session context for message variations
+        session_ctx = None
+        try:
+            session_ctx = container.message.get_session_context(container)
+        except Exception as e:
+            logger.warning(f"No se pudo obtener contexto de sesión para {user.id}: {e}")
+
+        # Generate detail view using UserMenuMessages
+        text, keyboard = container.message.user.menu.package_detail_view(
+            package=package,
+            user_role="Free",
+            user_id=user.id,
+            session_history=session_ctx
+        )
+
+        # Update message with detail view
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+        await callback.answer()
+
+        logger.info(f"📦 Vista detallada mostrada a usuario Free {user.id}: {package.name}")
+
+    except (ValueError, IndexError) as e:
+        logger.error(f"Error parsing package ID from callback {callback.data}: {e}")
+        await callback.answer("⚠️ Error: ID de paquete inválido", show_alert=True)
+    except Exception as e:
+        logger.error(f"Error mostrando detalle de paquete para {user.id}: {e}", exc_info=True)
+        await callback.answer("⚠️ Error cargando detalles del paquete", show_alert=True)
+
+
 @free_callbacks_router.callback_query(lambda c: c.data == "menu:free:content")
 async def handle_free_content(callback: CallbackQuery, container):
     """
