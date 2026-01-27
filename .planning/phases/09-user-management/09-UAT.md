@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 09-user-management
 source: [09-01-SUMMARY.md, 09-02-SUMMARY.md, 09-03-SUMMARY.md, 09-04-SUMMARY.md]
 started: 2026-01-26T16:00:00Z
-updated: 2026-01-26T18:15:00Z
+updated: 2026-01-26T18:30:00Z
 ---
 
 ## Current Test
@@ -107,17 +107,36 @@ skipped: 0
   reason: "User reported: Interests tab crashes with MissingGreenlet error when accessing interest.package - lazy loading issue in user_detail_interests() at line 373 of admin_user.py"
   severity: blocker
   test: 7
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "MissingGreenlet error caused by lazy loading of UserInterest.package relationship. The get_interests() query in interest.py uses .join(ContentPackage) for filtering but doesn't eager load the package relationship with selectinload(). When admin_user.py line 373 accesses interest.package, it triggers lazy loading outside async session context."
+  artifacts:
+    - path: "bot/services/interest.py"
+      line: 219
+      issue: "Query uses .join(ContentPackage) for filtering but doesn't eager load the package relationship"
+    - path: "bot/database/models.py"
+      line: 391
+      issue: "package relationship defined without lazy='selectin', defaults to lazy='select' (lazy loading)"
+    - path: "bot/services/message/admin_user.py"
+      line: 373
+      issue: "Accesses interest.package which triggers lazy loading outside async session context"
+  missing:
+    - "Eager loading strategy in get_interests() query using selectinload(UserInterest.package)"
+    - "The query should use: stmt = select(UserInterest).options(selectinload(UserInterest.package)).join(ContentPackage)"
+  debug_session: "agent_ac66b0f"
 
 - truth: "Role change confirmation executes successfully and updates user role with audit logging"
   status: failed
   reason: "User reported: ID is invalid error when confirming role change. Console shows: WARNING - Invalid user ID in callback: admin:user:role:confirm:6181290784:vip. Role selection dialog works, but confirmation fails to parse user ID from callback data."
   severity: major
   test: 9
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Callback data parsing in callback_user_role_confirm is extracting the user ID from the wrong array index. The handler checks parts[4] == 'confirm' but 'confirm' is actually at parts[3]. When the role selection generates confirmation buttons with format 'admin:user:role:confirm:{user_id}:{role}', parts[3] is 'confirm' and parts[4] is the user_id. The check at line 360 incorrectly checks parts[4] == 'confirm' instead of parts[3] == 'confirm'."
+  artifacts:
+    - path: "bot/handlers/admin/users.py"
+      line: 360
+      issue: "Incorrect index check for 'confirm' - checks parts[4] instead of parts[3]"
+    - path: "bot/handlers/admin/users.py"
+      line: 366
+      issue: "Incorrect user ID extraction - gets parts[3] (which is 'confirm') instead of parts[4]"
+  missing:
+    - "Fix line 360: Change from 'if len(parts) > 4 and parts[4] == \"confirm\"' to 'if len(parts) > 4 and parts[3] == \"confirm\"'"
+    - "Properly differentiate between initial role selection callback (4 parts) and confirmation callback (6 parts)"
+  debug_session: "agent_a402c8a"
