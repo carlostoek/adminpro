@@ -1473,6 +1473,60 @@ Este proyecto está en desarrollo iterativo. Consulta las tareas completadas:
 - [ ] ONDA 2: Features Avanzadas (T18-T33)
 - [ ] ONDA 3: Optimización (T34-T44)
 
+## 🔧 Social Media Setup (Phase 10)
+
+The Free channel entry flow displays creator's social media buttons. To configure:
+
+### Prerequisites
+- Phase 10 Plan 01 must be executed first (adds BotConfig fields)
+- Database must be initialized (run `python main.py` at least once)
+
+### Option 1: Setup Script
+
+```bash
+# Configure social media links
+python scripts/init_social_media.py
+
+# Show current configuration
+python scripts/init_social_media.py --show
+```
+
+Edit the values in `scripts/init_social_media.py` before running:
+- Instagram handle or URL (e.g., "@diana_handle")
+- TikTok handle or URL (e.g., "@diana_tiktok")
+- X/Twitter handle or URL (e.g., "@diana_x")
+- Free channel invite link
+
+### Option 2: Manual Database Update
+
+```bash
+# Open SQLite database
+sqlite3 bot.db
+
+# Update social media links
+UPDATE bot_config SET
+  social_instagram = '@diana_handle',
+  social_tiktok = '@diana_tiktok',
+  social_x = '@diana_x',
+  free_channel_invite_link = 'https://t.me/joinchat/...'
+WHERE id = 1;
+
+# Verify changes
+SELECT social_instagram, social_tiktok, social_x, free_channel_invite_link
+FROM bot_config WHERE id = 1;
+```
+
+### Getting Invite Link from Telegram
+
+1. Open your Free channel in Telegram
+2. Go to **Channel Info** → **Administrators**
+3. Click **Invite Link** → **Create new link**
+4. Copy the link and set it in `free_channel_invite_link`
+
+### Verification
+
+After configuration, test the Free entry flow to verify social media buttons appear correctly.
+
 ## 📝 Licencia
 
 MIT License
