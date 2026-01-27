@@ -40,6 +40,11 @@ class Config:
     VIP_CHANNEL_ID: Optional[str] = os.getenv("VIP_CHANNEL_ID", None)
     FREE_CHANNEL_ID: Optional[str] = os.getenv("FREE_CHANNEL_ID", None)
 
+    # ===== CREATOR =====
+    # Telegram username de Diana para botón de contacto directo (ej: "diana_artista")
+    # Usado en enlaces tg://resolve?username= para chat directo
+    CREATOR_USERNAME: Optional[str] = os.getenv("CREATOR_USERNAME", None)
+
     # ===== BOT SETTINGS =====
     DEFAULT_WAIT_TIME_MINUTES: int = int(
         os.getenv("DEFAULT_WAIT_TIME_MINUTES", "5")

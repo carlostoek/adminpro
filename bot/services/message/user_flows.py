@@ -3,6 +3,7 @@ User Flow Messages - Messages for user interaction flows.
 
 Provides messages for Free channel request flow with Lucien's voice.
 Social media keyboard generation and approval messages included.
+Package interest confirmation with Diana's personal voice.
 """
 from typing import Optional
 
@@ -10,6 +11,7 @@ from aiogram.types import InlineKeyboardMarkup
 
 from bot.services.message.base import BaseMessageProvider
 from bot.utils.keyboards import create_inline_keyboard
+from config import Config
 
 
 class UserFlowMessages(BaseMessageProvider):
@@ -34,6 +36,7 @@ class UserFlowMessages(BaseMessageProvider):
     - free_request_duplicate(): str (text-only reminder)
     - free_request_approved(): tuple[str, InlineKeyboardMarkup] (channel button)
     - free_request_error(): str (text-only error)
+    - package_interest_confirmation(): tuple[str, InlineKeyboardMarkup] (contact + navigation)
 
     Examples:
         >>> flows = UserFlowMessages()
@@ -362,3 +365,82 @@ class UserFlowMessages(BaseMessageProvider):
             return self._compose("🎩 <b>Atención</b>", base_message, details)
 
         return self._compose("🎩 <b>Atención</b>", base_message)
+
+    def package_interest_confirmation(
+        self,
+        user_name: str,
+        package_name: str,
+        user_role: str = "VIP",
+        user_id: Optional[int] = None,
+        session_history: Optional["SessionMessageHistory"] = None
+    ) -> tuple[str, InlineKeyboardMarkup]:
+        """
+        Package interest confirmation message with Diana's personal voice.
+
+        Warm, direct message after user registers interest in a package.
+        Includes direct contact button to Diana's personal Telegram and navigation options.
+
+        Args:
+            user_name: User's first name (optional, can be None)
+            package_name: Name of the package they're interested in
+            user_role: "VIP" or "Free" for navigation context
+            user_id: Optional user ID for session history (not used in this method)
+            session_history: Optional session history (not used in this method)
+
+        Returns:
+            Tuple of (text, keyboard) with contact and navigation buttons
+
+        Voice Rationale:
+            - NO Lucien emoji or voice - this is Diana speaking directly
+            - "Gracias por tu interés! 🫶" - warm, personal greeting
+            - "En un momento me pongo en contacto" - reassurance of personal follow-up
+            - "Si no quieres esperar" - empowers user to take action
+            - Direct contact: tg://resolve?username= link for immediate chat
+            - Navigation flexibility: Regresar (to list) or Inicio (to main menu)
+
+        Examples:
+            >>> flows = UserFlowMessages()
+            >>> text, kb = flows.package_interest_confirmation("Maria", "Curso Premium", "VIP")
+            >>> 'Gracias por tu interés' in text
+            True
+            >>> '🫶' in text
+            True
+            >>> 'Escribirme' in str(kb)
+            True
+            >>> 'Regresar' in str(kb)
+            True
+        """
+        # Warm, personal message in Diana's voice (NOT Lucien's)
+        body = (
+            "Gracias por tu interés! 🫶\n\n"
+            "En un momento me pongo en contacto personalmente contigo 😊\n\n"
+            "Si no quieres espera da clic aquí abajo ⬇️ para escribirme "
+            "en mi Telegram personal!"
+        )
+
+        text = body  # No header/compose needed - direct voice
+
+        # Build keyboard with contact button and navigation
+        buttons = []
+
+        # Primary action: "Escribirme" button with tg://resolve link
+        if Config.CREATOR_USERNAME:
+            # Use tg://resolve?username= for direct chat
+            contact_url = f"tg://resolve?username={Config.CREATOR_USERNAME}"
+        else:
+            # Fallback: use https://t.me/ URL if no username configured
+            contact_url = "https://t.me/DianaCreaciones"
+
+        buttons.append([
+            {"text": "✉️ Escribirme", "url": contact_url}
+        ])
+
+        # Secondary actions: Regresar and Inicio buttons
+        buttons.append([
+            {"text": "📋 Regresar", "callback_data": f"user:packages:back:{user_role}"},
+            {"text": "🏠 Inicio", "callback_data": f"menu:{user_role.lower()}:main"}
+        ])
+
+        keyboard = create_inline_keyboard(buttons)
+
+        return text, keyboard
