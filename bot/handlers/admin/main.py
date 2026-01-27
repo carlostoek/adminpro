@@ -17,10 +17,8 @@ logger = logging.getLogger(__name__)
 # Router para handlers de admin
 admin_router = Router(name="admin")
 
-# Aplicar middlewares (orden correcto: Database primero, AdminAuth después)
-admin_router.message.middleware(DatabaseMiddleware())
+# Aplicar middlewares (Database ya está global, solo AdminAuth para este router)
 admin_router.message.middleware(AdminAuthMiddleware())
-admin_router.callback_query.middleware(DatabaseMiddleware())
 admin_router.callback_query.middleware(AdminAuthMiddleware())
 
 

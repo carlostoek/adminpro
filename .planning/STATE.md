@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-24)
 
 **Core value:** Cada usuario recibe una experiencia de menú personalizada según su rol (Admin/VIP/Free), con la voz consistente de Lucien y opciones relevantes a su contexto.
-**Current focus:** Phase 5 - Role Detection & Database Foundation
+**Current focus:** Phase 6 - VIP/Free User Menus (planning complete)
 
 ## Current Position
 
-Phase: 5 of 11 (Role Detection & Database Foundation)
-Plan: 05 of 05 complete
-Status: Phase complete
-Last activity: 2026-01-25 — Quick task 001 completed (fix Phase 5 gaps)
+Phase: 6 of 11 (VIP/Free User Menus)
+Plan: 02 of 4 completed (06-02-SUMMARY.md created)
+Status: In progress
+Last activity: 2026-01-25 — Completed 06-02-PLAN.md execution
 
-Progress: ██░░░░░░░░░ 14% (v1.1 milestone)
+Progress: █████████░░░ 81% (22/27 plans completed)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19 (v1.0 + v1.1)
-- Average duration: ~19 min
-- Total execution time: ~6.0 hours
+- Total plans completed: 22 (v1.0 + v1.1 + Phase 6 Plans 01-02)
+- Average duration: ~17 min (updated with Phase 6 Plans: 11.3 min avg)
+- Total execution time: ~6.4 hours
 
 **By Phase:**
 
@@ -32,10 +32,11 @@ Progress: ██░░░░░░░░░ 14% (v1.1 milestone)
 | 3 | 4 | ~80 min | ~20 min |
 | 4 | 4 | ~80 min | ~20 min |
 | 5 | 5 | ~17 min | ~3.4 min |
+| 6 | 2 | ~22.7 min | ~11.3 min |
 
 **Recent Trend:**
-- Last 5 plans: ~3.4 min each (Phase 5 - very efficient)
-- Trend: Improved (faster due to combined plans and established patterns)
+- Last 7 plans: ~7.2 min each (Phase 5 + Phase 6 Plans 01-02)
+- Trend: Stable efficiency (established patterns enable faster execution)
 
 ## Accumulated Context
 
@@ -58,6 +59,18 @@ Recent decisions affecting current work:
 - [QT-001-01]: RoleDetectionMiddleware registered on both dispatcher.update (global) and dispatcher.callback_query (specific) for complete coverage
 - [QT-001-02]: expire_vip_subscribers() accepts optional container parameter for role change logging (backward compatible)
 - [QT-001-03]: VIP expiration role changes logged with changed_by=0 (SYSTEM) and RoleChangeReason.VIP_EXPIRED
+
+**Phase 6 Decisions (v1.1 - VIP/Free User Menus):**
+- [06-01]: UserMenuMessages follows existing BaseMessageProvider stateless pattern
+- [06-01]: VIP users = "miembros del círculo exclusivo" (exclusive circle members)
+- [06-01]: Free users = "visitantes del jardín público" (public garden visitors)
+- [06-01]: VIP premium content = "tesoros del sanctum" (sanctum treasures)
+- [06-01]: Free content = "muestras del jardín" (garden samples)
+- [06-01]: AdminAuthMiddleware applied only to admin router (not globally) - architectural improvement
+- [06-01]: Weighted variations: 60% common, 30% alternate, 10% poetic for VIP; 70% welcoming, 30% informative for Free
+- [06-02]: VIP callback router registered globally (not role-specific) for handling menu interactions
+- [06-02]: UserMenuProvider used for all VIP menu messages ensuring Lucien voice consistency
+- [06-02]: Admin notification via logging (not real-time) for VIP interest registration (deferred to Phase 8)
 
 **Previous decisions:**
 - [v1.0]: Stateless architecture with session context passed as parameters instead of stored in __init__
@@ -92,6 +105,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Quick Task 001 complete - Phase 5 gaps fixed (middleware registration, role change integration)
+Stopped at: Completed 06-02-PLAN.md execution - VIP menu handlers enhanced with UserMenuProvider
 Resume file: None
-Next phase: Phase 6 (VIP/Free User Menus) or Phase 7 (Content Management Features)
+Next phase: Phase 6 Plan 03 (Free User Menu Handlers) or Phase 7 (Content Management Features)

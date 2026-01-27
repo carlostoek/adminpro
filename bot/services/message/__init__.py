@@ -28,6 +28,7 @@ from .admin_vip import AdminVIPMessages
 from .admin_free import AdminFreeMessages
 from .user_start import UserStartMessages
 from .user_flows import UserFlowMessages
+from .user_menu import UserMenuMessages
 
 __all__ = [
     "BaseMessageProvider",
@@ -40,6 +41,7 @@ __all__ = [
     "UserMessages",
     "UserStartMessages",
     "UserFlowMessages",
+    "UserMenuMessages",
 ]
 
 
@@ -152,14 +154,15 @@ class UserMessages:
     """
     User messages namespace for organization.
 
-    Provides access to UserStartMessages and UserFlowMessages.
+    Provides access to UserStartMessages, UserFlowMessages, and UserMenuMessages.
     Each provider organized by user interaction flow.
 
     Architecture:
         LucienVoiceService
             └─ user: UserMessages (this class)
                 ├─ start: UserStartMessages (Phase 3 Plan 01) ✅
-                └─ flows: UserFlowMessages (Phase 3 Plan 02) ✅
+                ├─ flows: UserFlowMessages (Phase 3 Plan 02) ✅
+                └─ menu: UserMenuMessages (Phase 6 Plan 01) ✅ NEW
 
     Usage:
         container = ServiceContainer(session, bot)
@@ -169,6 +172,9 @@ class UserMessages:
 
         # Access Free flow messages
         text = container.message.user.flows.free_request_success(wait_time_minutes=30)
+
+        # Access user menu messages
+        text, kb = container.message.user.menu.vip_menu_greeting("Juan", vip_expires_at=expiry_date)
 
     Stateless Design:
         All sub-providers are lazy-loaded and stateless.
@@ -183,6 +189,7 @@ class UserMessages:
         """
         self._start = None
         self._flows = None
+        self._menu = None  # NEW
 
     @property
     def start(self):
@@ -228,6 +235,31 @@ class UserMessages:
             self._flows = UserFlowMessages()
         return self._flows
 
+    @property
+    def menu(self):
+        """
+        User menu messages (Phase 6 Plan 01) ✅ NEW.
+
+        Lazy-loaded: creates UserMenuMessages instance on first access.
+        Provides VIP and Free user menu messages with Lucien's voice consistency.
+
+        Returns:
+            UserMenuMessages: Provider for user menu messages
+
+        Examples:
+            >>> user = UserMessages()
+            >>> text, kb = user.menu.vip_menu_greeting("Juan", vip_expires_at=datetime.now())
+            >>> '🎩' in text and 'círculo exclusivo' in text.lower()
+            True
+            >>> text, kb = user.menu.free_menu_greeting("Ana", free_queue_position=5)
+            >>> 'jardín público' in text.lower()
+            True
+        """
+        if self._menu is None:
+            from .user_menu import UserMenuMessages
+            self._menu = UserMenuMessages()
+        return self._menu
+
 
 class LucienVoiceService:
     """
@@ -244,9 +276,10 @@ class LucienVoiceService:
                 │   ├─ main: AdminMainMessages ✅
                 │   ├─ vip: AdminVIPMessages ✅
                 │   └─ free: AdminFreeMessages ✅
-                └─ user: UserMessages ✅ PHASE 3 IN PROGRESS
+                └─ user: UserMessages ✅ PHASE 3 COMPLETE, PHASE 6 IN PROGRESS
                     ├─ start: UserStartMessages ✅ (Plan 01)
-                    └─ flows: UserFlowMessages ✅ (Plan 02)
+                    ├─ flows: UserFlowMessages ✅ (Plan 02)
+                    └─ menu: UserMenuMessages ✅ NEW (Plan 01)
 
     Voice Consistency:
         All providers inherit from BaseMessageProvider which enforces Lucien's voice.
@@ -277,6 +310,20 @@ class LucienVoiceService:
 
         # User flow messages
         text = container.message.user.flows.free_request_success(wait_time_minutes=30)
+
+        # User menu messages
+        text, kb = container.message.user.menu.vip_menu_greeting(
+            user_name="Juan",
+            vip_expires_at=expiry_date,
+            user_id=user.id,
+            session_history=session_ctx
+        )
+        text, kb = container.message.user.menu.free_menu_greeting(
+            user_name="Ana",
+            free_queue_position=5,
+            user_id=user.id,
+            session_history=session_ctx
+        )
 
         # Session-aware messages (prevents repetition)
         session_history = container.message.get_session_context(container)

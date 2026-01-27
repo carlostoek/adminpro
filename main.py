@@ -85,13 +85,15 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
         sys.exit(1)
 
     # Registrar handlers (ONDA 1 - Fases siguientes)
-    from bot.handlers import register_all_handlers
-    register_all_handlers(dispatcher)
+    # NOTA: Los handlers ya están registrados en main()
+    # from bot.handlers import register_all_handlers
+    # register_all_handlers(dispatcher)
 
     # Registrar middlewares (ONDA 1 - Fase 1.3)
-    from bot.middlewares import DatabaseMiddleware, AdminAuthMiddleware, RoleDetectionMiddleware
+    from bot.middlewares import DatabaseMiddleware, RoleDetectionMiddleware
     dispatcher.update.middleware(DatabaseMiddleware())
-    dispatcher.message.middleware(AdminAuthMiddleware())
+    # AdminAuthMiddleware se aplica solo al router admin (ver bot/handlers/admin/main.py)
+    # dispatcher.message.middleware(AdminAuthMiddleware())
     dispatcher.update.middleware(RoleDetectionMiddleware())
     dispatcher.callback_query.middleware(RoleDetectionMiddleware())
 
