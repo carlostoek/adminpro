@@ -234,19 +234,9 @@ async def callback_interests_pending(callback: CallbackQuery, session: AsyncSess
     logger.debug(f"🔔 Admin {callback.from_user.id} viewing pending interests from notification")
 
     try:
-        # Redirect to interests list handler with "pending" filter
-        from bot.handlers.admin.interests import callback_interests_list
-
-        # Simulate callback with correct data
-        from unittest.mock import Mock
-        mock_callback = Mock(spec=CallbackQuery)
-        mock_callback.message = callback.message
-        mock_callback.from_user = callback.from_user
-        mock_callback.bot = callback.bot
-        mock_callback.data = "admin:interests:list:pending"
-
-        await callback_interests_list(mock_callback, session)
-        await callback.answer()
+        # Call the implementation directly with "pending" filter
+        from bot.handlers.admin.interests import _show_interests_list_impl
+        await _show_interests_list_impl(callback, session, filter_type="pending", page=1)
     except ImportError as e:
         logger.error(f"❌ Error importando interests handler: {e}")
         await callback.answer("❌ Error al cargar lista de intereses", show_alert=True)
@@ -269,19 +259,17 @@ async def callback_interest_attend_from_notification(callback: CallbackQuery, se
     logger.debug(f"✅ Admin {callback.from_user.id} marking interest as attended from notification")
 
     try:
-        # Redirect to attend confirmation handler
-        from bot.handlers.admin.interests import callback_interest_attend_confirm
+        # Extract interest ID from callback data
+        try:
+            interest_id = int(callback.data.split(":")[-1])
+        except (ValueError, IndexError):
+            logger.warning(f"⚠️ Invalid interest ID in callback: {callback.data}")
+            await callback.answer("❌ ID de interés inválido", show_alert=True)
+            return
 
-        # Simulate callback with correct data
-        from unittest.mock import Mock
-        mock_callback = Mock(spec=CallbackQuery)
-        mock_callback.message = callback.message
-        mock_callback.from_user = callback.from_user
-        mock_callback.bot = callback.bot
-        mock_callback.data = callback.data
-
-        await callback_interest_attend_confirm(mock_callback, session)
-        await callback.answer()
+        # Call the implementation directly
+        from bot.handlers.admin.interests import _show_attend_confirmation_impl
+        await _show_attend_confirmation_impl(callback, session, interest_id)
     except ImportError as e:
         logger.error(f"❌ Error importando interests handler: {e}")
         await callback.answer("❌ Error al cargar confirmación", show_alert=True)

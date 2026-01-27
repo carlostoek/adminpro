@@ -215,9 +215,10 @@ class InterestService:
             ... )
         """
         try:
-            # Build base query with joins and eager load package relationship
+            # Build base query with joins and eager load relationships
             stmt = select(UserInterest).options(
-                selectinload(UserInterest.package)
+                selectinload(UserInterest.package),
+                selectinload(UserInterest.user)
             ).join(ContentPackage)
 
             # Apply filters
@@ -275,7 +276,8 @@ class InterestService:
         """
         try:
             stmt = select(UserInterest).options(
-                selectinload(UserInterest.package)
+                selectinload(UserInterest.package),
+                selectinload(UserInterest.user)
             ).where(UserInterest.id == interest_id)
             result = await self.session.execute(stmt)
             return result.scalar_one_or_none()
@@ -300,7 +302,8 @@ class InterestService:
         """
         try:
             stmt = select(UserInterest).options(
-                selectinload(UserInterest.package)
+                selectinload(UserInterest.package),
+                selectinload(UserInterest.user)
             ).where(
                 UserInterest.user_id == user_id
             ).order_by(
@@ -396,7 +399,8 @@ class InterestService:
 
             # Recent interests (last 5)
             recent_stmt = select(UserInterest).options(
-                selectinload(UserInterest.package)
+                selectinload(UserInterest.package),
+                selectinload(UserInterest.user)
             ).order_by(
                 desc(UserInterest.created_at)
             ).limit(5)

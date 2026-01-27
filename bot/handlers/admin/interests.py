@@ -60,12 +60,20 @@ async def callback_interests_menu(callback: CallbackQuery, session: AsyncSession
 
 # ===== LIST INTERESTS =====
 
-@interests_router.callback_query(F.data.startswith("admin:interests:list:"))
-async def callback_interests_list(callback: CallbackQuery, session: AsyncSession):
+async def _show_interests_list_impl(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    filter_type: str = "all",
+    page: int = 1
+):
     """
-    Show interests list with filter.
+    Implementation of interests list display (can be called directly).
 
-    Callback data format: "admin:interests:list:{filter_type}"
+    Args:
+        callback: Callback query
+        session: Database session
+        filter_type: Filter to apply (all, pending, attended, vip_premium, vip_content, free_content)
+        page: Page number (1-indexed)
 
     Filters:
     - all: All interests
@@ -74,95 +82,12 @@ async def callback_interests_list(callback: CallbackQuery, session: AsyncSession
     - vip_premium: Only VIP Premium packages
     - vip_content: Only VIP Content packages
     - free_content: Only Free Content packages
-
-    Args:
-        callback: Callback query
-        session: Sesión de BD
     """
-    logger.debug(f"🔔 Admin {callback.from_user.id} viewing interests list")
+    logger.debug(f"🔔 Admin {callback.from_user.id} viewing interests list (filter={filter_type}, page={page})")
 
     container = ServiceContainer(session, callback.bot)
-
-    # Extract filter type from callback
-    parts = callback.data.split(":")
-    filter_type = parts[3] if len(parts) > 3 else "all"
 
     # Map filter to InterestService params
-    is_attended = None
-    package_type = None
-
-    if filter_type == "pending":
-        is_attended = False
-    elif filter_type == "attended":
-        is_attended = True
-    elif filter_type == "vip_premium":
-        package_type = ContentCategory.VIP_PREMIUM
-    elif filter_type == "vip_content":
-        package_type = ContentCategory.VIP_CONTENT
-    elif filter_type == "free_content":
-        package_type = ContentCategory.FREE_CONTENT
-
-    # Get interests with pagination (first page)
-    interests, total_count = await container.interest.get_interests(
-        is_attended=is_attended,
-        package_type=package_type,
-        limit=10,
-        offset=0,
-        sort_newest_first=True
-    )
-
-    # Calculate total pages
-    total_pages = (total_count + 9) // 10  # Round up
-
-    # Generate list message
-    if interests:
-        text, keyboard = container.message.admin.interest.interests_list(
-            interests=interests,
-            page=1,
-            total_pages=total_pages,
-            filter_type=filter_type
-        )
-    else:
-        text, keyboard = container.message.admin.interest.interests_empty(filter_type)
-
-    try:
-        await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
-    except Exception as e:
-        if "message is not modified" not in str(e):
-            logger.warning(f"Could not edit message: {e}")
-        else:
-            logger.debug("ℹ️ Mensaje sin cambios, ignorando")
-
-    await callback.answer()
-
-
-# ===== PAGINATION =====
-
-@interests_router.callback_query(F.data.startswith("admin:interests:page:"))
-async def callback_interests_page(callback: CallbackQuery, session: AsyncSession):
-    """
-    Show specific page of interests list.
-
-    Callback data format: "admin:interests:page:{page_num}:{filter_type}"
-
-    Args:
-        callback: Callback query
-        session: Sesión de BD
-    """
-    container = ServiceContainer(session, callback.bot)
-
-    # Extract page and filter from callback
-    parts = callback.data.split(":")
-    try:
-        page = int(parts[3]) if len(parts) > 3 else 1
-    except (ValueError, IndexError):
-        logger.warning(f"⚠️ Invalid page number in callback: {callback.data}")
-        await callback.answer("❌ Página inválida", show_alert=True)
-        return
-
-    filter_type = parts[4] if len(parts) > 4 else "all"
-
-    # Map filter to params
     is_attended = None
     package_type = None
 
@@ -188,7 +113,7 @@ async def callback_interests_page(callback: CallbackQuery, session: AsyncSession
     )
 
     # Calculate total pages
-    total_pages = (total_count + 9) // 10
+    total_pages = (total_count + 9) // 10  # Round up
 
     # Generate list message
     if interests:
@@ -210,6 +135,59 @@ async def callback_interests_page(callback: CallbackQuery, session: AsyncSession
             logger.debug("ℹ️ Mensaje sin cambios, ignorando")
 
     await callback.answer()
+
+
+@interests_router.callback_query(F.data.startswith("admin:interests:list:"))
+async def callback_interests_list(callback: CallbackQuery, session: AsyncSession):
+    """
+    Show interests list with filter.
+
+    Callback data format: "admin:interests:list:{filter_type}"
+
+    Filters:
+    - all: All interests
+    - pending: Only pending (is_attended=False)
+    - attended: Only attended (is_attended=True)
+    - vip_premium: Only VIP Premium packages
+    - vip_content: Only VIP Content packages
+    - free_content: Only Free Content packages
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+    """
+    # Extract filter type from callback
+    parts = callback.data.split(":")
+    filter_type = parts[3] if len(parts) > 3 else "all"
+
+    await _show_interests_list_impl(callback, session, filter_type, page=1)
+
+
+# ===== PAGINATION =====
+
+@interests_router.callback_query(F.data.startswith("admin:interests:page:"))
+async def callback_interests_page(callback: CallbackQuery, session: AsyncSession):
+    """
+    Show specific page of interests list.
+
+    Callback data format: "admin:interests:page:{page_num}:{filter_type}"
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+    """
+    # Extract page and filter from callback
+    parts = callback.data.split(":")
+    try:
+        page = int(parts[3]) if len(parts) > 3 else 1
+    except (ValueError, IndexError):
+        logger.warning(f"⚠️ Invalid page number in callback: {callback.data}")
+        await callback.answer("❌ Página inválida", show_alert=True)
+        return
+
+    filter_type = parts[4] if len(parts) > 4 else "all"
+
+    await _show_interests_list_impl(callback, session, filter_type, page)
 
 
 # ===== VIEW DETAIL =====
@@ -323,32 +301,20 @@ async def callback_interests_stats(callback: CallbackQuery, session: AsyncSessio
 
 # ===== MARK ATTENDED CONFIRMATION =====
 
-@interests_router.callback_query(F.data.startswith("admin:interest:attend:"))
-async def callback_interest_attend_confirm(callback: CallbackQuery, session: AsyncSession):
+async def _show_attend_confirmation_impl(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    interest_id: int
+):
     """
-    Show confirmation dialog for marking interest as attended.
-
-    Callback data format: "admin:interest:attend:{interest_id}"
-    OR "admin:interest:confirm_attend:{interest_id}" (handled separately)
+    Implementation of attend confirmation dialog (can be called directly).
 
     Args:
         callback: Callback query
-        session: Sesión de BD
+        session: Database session
+        interest_id: ID of the interest to confirm attendance for
     """
-    # Skip if this is the confirm action (handled by next handler)
-    parts = callback.data.split(":")
-    if len(parts) > 4 and parts[4] == "confirm_attend":
-        return
-
     container = ServiceContainer(session, callback.bot)
-
-    # Extract interest ID
-    try:
-        interest_id = int(callback.data.split(":")[-1])
-    except (ValueError, IndexError):
-        logger.warning(f"⚠️ Invalid interest ID in callback: {callback.data}")
-        await callback.answer("❌ ID de interés inválido", show_alert=True)
-        return
 
     # Get interest
     interest = await container.interest.get_interest_by_id(interest_id)
@@ -373,6 +339,34 @@ async def callback_interest_attend_confirm(callback: CallbackQuery, session: Asy
             logger.debug("ℹ️ Mensaje sin cambios, ignorando")
 
     await callback.answer()
+
+
+@interests_router.callback_query(F.data.startswith("admin:interest:attend:"))
+async def callback_interest_attend_confirm(callback: CallbackQuery, session: AsyncSession):
+    """
+    Show confirmation dialog for marking interest as attended.
+
+    Callback data format: "admin:interest:attend:{interest_id}"
+    OR "admin:interest:confirm_attend:{interest_id}" (handled separately)
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+    """
+    # Skip if this is the confirm action (handled by next handler)
+    parts = callback.data.split(":")
+    if len(parts) > 4 and parts[4] == "confirm_attend":
+        return
+
+    # Extract interest ID
+    try:
+        interest_id = int(callback.data.split(":")[-1])
+    except (ValueError, IndexError):
+        logger.warning(f"⚠️ Invalid interest ID in callback: {callback.data}")
+        await callback.answer("❌ ID de interés inválido", show_alert=True)
+        return
+
+    await _show_attend_confirmation_impl(callback, session, interest_id)
 
 
 # ===== MARK ATTENDED ACTION =====
