@@ -22,7 +22,8 @@ async def callback_request_free(
     """
     Procesa solicitud de acceso al canal Free.
 
-    Crea la solicitud y notifica al usuario del tiempo de espera.
+    Crea la solicitud y notifica al usuario con mensaje de Lucien
+    y botones de redes sociales.
 
     Args:
         callback: Callback query
@@ -75,18 +76,22 @@ async def callback_request_free(
         await callback.answer()
         return
 
-    # Crear nueva solicitud (business logic stays in handler)
+    # Crear nueva solicitud
     request = await container.subscription.create_free_request(user_id)
-    wait_time = await container.config.get_wait_time()
 
-    # Use provider for success message
-    success_text = container.message.user.flows.free_request_success(
-        wait_time_minutes=wait_time
+    # Fetch social media links from config
+    social_links = await container.config.get_social_media_links()
+
+    # Use provider for success message with social media keyboard
+    success_text, keyboard = container.message.user.flows.free_request_success(
+        wait_time_minutes=await container.config.get_wait_time(),
+        social_links=social_links
     )
 
     try:
         await callback.message.edit_text(
             success_text,
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
     except Exception as e:
@@ -95,4 +100,4 @@ async def callback_request_free(
 
     await callback.answer("✅ Solicitud creada")
 
-    logger.info(f"✅ Solicitud Free creada para user {user_id} (wait: {wait_time}min)")
+    logger.info(f"✅ Solicitud Free creada para user {user_id} con redes sociales")
