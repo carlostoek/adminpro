@@ -73,12 +73,11 @@ class UserFlowMessages(BaseMessageProvider):
             Tuple of (text, keyboard) with social media buttons
 
         Voice Rationale:
-            - Lucien header format: "🎩 <b>Lucien:</b>"
-            - No specific wait time mentioned (creates mystery, reduces anxiety)
-            - Social media CTA first (prominent position)
-            - "Los Kinkys" channel name (not "Free channel" or "jardín")
-            - References to Diana ("Diana se complace...")
-            - Reassurance about automatic processing
+            - Ritualistic wait: Frame the delay as part of the experience, not friction
+            - Mystery narrative: "no todos entienden lo que eso implica"
+            - Social media as "fragments of presence" - meta-commentary
+            - "yo mismo vendré a buscarle" - Lucien's personal commitment
+            - No specific wait time - creates anticipation
 
         Examples:
             >>> flows = UserFlowMessages()
@@ -93,16 +92,22 @@ class UserFlowMessages(BaseMessageProvider):
         header = "🎩 <b>Lucien:</b>"
 
         body = (
-            "<i>Ah, un nuevo visitante busca acceso a Los Kinkys...</i>\n\n"
-            "<i>Su solicitud ha sido registrada. Diana aprecia su interés en "
-            "nuestro espacio, y le aseguro que la espera valdrá la pena.</i>\n\n"
-            "<i>Mientras tanto, le invito a seguir a Diana en las redes sociales. "
-            "Es una excelente manera de conocer mejor el contenido que le espera...</i>"
+            "<i>Ah… alguien ha llamado a la puerta.</i>\n\n"
+            "<i>Su solicitud para entrar a Los Kinkys ha sido registrada.</i>\n\n"
+            "<i>Diana siempre nota cuando alguien decide cruzar hacia su mundo… "
+            "aunque no todos entienden lo que eso implica.</i>\n\n"
+            "<i>Mientras su acceso se prepara, hay algo que puede hacer.</i>\n\n"
+            "<i>Las redes de Diana no son simples perfiles.</i>\n"
+            "<i>Son fragmentos de su presencia… señales de lo que se insinúa antes de mostrarse.</i>\n\n"
+            "<i>Obsérvela.</i>\n"
+            "<i>Escuche el tono.</i>\n"
+            "<i>Empiece a entender el juego.</i>"
         )
 
         footer = (
-            "💡 <i>No necesita esperar mirando este chat. Le notificaré cuando su acceso esté listo.</i>\n\n"
-            "<i>Disfrute de las redes de Diana mientras tanto. 👇</i>"
+            "💡 <i>No necesita quedarse aquí esperando.</i>\n"
+            "<i>Cuando todo esté listo, yo mismo vendré a buscarle.</i>\n\n"
+            "<i>Mientras tanto… aquí puede seguir su rastro 👇</i>"
         )
 
         text = self._compose(header, body, footer)
@@ -209,35 +214,37 @@ class UserFlowMessages(BaseMessageProvider):
         Shows progress (elapsed/remaining) with Lucien's voice.
 
         Args:
-            time_elapsed_minutes: Minutes since original request
-            time_remaining_minutes: Minutes until approval
+            time_elapsed_minutes: Minutes since original request (NOT shown)
+            time_remaining_minutes: Minutes until approval (NOT shown)
 
         Returns:
             HTML-formatted reminder message (text-only, no keyboard)
 
         Voice Rationale:
-            - "Ya tiene una solicitud en proceso" - polite reminder
-            - Time display helps reduce anxiety (progress indicator)
-            - "Le notificaré" - Lucien's service commitment
-            - Same tone as success message but with reminder context
+            - "el deseo de entrar no ha disminuido" - validates user's persistence
+            - Narrative tension: turn impatience into story, not system error
+            - "Los umbrales importantes no se cruzan corriendo" - philosophical framing
+            - "La puerta se abrirá" - inevitability, reassurance
+            - Time display REMOVED - mystery over precision
 
         Examples:
             >>> flows = UserFlowMessages()
             >>> msg = flows.free_request_duplicate(10, 20)
             >>> '🎩 <b>Lucien:</b>' in msg
             True
-            >>> '10 minutos' in msg and '20 minutos' in msg
-            True
         """
         header = "🎩 <b>Lucien:</b>"
 
         body = (
-            "<i>Ah, veo que su paciencia está siendo puesta a prueba...</i>\n\n"
-            "<i>Su solicitud de acceso a Los Kinkys ya está en proceso. "
-            f"⏱️ Tiempo transcurrido: {time_elapsed_minutes} minutos</i>\n"
-            f"<i>⌛ Tiempo restante: {time_remaining_minutes} minutos</i>\n\n"
-            "<i>Le notificaré cuando su acceso esté listo. Mientras tanto, "
-            "puede cerrar este chat sin preocupación.</i>"
+            "<i>Veo que el deseo de entrar no ha disminuido…</i>\n\n"
+            "<i>Su acceso a Los Kinkys ya está en movimiento.</i>\n\n"
+            "<i>Los umbrales importantes no se cruzan corriendo.</i>\n\n"
+            "<i>No es una espera vacía.</i>\n"
+            "<i>Es el momento exacto en que muchos deciden si de verdad quieren entrar… "
+            "o si solo estaban mirando desde fuera.</i>\n\n"
+            "<i>Puede cerrar este chat con tranquilidad.</i>\n"
+            "<i>Cuando llegue el momento, no tendrá que buscar la puerta.</i>\n"
+            "<i>La puerta se abrirá.</i>"
         )
 
         return self._compose(header, body)
@@ -260,9 +267,11 @@ class UserFlowMessages(BaseMessageProvider):
             Tuple of (text, keyboard) with channel access button
 
         Voice Rationale:
-            - Brief + action-oriented (user has waited enough)
-            - "Su acceso está listo" - clear confirmation
-            - "Diana se complace" - references creator
+            - "Listo." - dramatic pause, anticipation resolved
+            - "Diana ha permitido su entrada" - admission granted, not simply added
+            - "no es el lugar donde ella se entrega" - teaser of VIP
+            - "Empieza a insinuarse" - mystery, gradual revelation
+            - "Entre con intención" - call to purposeful action
             - Single button: "🚀 Acceder al canal" (action-oriented)
 
         Examples:
@@ -276,10 +285,16 @@ class UserFlowMessages(BaseMessageProvider):
         header = "🎩 <b>Lucien:</b>"
 
         body = (
-            "<i>Su acceso está listo. Diana se complace de su compañía...</i>\n\n"
-            f"<b>Bienvenido a {channel_name}</b> 🎉\n\n"
-            "<i>El enlace de invitación se encuentra a continuación. "
-            "Recuerde que tiene 24 horas para usarlo.</i>"
+            "<i>Listo.</i>\n\n"
+            "<i>Diana ha permitido su entrada.</i>\n\n"
+            f"<b>Bienvenido a {channel_name}.</b>\n\n"
+            "<i>Este no es el lugar donde ella se entrega.</i>\n"
+            "<i>Es el lugar donde comienza a insinuarse…</i>\n"
+            "<i>y donde algunos descubren que ya no quieren quedarse solo aquí.</i>\n\n"
+            "<i>El enlace está abajo.</i>\n"
+            "<i>Tiene 24 horas para cruzar antes de que se cierre de nuevo.</i>\n\n"
+            "<i>Entre con intención.</i>\n"
+            "👇"
         )
 
         text = self._compose(header, body)
