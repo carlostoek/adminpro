@@ -481,10 +481,27 @@ async def _send_admin_interest_notification(
         logger.error(f"Error sending admin interest notification: {e}", exc_info=True)
 
 
+@free_callbacks_router.callback_query(lambda c: c.data == "user:packages:back")
+async def handle_packages_back_to_list(callback: CallbackQuery, container):
+    """
+    Vuelve al listado de paquetes Free (desde vista de detalle o confirmación).
+
+    Reutiliza handle_free_content() para consistencia.
+
+    Args:
+        callback: CallbackQuery de Telegram
+        container: ServiceContainer inyectado por middleware
+    """
+    await handle_free_content(callback, container)
+
+
 @free_callbacks_router.callback_query(lambda c: c.data == "menu:free:main")
 async def handle_menu_back(callback: CallbackQuery, container):
     """
     Vuelve al menú principal Free.
+
+    Este handler sirve tanto para "menu:free:main" (desde confirmación de interés)
+    como para "menu:back" (desde otras secciones del menú Free).
 
     Args:
         callback: CallbackQuery de Telegram

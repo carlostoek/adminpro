@@ -417,6 +417,34 @@ async def _send_admin_interest_notification(
         logger.error(f"Error sending admin interest notification: {e}", exc_info=True)
 
 
+@vip_callbacks_router.callback_query(lambda c: c.data == "user:packages:back")
+async def handle_packages_back_to_list(callback: CallbackQuery, container):
+    """
+    Vuelve al listado de paquetes VIP (desde vista de detalle o confirmación).
+
+    Reutiliza handle_vip_premium() para consistencia.
+
+    Args:
+        callback: CallbackQuery de Telegram
+        container: ServiceContainer inyectado por middleware
+    """
+    await handle_vip_premium(callback, container)
+
+
+@vip_callbacks_router.callback_query(lambda c: c.data == "menu:vip:main")
+async def handle_menu_vip_main(callback: CallbackQuery, container):
+    """
+    Vuelve al menú principal VIP (desde confirmación de interés).
+
+    Reutiliza handle_menu_back() para consistencia con Phase 6.
+
+    Args:
+        callback: CallbackQuery de Telegram
+        container: ServiceContainer inyectado por middleware
+    """
+    await handle_menu_back(callback, container)
+
+
 @vip_callbacks_router.callback_query(lambda c: c.data == "menu:back")
 async def handle_menu_back(callback: CallbackQuery, container):
     """
