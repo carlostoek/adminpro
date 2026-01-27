@@ -10,8 +10,8 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 ## Current Position
 
 Phase: 12 of 13 (Rediseño de Menú de Paquetes con Vista de Detalles) - 🔄 IN PROGRESS
-Plan: 04 of 5 (Navigation Handlers) - ✅ COMPLETE
-Status: Phase 12 Plan 04 COMPLETE - Navigation system for package flow with handler reuse pattern. Implemented user:packages:back (VIP/Free), menu:vip:main, and menu:free:main callbacks. Circular navigation without dead ends. (2026-01-27)
+Plan: 03 of 5 (Package Interest Confirmation Flow) - ✅ COMPLETE
+Status: Phase 12 Plan 03 COMPLETE - Post-interest confirmation flow with warm personal message from Diana, direct contact button (tg://resolve link), and flexible navigation (Regresar/Inicio). Admin notifications preserved from Phase 8. (2026-01-27)
 
 Progress: ██████████ 96% (45/47 plans complete)
 
@@ -181,10 +181,12 @@ Recent decisions affecting current work:
 - [12-02-02]: Detail view includes only back button (no exit) - maintains navigation context per spec
 - [12-02-03]: user:package:interest:{id} callback pattern for interest registration (separate from navigation callbacks)
 - [12-02-04]: Callback handlers follow same structure for VIP and Free routers (consistency pattern)
-- [12-04-01]: Handler reuse pattern for navigation - user:packages:back delegates to handle_vip_premium()/handle_free_content(), menu:vip:main delegates to handle_menu_back() - ensures consistency and reduces duplication
-- [12-04-02]: Dual-purpose callback for Free router - menu:free:main handles both "Inicio" from confirmation and "menu:back" from other sections - simplifies router registration
-- [12-04-03]: Navigation callbacks placed after interest handlers but before menu handlers - follows callback priority pattern (more specific matches first)
-- [12-04-04]: Circular navigation flow without dead ends - users can navigate list → detail → confirmation → back/home seamlessly
+- [12-03-01]: package_interest_confirmation() uses Diana's personal voice (NOT Lucien's) - warm, direct tone with "Gracias por tu interés! 🫶"
+- [12-03-02]: Config.CREATOR_USERNAME environment variable for tg://resolve?username= direct chat links - fallback to https://t.me/ URL if not configured
+- [12-03-03]: Interest confirmation shows 3 navigation options: "Escribirme" (tg://resolve), "Regresar" (to list), "Inicio" (to main menu)
+- [12-03-04]: user:package:interest:{id} handler generates confirmation message AND sends admin notification - preserves Phase 8 functionality
+- [12-03-05]: Debounce window prevents duplicate notifications AND duplicate confirmation messages - subtle feedback "Interés registrado previamente" without message update
+- [12-03-06]: Handler reuse pattern for navigation - user:packages:back:{role} delegates to premium/content handlers, menu:{role}:main delegates to menu back - ensures consistency
 
 **Previous decisions:**
 - [v1.0]: Stateless architecture with session context passed as parameters instead of stored in __init__
@@ -215,7 +217,7 @@ None.
 - **Phase 8 (Interest Notification System):** Phase 8 COMPLETE - InterestService with 5-minute debounce, VIP/Free interest handlers with real-time Telegram admin notifications, AdminInterestMessages provider, and interest management admin interface with 8 callback handlers. Fixed enum values (ContentCategory, PackageType, UserRole, RoleChangeReason) to use uppercase format matching enum names. Fixed eager load for package relationship in InterestService.
 - **Phase 9 (User Management Features):** Phase 9 COMPLETE - UserManagementService with permission validation, AdminUserMessages provider, user management handlers with expel from channels (with permission validation and confirmation dialog), block placeholder for future implementation, Block button in all user detail tabs. All UAT gaps closed including role change confirmation callback data parsing fix and Interests tab MissingGreenlet error with eager loading. Permission model: admins cannot modify themselves, only super admin can modify other admins. Block/unblock requires DB migration for User.is_blocked field (Phase 10).
 - **Phase 10 (Free Channel Entry Flow):** Phase 10 COMPLETE - All 5 plans executed: Database extension (BotConfig social fields + ConfigService), UserFlowMessages with Lucien voice + social keyboard, handler integration, approval message with channel button, migration documentation. Social media buttons show in fixed order (IG → TikTok → X), no specific wait time mentioned (mystery approach), approval sends NEW message with "🚀 Acceder al canal" button. Setup script and README instructions for admin configuration.
-- **Phase 12 (Rediseño de Menú de Paquetes):** Phase 12 Plan 04 COMPLETE - Navigation system implemented with handler reuse pattern. user:packages:back (VIP/Free) returns to package list, menu:vip:main/menu:free:main returns to main menu. Circular navigation without dead ends. Ready for plan 05 (interest confirmation flow) or skip to Phase 13.
+- **Phase 12 (Rediseño de Menú de Paquetes):** Phase 12 Plan 03 COMPLETE - Package interest confirmation flow implemented. UserFlowMessages.package_interest_confirmation() provides warm personal message from Diana with direct contact button (tg://resolve). VIP/Free handlers for user:package:interest:{id} with admin notification preservation. Navigation handlers for user:packages:back:{role} and menu:{role}:main. Ready for plan 04 (update detail view callbacks) or plan 05 (navigation updates).
 
 ### Quick Tasks Completed
 
@@ -231,6 +233,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-27
-Stopped at: Phase 12 Plan 04 COMPLETE - Navigation handlers for package flow implemented. user:packages:back, menu:vip:main, and menu:free:main callbacks working. All 3 tasks completed in ~3 minutes.
+Stopped at: Phase 12 Plan 03 COMPLETE - Package interest confirmation flow with Diana's warm personal voice, direct contact button (tg://resolve), and flexible navigation. All 3 tasks completed in ~3 minutes.
 Resume file: None
-Next phase: Phase 12 Plan 05 (Interest Confirmation Flow) or Phase 13 (VIP Ritualized Entry)
+Next phase: Phase 12 Plan 04 (Update Detail View Callbacks) or Plan 05 (Navigation Updates)
