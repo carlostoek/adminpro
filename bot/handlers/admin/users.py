@@ -357,7 +357,7 @@ async def callback_user_role(callback: CallbackQuery, session: AsyncSession):
     parts = callback.data.split(":")
 
     # Check if this is the confirm action
-    if len(parts) > 4 and parts[4] == "confirm":
+    if len(parts) > 4 and parts[3] == "confirm":
         # Handle actual role change in separate handler
         await callback_user_role_confirm(callback, session)
         return
