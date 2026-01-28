@@ -415,6 +415,21 @@ class SubscriptionService:
             count += 1
             logger.info(f"⏱️ VIP expirado: user {subscriber.user_id}")
 
+            # Phase 13: Cancel entry flow if incomplete (stages 1 or 2)
+            if container and subscriber.vip_entry_stage in (1, 2):
+                try:
+                    await container.vip_entry.cancel_entry_on_expiry(
+                        user_id=subscriber.user_id
+                    )
+                    logger.info(
+                        f"🚫 Cancelled VIP entry flow for user {subscriber.user_id} "
+                        f"(subscription expired at stage {subscriber.vip_entry_stage})"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Error cancelling VIP entry flow for user {subscriber.user_id}: {e}"
+                    )
+
             # Log role change if container provided
             if container and container.role_change:
                 try:
