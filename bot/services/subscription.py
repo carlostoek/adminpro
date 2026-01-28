@@ -228,6 +228,9 @@ class SubscriptionService:
             # Agregar token.duration_hours a la fecha de expiración actual
             extension = timedelta(hours=token.duration_hours)
 
+            # Check if subscription was expired (needs unban)
+            was_expired = existing_subscriber.is_expired() or existing_subscriber.status == "expired"
+
             # Si ya expiró, partir desde ahora
             if existing_subscriber.is_expired():
                 existing_subscriber.expiry_date = datetime.utcnow() + extension
@@ -237,11 +240,19 @@ class SubscriptionService:
 
             existing_subscriber.status = "active"
 
+            # Unban from VIP channel if subscription was expired
+            if was_expired:
+                from bot.services.channel import ChannelService
+                channel_service = ChannelService(self.session, self.bot)
+                vip_channel_id = await channel_service.get_vip_channel_id()
+                if vip_channel_id:
+                    await self.unban_from_vip_channel(user_id, vip_channel_id)
+
             # No commit - dejar que el handler maneje la transacción
 
             logger.info(
                 f"✅ Suscripción VIP extendida: user {user_id} "
-                f"(nueva expiración: {existing_subscriber.expiry_date})"
+                f"(nueva expiración: {existing_subscriber.expiry_date}, was_expired={was_expired})"
             )
 
             return True, "✅ Suscripción VIP extendida exitosamente", existing_subscriber
@@ -350,6 +361,9 @@ class SubscriptionService:
             # Renew existing subscription
             extension = timedelta(hours=duration_hours)
 
+            # Check if subscription was expired (needs unban)
+            was_expired = existing_subscriber.is_expired() or existing_subscriber.status == "expired"
+
             # Si ya expiró, partir desde ahora
             if existing_subscriber.is_expired():
                 existing_subscriber.expiry_date = datetime.utcnow() + extension
@@ -364,10 +378,18 @@ class SubscriptionService:
             if existing_subscriber.vip_entry_stage is not None:
                 existing_subscriber.vip_entry_stage = 1  # Restart ritual
 
+            # Unban from VIP channel if subscription was expired
+            if was_expired:
+                from bot.services.channel import ChannelService
+                channel_service = ChannelService(self.session, self.bot)
+                vip_channel_id = await channel_service.get_vip_channel_id()
+                if vip_channel_id:
+                    await self.unban_from_vip_channel(user_id, vip_channel_id)
+
             subscriber = existing_subscriber
             logger.info(
                 f"🔄 Suscripción VIP renovada para user {user_id} "
-                f"(stage={subscriber.vip_entry_stage})"
+                f"(stage={subscriber.vip_entry_stage}, was_expired={was_expired})"
             )
         else:
             # Create new subscription with vip_entry_stage=1
@@ -458,16 +480,19 @@ class SubscriptionService:
 
     async def kick_expired_vip_from_channel(self, channel_id: str) -> int:
         """
-        Expulsa suscriptores expirados del canal VIP.
+        Expulsa suscriptores expirados del canal VIP con ban permanente.
 
         Esta función se ejecuta después de expire_vip_subscribers()
         en el background task.
+
+        El ban es PERMANENTE - el usuario permanece baneado hasta que
+        active un nuevo token (cuando se llama a unban_from_vip_channel).
 
         Args:
             channel_id: ID del canal VIP (ej: "-1001234567890")
 
         Returns:
-            Cantidad de usuarios expulsados
+            Cantidad de usuarios baneados
         """
         # Buscar suscriptores expirados
         result = await self.session.execute(
@@ -477,33 +502,59 @@ class SubscriptionService:
         )
         expired_subscribers = result.scalars().all()
 
-        kicked_count = 0
+        banned_count = 0
         for subscriber in expired_subscribers:
             try:
-                # Intentar expulsar del canal
+                # Banear del canal (permanente - sin unban)
                 await self.bot.ban_chat_member(
                     chat_id=channel_id,
                     user_id=subscriber.user_id
                 )
 
-                # Desbanear inmediatamente (solo expulsar, no banear permanente)
-                await self.bot.unban_chat_member(
-                    chat_id=channel_id,
-                    user_id=subscriber.user_id
-                )
-
-                kicked_count += 1
-                logger.info(f"👢 Usuario expulsado de VIP: {subscriber.user_id}")
+                banned_count += 1
+                logger.info(f"🚫 Usuario baneado de VIP (suscripción expirada): {subscriber.user_id}")
 
             except Exception as e:
                 logger.warning(
-                    f"⚠️ No se pudo expulsar a user {subscriber.user_id}: {e}"
+                    f"⚠️ No se pudo banear a user {subscriber.user_id}: {e}"
                 )
 
-        if kicked_count > 0:
-            logger.info(f"✅ {kicked_count} usuario(s) expulsados del canal VIP")
+        if banned_count > 0:
+            logger.info(f"✅ {banned_count} usuario(s) baneados del canal VIP (permanente)")
 
-        return kicked_count
+        return banned_count
+
+    async def unban_from_vip_channel(
+        self,
+        user_id: int,
+        channel_id: str
+    ) -> bool:
+        """
+        Desbanea a un usuario del canal VIP al renovar su suscripción.
+
+        Se llama cuando un usuario expulsado activa un nuevo token,
+        permitiéndole reingresar al canal con el nuevo enlace.
+
+        Args:
+            user_id: ID del usuario a desbanear
+            channel_id: ID del canal VIP
+
+        Returns:
+            True si se desbaneó correctamente, False si hubo error
+        """
+        try:
+            await self.bot.unban_chat_member(
+                chat_id=channel_id,
+                user_id=user_id,
+                only_if_banned=True  # Solo desbanear si está baneado
+            )
+            logger.info(f"✅ Usuario desbaneado de VIP (renovación): {user_id}")
+            return True
+        except Exception as e:
+            logger.warning(
+                f"⚠️ No se pudo desbanear a user {user_id}: {e}"
+            )
+            return False
 
     async def get_all_vip_subscribers(
         self,
