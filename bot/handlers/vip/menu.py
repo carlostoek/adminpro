@@ -77,15 +77,6 @@ async def show_vip_menu(message: Message, data: Dict[str, Any], user_id: int = N
                 # Always pass expiry_date (even if expired or None)
                 # The greeting will handle expired dates appropriately
                 vip_expires_at = subscriber.expiry_date
-                # DEBUG: Log the value to diagnose the bug
-                logger.info(
-                    f"🔍 VIP menu for {target_user_id}: subscriber={subscriber.id}, "
-                    f"expiry_date={vip_expires_at}, "
-                    f"expiry_date_type={type(vip_expires_at)}, "
-                    f"callable_from={type(container.message).__name__}"
-                )
-            else:
-                logger.warning(f"⚠️ VIP menu for {target_user_id}: subscriber is None")
         except Exception as e:
             logger.error(f"Error obteniendo info VIP para {target_user_id}: {e}", exc_info=True)
 

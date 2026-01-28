@@ -116,16 +116,6 @@ class UserMenuMessages(BaseMessageProvider):
         header = f"🎩 <b>Lucien:</b>\n\n<i>{greeting}</i>"
 
         # Subscription status section
-        # DEBUG: Log to diagnose expiry_date bug
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(
-            f"🔍 vip_menu_greeting: user_id={user_id}, "
-            f"vip_expires_at={vip_expires_at}, "
-            f"type={type(vip_expires_at)}, "
-            f"truthiness={bool(vip_expires_at)}"
-        )
-
         if vip_expires_at:
             # Check if subscription is still active (not expired)
             from datetime import datetime
