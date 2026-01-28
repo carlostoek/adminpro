@@ -247,3 +247,41 @@ async def handle_vip_entry_stage_transition(
         logger.warning(f"⚠️ Could not edit stage message: {e}")
 
     await callback.answer()
+
+
+@vip_entry_router.callback_query(
+    lambda c: c.data and c.data == "vip_entry:main_menu"
+)
+async def handle_vip_entry_main_menu(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    state: FSMContext
+):
+    """
+    Maneja el callback "Descubrir lo que cambió" después de completar el ritual VIP.
+
+    Muestra el menú principal al usuario después de haber completado el flujo de entrada VIP.
+    """
+    user_id = callback.chat.id  # Use chat.id for correct user ID
+
+    # Clear FSM state
+    await state.clear()
+
+    # Import and call the start handler to show main menu
+    from bot.handlers.user.start import _send_welcome_message
+    from bot.services.container import ServiceContainer
+
+    container = ServiceContainer(session, callback.bot)
+
+    logger.info(f"✅ User {user_id} returning to main menu after VIP entry completion")
+
+    # Show main menu via start handler
+    await _send_welcome_message(callback.message, None, container, user_id)
+
+    # Delete the Stage 3 message
+    try:
+        await callback.message.delete()
+    except Exception as e:
+        logger.warning(f"⚠️ Could not delete Stage 3 message: {e}")
+
+    await callback.answer()

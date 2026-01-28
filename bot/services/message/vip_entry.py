@@ -160,16 +160,25 @@ Tiene 24 horas para usar el enlace.
 
 Entre con intención.
 
+—
+
+Y yo le invito a volver conmigo, notará que algunas cosas aquí ya no se ven igual.
+El espacio se adapta a quienes cruzan.
+
 👇"""
 
         # Format with Lucien's header
         message = f"🎩 Lucien:\n\n{body}"
 
-        # Create keyboard with "Cruzar el umbral" button (URL button)
+        # Create keyboard with both buttons
         keyboard = InlineKeyboardBuilder()
         keyboard.button(
-            text="Cruzar el umbral",
+            text="Cruzar el umbral ✨",
             url=invite_link  # URL button, not callback
+        )
+        keyboard.button(
+            text="Descubrir lo que cambió",
+            callback_data="vip_entry:main_menu"
         )
 
         return message, keyboard.as_markup()
