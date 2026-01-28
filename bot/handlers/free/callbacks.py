@@ -657,20 +657,21 @@ async def handle_menu_back(callback: CallbackQuery, container):
         await callback.answer("⚠️ Error volviendo al menú", show_alert=True)
 
 
-@free_callbacks_router.callback_query(lambda c: c.data == "menu:exit")
-async def handle_menu_exit(callback: CallbackQuery):
-    """
-    Cierra el menú Free (elimina mensaje).
-
-    Args:
-        callback: CallbackQuery de Telegram
-    """
-    try:
-        await callback.message.delete()
-        await callback.answer("Menú cerrado")
-    except Exception as e:
-        logger.error(f"Error cerrando menú Free para {callback.from_user.id}: {e}", exc_info=True)
-        await callback.answer("⚠️ Error cerrando menú", show_alert=True)
+# DISABLED: Exit button removed from navigation (Quick Task 002)
+# @free_callbacks_router.callback_query(lambda c: c.data == "menu:exit")
+# async def handle_menu_exit(callback: CallbackQuery):
+#     """
+#     Cierra el menú Free (elimina mensaje).
+#
+#     Args:
+#         callback: CallbackQuery de Telegram
+#     """
+#     try:
+#         await callback.message.delete()
+#         await callback.answer("Menú cerrado")
+#     except Exception as e:
+#         logger.error(f"Error cerrando menú Free para {callback.from_user.id}: {e}", exc_info=True)
+#         await callback.answer("⚠️ Error cerrando menú", show_alert=True)
 
 
 __all__ = ["free_callbacks_router"]

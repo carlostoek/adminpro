@@ -602,20 +602,21 @@ async def handle_menu_back(callback: CallbackQuery, container):
         await callback.answer("⚠️ Error volviendo al menú", show_alert=True)
 
 
-@vip_callbacks_router.callback_query(lambda c: c.data == "menu:exit")
-async def handle_menu_exit(callback: CallbackQuery):
-    """
-    Cierra el menú (elimina mensaje).
-
-    Args:
-        callback: CallbackQuery de Telegram
-    """
-    try:
-        await callback.message.delete()
-        await callback.answer("Menú cerrado")
-    except Exception as e:
-        logger.error(f"Error cerrando menú para {callback.from_user.id}: {e}")
-        await callback.answer("⚠️ Error cerrando menú", show_alert=True)
+# DISABLED: Exit button removed from navigation (Quick Task 002)
+# @vip_callbacks_router.callback_query(lambda c: c.data == "menu:exit")
+# async def handle_menu_exit(callback: CallbackQuery):
+#     """
+#     Cierra el menú (elimina mensaje).
+#
+#     Args:
+#         callback: CallbackQuery de Telegram
+#     """
+#     try:
+#         await callback.message.delete()
+#         await callback.answer("Menú cerrado")
+#     except Exception as e:
+#         logger.error(f"Error cerrando menú para {callback.from_user.id}: {e}")
+#         await callback.answer("⚠️ Error cerrando menú", show_alert=True)
 
 
 __all__ = ["vip_callbacks_router"]
