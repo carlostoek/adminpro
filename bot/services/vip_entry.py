@@ -288,4 +288,43 @@ class VIPEntryService:
         Args:
             user_id: ID del usuario
         """
-        pass  # Implement in T5
+        # Get subscriber
+        result = await self.session.execute(
+            select(VIPSubscriber).where(VIPSubscriber.user_id == user_id)
+        )
+        subscriber = result.scalar_one_or_none()
+
+        if not subscriber:
+            logger.warning(f"⚠️ VIPSubscriber not found for user {user_id}")
+            return
+
+        # Only cancel if flow is incomplete (stage 1 or 2)
+        if subscriber.vip_entry_stage not in (1, 2):
+            return
+
+        # Cancel flow
+        old_stage = subscriber.vip_entry_stage
+        subscriber.vip_entry_stage = None  # NULL = cancelled
+
+        logger.info(
+            f"🚫 VIP entry flow cancelled for user {user_id} "
+            f"(was at stage {old_stage}, subscription expired)"
+        )
+
+        # Kick from VIP channel if already joined
+        try:
+            vip_channel_id = await self._get_vip_channel_id()
+
+            if vip_channel_id:
+                removed = await self.subscription.kick_expired_vip_from_channel(
+                    channel_id=vip_channel_id
+                )
+                logger.info(f"👞 User {user_id} removed from VIP channel (entry cancelled)")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not remove user {user_id} from VIP channel: {e}")
+
+    async def _get_vip_channel_id(self) -> Optional[str]:
+        """Helper: Get VIP channel ID from ConfigService."""
+        from bot.services.config import ConfigService
+        config_service = ConfigService(self.session)
+        return await config_service.get_vip_channel_id()
