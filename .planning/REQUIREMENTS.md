@@ -20,7 +20,7 @@ Requerimientos para el milestone "Sistema de Menús". Cada requerimiento mapea a
 - [x] **VOICE-02**: UserMenuProvider entrega mensajes para menú Free con voz de Lucien
 - [x] **VOICE-03**: UserFlowProvider entrega mensaje de bienvenida al canal Free con redes sociales
 - [x] **VOICE-04**: UserFlowProvider entrega mensaje de aprobación de acceso con botón al canal
-- [ ] **VOICE-05**: UserFlowProvider entrega mensaje de bienvenida al canal VIP (NOT in Phase 10 - VIP flow is separate)
+- [x] **VOICE-05**: UserFlowProvider entrega mensaje de bienvenida al canal VIP (Phase 13 - VIP Ritualized Entry Flow delivers VIP access/welcome messages)
 - [x] **VOICE-06**: Todos los textos de botones de navegación usan terminología de Lucien
 
 ### Keyboard & Navigation (NAV)
@@ -173,9 +173,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOCS-04 | Phase 11 | Complete |
 
 **Coverage:**
-- v1.1 requirements: 56 total
-- Mapped to phases: 56
-- Complete: 56 (100%)
+- v1.1 requirements: 57 total (56 + VOICE-05 now marked complete via Phase 13)
+- Mapped to phases: 57
+- Complete: 57 (100%)
 - Pending: 0
 - Unmapped: 0 ✓
 
@@ -191,4 +191,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-24*
-*Last updated: 2026-01-28 after Phase 11 completion*
+*Last updated: 2026-01-28 after Phase 5 gap closure and Phase 13 completion*
