@@ -67,7 +67,8 @@ async def show_vip_entry_stage(
         - Stage 2: Mostrar alineación de expectativas
         - Stage 3: Mostrar mensaje con enlace (invoca VIPEntryService)
     """
-    user_id = message.from_user.id
+    # Use chat.id for user ID in private chats (message.from_user is bot for bot-sent messages)
+    user_id = message.chat.id
     provider: VIPEntryFlowMessages = container.message.user.vip_entry
     service = container.vip_entry
 
