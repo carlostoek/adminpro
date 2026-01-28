@@ -117,9 +117,15 @@ class UserMenuMessages(BaseMessageProvider):
 
         # Subscription status section
         if vip_expires_at:
-            # Format date elegantly
-            expiry_text = vip_expires_at.strftime("%d de %B de %Y")
-            subscription_status = f"<b>⏳ Su membresía expira el {expiry_text}</b>"
+            # Check if subscription is still active (not expired)
+            from datetime import datetime
+            if vip_expires_at > datetime.utcnow():
+                # Active subscription - show expiry date
+                expiry_text = vip_expires_at.strftime("%d de %B de %Y")
+                subscription_status = f"<b>⏳ Su membresía expira el {expiry_text}</b>"
+            else:
+                # Expired subscription - show warning
+                subscription_status = f"<b>⚠️ Su membresía ha expirado</b>"
         else:
             subscription_status = "<b>✨ Su membresía es permanente</b>"
 
@@ -533,7 +539,7 @@ class UserMenuMessages(BaseMessageProvider):
         ]
         return create_content_with_navigation(
             content_buttons,
-            include_back=False  # Main menu has only exit button
+            include_back=False  # Main menu has no navigation buttons (content only)
         )
 
     def _free_main_menu_keyboard(self) -> InlineKeyboardMarkup:
@@ -558,5 +564,5 @@ class UserMenuMessages(BaseMessageProvider):
         ]
         return create_content_with_navigation(
             content_buttons,
-            include_back=False  # Main menu has only exit button
+            include_back=False  # Main menu has no navigation buttons (content only)
         )

@@ -168,7 +168,7 @@ def config_menu_keyboard() -> InlineKeyboardMarkup:
 
 def create_menu_navigation(
     include_back: bool = True,
-    include_exit: bool = True,
+    include_exit: bool = False,
     back_text: str = "⬅️ Volver",
     exit_text: str = "🚪 Salir",
     back_callback: str = "menu:back",
@@ -179,7 +179,7 @@ def create_menu_navigation(
 
     Args:
         include_back: Incluir botón "Volver"
-        include_exit: Incluir botón "Salir"
+        include_exit: Incluir botón "Salir" (default: False)
         back_text: Texto del botón "Volver"
         exit_text: Texto del botón "Salir"
         back_callback: Callback data para "Volver"
@@ -220,7 +220,7 @@ def create_menu_navigation(
 def create_content_with_navigation(
     content_buttons: List[List[dict]],
     include_back: bool = True,
-    include_exit: bool = True,
+    include_exit: bool = False,
     **nav_kwargs
 ) -> InlineKeyboardMarkup:
     """
@@ -231,7 +231,7 @@ def create_content_with_navigation(
     Args:
         content_buttons: Botones de contenido (mismo formato que create_inline_keyboard)
         include_back: Incluir botón "Volver"
-        include_exit: Incluir botón "Salir"
+        include_exit: Incluir botón "Salir" (default: False)
         **nav_kwargs: Argumentos adicionales para create_menu_navigation
 
     Returns:

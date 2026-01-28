@@ -593,8 +593,15 @@ async def handle_menu_back(callback: CallbackQuery, container):
         # Build data dict for menu handler
         data = {"container": container}
         # Re-show VIP menu (reusing show_vip_menu logic)
+        # IMPORTANT: Pass user_id and user_first_name from callback, not from message
+        # When bot edits its own messages, message.from_user is the bot, not the user
         from .menu import show_vip_menu
-        await show_vip_menu(callback.message, data)
+        await show_vip_menu(
+            callback.message,
+            data,
+            user_id=user.id,
+            user_first_name=user.first_name
+        )
         await callback.answer()
 
     except Exception as e:
@@ -602,20 +609,21 @@ async def handle_menu_back(callback: CallbackQuery, container):
         await callback.answer("⚠️ Error volviendo al menú", show_alert=True)
 
 
-@vip_callbacks_router.callback_query(lambda c: c.data == "menu:exit")
-async def handle_menu_exit(callback: CallbackQuery):
-    """
-    Cierra el menú (elimina mensaje).
-
-    Args:
-        callback: CallbackQuery de Telegram
-    """
-    try:
-        await callback.message.delete()
-        await callback.answer("Menú cerrado")
-    except Exception as e:
-        logger.error(f"Error cerrando menú para {callback.from_user.id}: {e}")
-        await callback.answer("⚠️ Error cerrando menú", show_alert=True)
+# DISABLED: Exit button removed from navigation (Quick Task 002)
+# @vip_callbacks_router.callback_query(lambda c: c.data == "menu:exit")
+# async def handle_menu_exit(callback: CallbackQuery):
+#     """
+#     Cierra el menú (elimina mensaje).
+#
+#     Args:
+#         callback: CallbackQuery de Telegram
+#     """
+#     try:
+#         await callback.message.delete()
+#         await callback.answer("Menú cerrado")
+#     except Exception as e:
+#         logger.error(f"Error cerrando menú para {callback.from_user.id}: {e}")
+#         await callback.answer("⚠️ Error cerrando menú", show_alert=True)
 
 
 __all__ = ["vip_callbacks_router"]

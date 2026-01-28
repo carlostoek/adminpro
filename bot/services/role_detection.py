@@ -48,10 +48,11 @@ class RoleDetectionService:
         """
         Detecta el rol actual del usuario.
 
-        Prioridad: Admin > VIP Channel > VIP Subscription > Free (primer match wins)
+        Prioridad: Admin > VIP Subscription (activa) > VIP Channel > Free (primer match wins)
 
-        IMPORTANTE: VIP Channel tiene PRIORIDAD sobre VIP Subscription.
-        Si el usuario está en el canal VIP, es VIP sin importar el estado de suscripción.
+        IMPORTANTE: VIP Subscription ACTIVA tiene PRIORIDAD sobre VIP Channel.
+        Solo es VIP si tiene suscripción activa. Estar en el canal sin suscripción
+        activa no convierte al usuario en VIP.
 
         Args:
             user_id: ID de Telegram del usuario
@@ -64,7 +65,18 @@ class RoleDetectionService:
             logger.debug(f"👑 User {user_id} detectado como ADMIN")
             return UserRole.ADMIN
 
-        # 2. Check VIP Channel membership (HIGHEST PRIORITY for VIP detection)
+        # 2. Check VIP Subscription FIRST (HIGHEST PRIORITY for VIP detection)
+        # Verificar suscripción activa antes de verificar canal
+        from bot.services.subscription import SubscriptionService
+
+        subscription_service = SubscriptionService(self.session, bot=self.bot)
+
+        is_vip = await subscription_service.is_vip_active(user_id)
+        if is_vip:
+            logger.debug(f"⭐ User {user_id} detectado como VIP (suscripción activa)")
+            return UserRole.VIP
+
+        # 3. Check VIP Channel membership (SECONDARY - solo si no hay suscripción activa)
         # Import local para evitar circular dependency
         from bot.services.channel import ChannelService
 
@@ -80,21 +92,12 @@ class RoleDetectionService:
                 )
                 # User is member if status is member, administrator, or creator
                 if member.status in ["member", "administrator", "creator"]:
-                    logger.debug(f"⭐ User {user_id} detectado como VIP (canal VIP)")
-                    return UserRole.VIP
+                    logger.warning(f"⚠️ User {user_id} está en canal VIP pero sin suscripción activa")
+                    logger.debug(f"🆓 User {user_id} tratado como FREE (sin suscripción activa)")
+                    # No devolver VIP - suscripción expiró o no existe
+                    return UserRole.FREE
             except Exception as e:
                 logger.debug(f"⚠️ No se pudo verificar membresía VIP channel para user {user_id}: {e}")
-                # Continue to check subscription
-
-        # 3. Check VIP Subscription (if not in VIP channel)
-        from bot.services.subscription import SubscriptionService
-
-        subscription_service = SubscriptionService(self.session, bot=self.bot)
-
-        is_vip = await subscription_service.is_vip_active(user_id)
-        if is_vip:
-            logger.debug(f"⭐ User {user_id} detectado como VIP (suscripción)")
-            return UserRole.VIP
 
         # 4. Default to Free
         logger.debug(f"🆓 User {user_id} detectado como FREE")

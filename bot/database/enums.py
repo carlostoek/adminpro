@@ -130,6 +130,7 @@ class RoleChangeReason(str, Enum):
         VIP_REDEEMED: Usuario canjeó token de invitación VIP
         VIP_EXPIRED: Suscripción VIP expiró por tiempo
         VIP_EXTENDED: Suscripción VIP extendida por admin
+        VIP_ENTRY_COMPLETED: Usuario completó flujo ritualizado de entrada VIP (Phase 13)
         MANUAL_CHANGE: Cambio manual de rol por admin
         SYSTEM_AUTOMATIC: Cambio automático por el sistema
     """
@@ -140,6 +141,7 @@ class RoleChangeReason(str, Enum):
     VIP_REDEEMED = "VIP_REDEEMED"
     VIP_EXPIRED = "VIP_EXPIRED"
     VIP_EXTENDED = "VIP_EXTENDED"
+    VIP_ENTRY_COMPLETED = "VIP_ENTRY_COMPLETED"
     MANUAL_CHANGE = "MANUAL_CHANGE"
     SYSTEM_AUTOMATIC = "SYSTEM_AUTOMATIC"
 
@@ -157,6 +159,7 @@ class RoleChangeReason(str, Enum):
             RoleChangeReason.VIP_REDEEMED: "VIP Canjeado",
             RoleChangeReason.VIP_EXPIRED: "VIP Expirado",
             RoleChangeReason.VIP_EXTENDED: "VIP Extendido",
+            RoleChangeReason.VIP_ENTRY_COMPLETED: "Entrada VIP Completada",
             RoleChangeReason.MANUAL_CHANGE: "Cambio Manual",
             RoleChangeReason.SYSTEM_AUTOMATIC: "Automático"
         }

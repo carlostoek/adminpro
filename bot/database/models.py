@@ -261,6 +261,18 @@ class VIPSubscriber(Base):
     - Canjeó un token de invitación
     - Tiene fecha de expiración
     - Puede estar activo o expirado
+    - Progresa por ritual de entrada en 3 etapas (Phase 13)
+
+    Etapa de entrada (vip_entry_stage):
+    - 1: Confirmación de activación
+    - 2: Alineación de expectativas
+    - 3: Entrega de enlace de acceso
+    - NULL: Ritual completado (acceso concedido)
+
+    Campos de ritual:
+    - vip_entry_stage: Etapa actual (1-3) o NULL (completado)
+    - vip_entry_token: Token único para enlace de etapa 3
+    - invite_link_sent_at: Timestamp de generación de enlace
     """
     __tablename__ = "vip_subscribers"
 
@@ -279,6 +291,11 @@ class VIPSubscriber(Base):
         index=True
     )  # "active" o "expired"
 
+    # VIP Entry Ritual Fields (Phase 13)
+    vip_entry_stage = Column(Integer, nullable=True, default=1, index=True)  # 1, 2, 3, or NULL (complete)
+    vip_entry_token = Column(String(64), unique=True, nullable=True)  # One-time token for Stage 3 link
+    invite_link_sent_at = Column(DateTime, nullable=True)  # When Stage 3 link was generated
+
     # Token usado
     token_id = Column(Integer, ForeignKey("invitation_tokens.id"), nullable=False)
     token = relationship("InvitationToken", back_populates="subscribers")
@@ -289,6 +306,7 @@ class VIPSubscriber(Base):
     # Índice compuesto para buscar activos próximos a expirar
     __table_args__ = (
         Index('idx_status_expiry', 'status', 'expiry_date'),
+        Index('idx_vip_entry_stage', 'vip_entry_stage'),  # Phase 13: Stage lookup optimization
     )
 
     def is_expired(self) -> bool:

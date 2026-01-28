@@ -173,82 +173,33 @@ async def _activate_token_from_deeplink(
         token.used_by = user.user_id
         token.used_at = datetime.utcnow()
 
-        # Activar suscripción VIP (sin commit en service)
+        # Activar suscripción VIP (inicia flujo ritualizado)
         subscriber = await container.subscription.activate_vip_subscription(
             user_id=user.user_id,
             token_id=token.id,
             duration_hours=plan.duration_days * 24
         )
 
-        # Actualizar rol del usuario a VIP en BD
-        user.role = UserRole.VIP
+        # NO cambiar rol a VIP aún (UserRole se cambia en Stage 3)
+        # user.role = UserRole.FREE  # Ya es FREE por defecto
 
-        # Commit único de toda la transacción
+        # Commit de la transacción
         await session.commit()
         await session.refresh(subscriber)
 
         logger.info(
-            f"✅ Usuario {user.user_id} activado como VIP vía deep link | "
-            f"Plan: {plan.name}"
+            f"✅ Usuario {user.user_id} activó suscripción VIP vía deep link | "
+            f"Plan: {plan.name} | Stage: {subscriber.vip_entry_stage}"
         )
 
-        # Generar link de invitación al canal VIP
-        vip_channel_id = await container.channel.get_vip_channel_id()
+        # Iniciar flujo ritualizado (NO enviar enlace inmediato)
+        from bot.handlers.user.vip_entry import show_vip_entry_stage
 
-        if not vip_channel_id:
-            # Channel not configured - error
-            error_text = container.message.user.start.deep_link_activation_error(
-                error_type="no_plan",
-                details="El canal VIP no está configurado. Contacte al administrador."
-            )
-            await message.answer(error_text, parse_mode="HTML")
-            return
-
-        try:
-            invite_link = await container.subscription.create_invite_link(
-                channel_id=vip_channel_id,
-                user_id=user.user_id,
-                expire_hours=5  # Link válido 5 horas
-            )
-
-            # Calcular días restantes
-            expiry = subscriber.expiry_date
-            if expiry.tzinfo is None:
-                expiry = expiry.replace(tzinfo=timezone.utc)
-
-            now = datetime.now(timezone.utc)
-            days_remaining = max(0, (expiry - now).days)
-
-            # Format price
-            price_str = format_currency(plan.price, symbol=plan.currency)
-
-            # Use provider for success message
-            session_history = container.session_history
-            success_text, keyboard = container.message.user.start.deep_link_activation_success(
-                user_name=user_name,
-                plan_name=plan.name,
-                duration_days=plan.duration_days,
-                price=price_str,
-                days_remaining=days_remaining,
-                invite_link=invite_link.invite_link,
-                user_id=user.user_id,
-                session_history=session_history
-            )
-
-            await message.answer(
-                text=success_text,
-                reply_markup=keyboard,
-                parse_mode="HTML"
-            )
-
-        except Exception as e:
-            logger.warning(f"⚠️ No se pudo crear invite link: {e}")
-            # Error creating invite link - show error
-            error_text = container.message.user.start.deep_link_activation_error(
-                error_type="no_plan",
-                details=f"Suscripción activada pero no se pudo crear el enlace de invitación. Plan: {plan.name}"
-            )
-            await message.answer(error_text, parse_mode="HTML")
+        await show_vip_entry_stage(
+            message=message,
+            container=container,
+            stage=subscriber.vip_entry_stage
+        )
 
     except Exception as e:
         logger.error(f"❌ Error activando token desde deep link: {e}", exc_info=True)
@@ -278,8 +229,26 @@ async def _send_welcome_message(
     """
     user_name = message.from_user.first_name or "Usuario"
 
-    # Usuario normal: detectar rol usando RoleDetectionService
-    # Esto verifica: Admin > VIP Channel > VIP Subscription > Free
+    # Phase 13: Check if user has incomplete VIP entry flow
+    subscriber = await container.subscription.get_vip_subscriber(user_id)
+
+    if subscriber and subscriber.vip_entry_stage:
+        # User has incomplete entry flow - resume from current stage
+        from bot.handlers.user.vip_entry import show_vip_entry_stage
+
+        logger.info(
+            f"🔄 User {user_id} resuming VIP entry flow at stage "
+            f"{subscriber.vip_entry_stage}"
+        )
+
+        await show_vip_entry_stage(
+            message=message,
+            container=container,
+            stage=subscriber.vip_entry_stage
+        )
+        return
+
+    # Original logic: Detect role and show menu
     role_service = container.role_detection
     detected_role = await role_service.get_user_role(user_id)
     is_vip = detected_role == UserRole.VIP

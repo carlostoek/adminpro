@@ -58,6 +58,7 @@ class ServiceContainer:
         self._role_change_service = None
         self._interest_service = None
         self._user_management_service = None
+        self._vip_entry_service = None
 
         logger.debug("🏭 ServiceContainer inicializado (modo lazy)")
 
@@ -354,6 +355,38 @@ class ServiceContainer:
 
         return self._user_management_service
 
+    # ===== VIP ENTRY SERVICE =====
+
+    @property
+    def vip_entry(self):
+        """
+        Service de gestión de flujo ritualizado de entrada VIP.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            VIPEntryService: Instancia del service
+
+        Usage:
+            # Get current stage
+            stage = await container.vip_entry.get_current_stage(user_id=123)
+
+            # Advance stage
+            success = await container.vip_entry.advance_stage(user_id=123, from_stage=1)
+
+            # Create 24h invite link
+            link = await container.vip_entry.create_24h_invite_link(user_id=123)
+
+            # Cancel on expiry
+            await container.vip_entry.cancel_entry_on_expiry(user_id=123)
+        """
+        if self._vip_entry_service is None:
+            from bot.services.vip_entry import VIPEntryService
+            logger.debug("🔄 Lazy loading: VIPEntryService")
+            self._vip_entry_service = VIPEntryService(self._session, self._bot)
+
+        return self._vip_entry_service
+
     # ===== UTILIDADES =====
 
     def get_loaded_services(self) -> list[str]:
@@ -393,6 +426,8 @@ class ServiceContainer:
             loaded.append("interest")
         if self._user_management_service is not None:
             loaded.append("user_management")
+        if self._vip_entry_service is not None:
+            loaded.append("vip_entry")
 
         return loaded
 

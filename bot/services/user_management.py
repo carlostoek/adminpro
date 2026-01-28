@@ -124,7 +124,7 @@ class UserManagementService:
                 "vip_subscription": {
                     "expires_at": vip_sub.expiry_date,
                     "is_active": vip_sub.expiry_date > datetime.utcnow() if vip_sub and vip_sub.expiry_date else False,
-                    "token_used": vip_sub.token_used if vip_sub else None
+                    "token_id": vip_sub.token_id if vip_sub else None
                 } if vip_sub else None,
                 "interests_count": interests_count,
                 "role_changes": [
