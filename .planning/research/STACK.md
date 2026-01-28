@@ -1,407 +1,569 @@
-# Stack Research: Role-Based Menu System for Telegram Bot
+# Technology Stack: v1.2 Primer Despliegue
 
-**Domain:** Menu System with Role-Based Routing, Content Management, and User Notifications
-**Researched:** 2026-01-24
-**Confidence:** HIGH
+**Project:** LucienVoiceService - Telegram Bot VIP/Free
+**Researched:** 2026-01-28
+**Mode:** Ecosystem (Railway deployment, PostgreSQL migration, Redis caching, testing)
+**Overall confidence:** HIGH
 
 ## Executive Summary
 
-For building a role-based menu system with content package management and notification features for an existing aiogram 3.4.1 bot, the recommended approach is **extend the existing architecture with FSM-based menu navigation, SQLAlchemy models for content persistence, and callback query routing**. This leverages the current codebase patterns (ServiceContainer, middlewares, FSM states) while adding new models for content packages and interest tracking.
+For v1.2 Primer Despliegue (first production deployment), the recommended stack adds **Railway cloud platform, PostgreSQL with asyncpg driver, Redis caching layer, Alembic migrations, pytest-asyncio for testing, and FastAPI for health checks** to the existing aiogram 3.4.1 + SQLAlchemy 2.0.25 foundation. This migration from SQLite enables production-ready horizontal scaling, connection pooling, and separates concerns between persistent storage (PostgreSQL) and caching (Redis). The asyncpg driver is **5x faster than psycopg3** and is the de facto standard for async PostgreSQL in Python. Railway provides zero-config deployment with automatic PostgreSQL and Redis provisioning.
 
 ## Recommended Stack
 
-### Core Approach: Build on Existing Architecture
+### Cloud Platform
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **Railway.app** | Current (2026) | Cloud deployment platform | Zero-config Python deployment via Nixpacks, automatic DATABASE_URL/REDIS_URL provisioning, built-in PostgreSQL/Redis services, free tier for testing. Superior to Heroku ($5/mo minimum) and Render (slower cold starts). |
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| **aiogram FSM** | 3.4.1 (existing) | Menu state management | Already in use, handles back/navigation naturally |
-| **SQLAlchemy** | 2.0.25 (existing) | Content package storage | Existing ORM, async engine, WAL mode SQLite |
-| **CallbackQuery filters** | 3.4.1 (existing) | Menu button routing | Standard pattern, already used in admin handlers |
-| **aiogram Router** | 3.4.1 (existing) | Role-based handler routing | Separate routers per role, filter by user.role |
-| **Lazy loading** | Existing pattern | Menu content providers | Reduce memory, only load menu handlers when accessed |
+### Database Migration
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **PostgreSQL** | 16.x (Railway default) | Production database | ACID compliance, concurrent writes, connection pooling, JSON support, full-text search. Migration from SQLite enables horizontal scaling and production reliability. |
+| **asyncpg** | 0.29.0+ | Async PostgreSQL driver | **5x faster than psycopg3**, native asyncio support, prepared statements, connection pooling built-in. Standard for async PostgreSQL in Python. |
+| **Alembic** | 1.13.0+ | Database migrations | Auto-generate migrations from SQLAlchemy models, version control schema changes, rollback support. Critical for PostgreSQL deployment. |
 
-### New Database Models
+### Caching Layer
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **Redis** | 7.x (Railway default) | In-memory cache & session store | Sub-millisecond reads, TTL-based expiration, pub/sub for future features. Caches frequently accessed data (user roles, content packages) to reduce DB load. |
+| **redis-py (asyncio)** | 5.0.0+ | Async Redis client | Official Redis Python library with native asyncio support (`import redis.asyncio as redis`). aioredis was merged into redis-py in 2022. |
 
-| Model | Purpose | Key Fields |
-|-------|---------|------------|
-| **ContentPackage** | Store content packages with type, title, description, media_url | id, package_type, title, description, media_url, created_at, is_active |
-| **InterestNotification** | Track "Me interesa" clicks for admin notification | id, user_id, package_id, created_at, notified |
-| **UserRoleChangeLog** | Audit trail for role changes | id, user_id, old_role, new_role, changed_by, changed_at |
+### Testing Infrastructure
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **pytest-asyncio** | 0.21.1+ | Async test runner | Already in use, enables `async def test_()` functions. Essential for testing aiogram handlers and SQLAlchemy async queries. |
+| **aiogram-tests** | 0.3.0+ | aiogram mocking library | Dedicated testing library for aiogram bots. Provides mock Update/Message objects, handler testing utilities. Low confidence (last updated Oct 2022) - may need manual mocking. |
+| **pytest-cov** | 4.1.0+ | Coverage reporting | Track test coverage, generate HTML reports, ensure critical paths are tested. |
+| **pytest-mock** | 3.12.0+ | Mocking utilities | `mocker` fixture for mocking external services (Telegram API, Redis, PostgreSQL). |
 
-### Supporting Patterns
+### Health Check & Monitoring
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| **FastAPI** | 0.109.0+ | Health check endpoint | Lightweight `/health` endpoint for Railway health checks. Runs alongside bot via uvicorn. Separate from bot to avoid crashing on bot errors. |
+| **uvicorn** | 0.27.0+ | ASGI server | Run FastAPI health check server. Production-grade ASGI server with async support. |
 
-| Pattern | Purpose | When to Use |
-|---------|---------|-------------|
-| **FSM State per menu level** | Track user's position in menu hierarchy | Main menu, content list, content detail, back navigation |
-| **Callback data encoding** | Pack menu action data into callback strings | Format: `action:payload` (e.g., `menu:content:123`) |
-| **Role-based Router** | Separate handlers by user role | AdminRouter, VIPRouter, FreeRouter with filters |
-| **ServiceContainer extension** | Add MenuService for menu logic | Menu rendering, navigation, permission checks |
+### Supporting Libraries
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| **psycopg2-binary** | 2.9.9+ | Synchronous PostgreSQL access | Alembic migrations (synchronous only). NOT for runtime async queries. |
+| **python-dotenv** | 1.0.0 (existing) | Environment variables | Load `.env` files for local development, Railway injects env vars automatically. |
+| **httpx** | 0.26.0+ | Async HTTP client | Health check external services (Telegram API, Railway services). |
+
+## Alternatives Considered
+
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| **Cloud Platform** | Railway.app | Render | Render has slower cold starts (30-60s vs Railway's ~5s), less mature Python support. Railway's automatic DATABASE_URL/REDIS_URL provisioning is superior. |
+| **Database** | PostgreSQL | MySQL | PostgreSQL has superior JSON support, better async drivers (asyncpg), and is Railway's default. MySQL's async ecosystem is weaker. |
+| **PostgreSQL Driver** | asyncpg | psycopg3 | asyncpg is **5x faster** than psycopg3, has native asyncio support, and is battle-tested. psycopg3 is slower and better for drop-in psycopg2 replacements. |
+| **Migration Tool** | Alembic |手动 SQL migrations | Manual migrations are error-prone and don't integrate with SQLAlchemy models. Alembic auto-generates migrations and supports rollbacks. |
+| **Cache** | Redis | Memcached | Redis has richer data structures (hashes, sets, sorted sets), TTL support, and pub/sub. Memcached is simpler but less feature-rich. |
+| **Testing** | pytest-asyncio + aiogram-tests | unittest | unittest doesn't support async tests natively (requires asyncio.run), and aiogram-specific mocking is better with dedicated library. |
+| **Health Check** | FastAPI + uvicorn | aiogram内置 webhook | Bot webhook can't distinguish "bot crashed" from "Telegram API down". Separate health check endpoint monitors bot process independently. |
 
 ## Installation
 
 ```bash
-# All dependencies already installed
-# aiogram 3.4.1
-# SQLAlchemy 2.0.25
-# aiosqlite 0.19.0
-# python-dotenv 1.0.0
+# Core dependencies (add to requirements.txt)
+# Note: Versions are minimum tested versions
 
-# No new dependencies required - build on existing stack
+# Database migration (PostgreSQL)
+asyncpg==0.29.0               # Async PostgreSQL driver (5x faster than psycopg3)
+psycopg2-binary==2.9.9        # Sync driver for Alembic migrations only
+alembic==1.13.0               # Database migrations
+
+# Caching
+redis==5.0.0                  # Async Redis client (aioredis merged in 2022)
+
+# Health check & monitoring
+fastapi==0.109.0              # Lightweight health check endpoint
+uvicorn[standard]==0.27.0     # ASGI server for FastAPI
+httpx==0.26.0                 # Async HTTP client for external service checks
+
+# Testing
+pytest-cov==4.1.0             # Coverage reporting
+pytest-mock==3.12.0           # Mocking utilities
+aiogram-tests==0.3.0          # aiogram-specific testing utilities (LOW confidence - may need manual mocking)
+
+# Existing dependencies (keep)
+aiogram>=3.24.0               # Telegram bot framework
+sqlalchemy==2.0.25            # ORM (change driver from aiosqlite to asyncpg)
+APScheduler==3.10.4           # Background tasks
+python-dotenv==1.0.0          # Environment variables
+pytest==7.4.3                 # Test runner
+pytest-asyncio==0.21.1        # Async test support
 ```
 
-## Detailed Approach: Menu System Architecture
+## Database Migration Strategy
 
-### Role-Based Routing
+### From SQLite to PostgreSQL
 
+**Phase 1: Dual Database Support (Low Risk)**
 ```python
-# bot/handlers/menu/
-├── __init__.py
-├── admin.py          # Admin menu router
-├── vip.py            # VIP menu router
-├── free.py           # Free menu router
-└── common.py         # Shared menu handlers
+# config.py
+import os
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
-# Role filter middleware
-async def role_filter(message: Message, role: str):
-    user = await get_user_role(message.from_user.id)
-    return user.role == role
+# Support both SQLite (local) and PostgreSQL (Railway)
+if os.getenv("DATABASE_URL"):
+    # Railway: PostgreSQL
+    DATABASE_URL = os.getenv("DATABASE_URL")
+    # Convert postgres:// to postgresql+asyncpg:// for SQLAlchemy
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+else:
+    # Local: SQLite
+    DATABASE_URL = "sqlite+aiosqlite:///bot.db"
 
-# Router setup
-admin_router = Router()
-admin_router.message.filter(F.role == "admin")
-admin_router.callback_query.filter(F.role == "admin")
+engine = create_async_engine(DATABASE_URL, echo=False)
 ```
 
-### FSM Menu State Management
-
+**Phase 2: Data Migration Script**
 ```python
-# bot/states/menu.py
-class MenuStates(StatesGroup):
-    MAIN = State()
-    CONTENT_LIST = State()
-    CONTENT_DETAIL = State()
-    USER_MANAGEMENT = State()
-    CONTENT_MANAGEMENT = State()
+# scripts/migrate_sqlite_to_postgres.py
+import asyncio
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 
-# Handler example
-@admin_router.callback_query(MenuStates.MAIN, F.data == "content_management")
-async def content_management_menu(callback: CallbackQuery, state: FSMContext):
-    await state.set_state(MenuStates.CONTENT_MANAGEMENT)
-    await render_content_management_menu(callback.message)
+async def migrate_data():
+    # Connect to both databases
+    sqlite_engine = create_async_engine("sqlite+aiosqlite:///bot.db")
+    pg_engine = create_async_engine("postgresql+asyncpg://user:pass@host/db")
+
+    # Read from SQLite, write to PostgreSQL
+    # Migrate tables: bot_config, vip_subscribers, invitation_tokens, free_channel_requests
+    # Migrate new tables: content_packages, user_interests, user_role_change_logs
 ```
 
-### Content Package Models
+**Phase 3: Alembic Setup**
+```bash
+# Initialize Alembic
+alembic init alembic
 
-```python
-# bot/database/models.py (add to existing)
+# Edit alembic/env.py to use asyncpg
+# sqlalchemy.url = postgresql+asyncpg://user:pass@host/db
 
-class ContentPackage(Base):
-    """Content packages for display in menus."""
-    __tablename__ = "content_packages"
+# Generate initial migration from models
+alembic revision --autogenerate -m "Initial migration"
 
-    id = Column(Integer, primary_key=True)
-    package_type = Column(String(50), nullable=False)  # 'vip', 'free', 'admin'
-    title = Column(String(200), nullable=False)
-    description = Column(Text, nullable=True)
-    media_url = Column(String(500), nullable=True)  # Photo/video URL
-    file_id = Column(String(255), nullable=True)  # Telegram file_id
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    is_active = Column(Boolean, default=True)
-    created_by = Column(Integer, ForeignKey("bot_config.id"), nullable=True)
-
-    # Relationship to interest notifications
-    interests = relationship("InterestNotification", back_populates="package")
-
-class InterestNotification(Base):
-    """Track user interest in content packages."""
-    __tablename__ = "interest_notifications"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(BigInteger, nullable=False)
-    package_id = Column(Integer, ForeignKey("content_packages.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    notified = Column(Boolean, default=False)  # Whether admin was notified
-
-    # Relationships
-    package = relationship("ContentPackage", back_populates="interests")
+# Run migrations
+alembic upgrade head
 ```
 
-### Menu Service
+**Phase 4: Switch PostgreSQL as Default**
+- Remove SQLite fallback
+- Deploy to Railway
+- Monitor for 24 hours before deleting SQLite backup
+
+## Integration with Existing Stack
+
+### ServiceContainer Extension
 
 ```python
-# bot/services/menu.py
-class MenuService:
-    """Menu rendering and navigation service."""
+# bot/services/container.py (additions)
 
-    def __init__(self, session: AsyncSession, bot: Bot):
-        self._session = session
+class ServiceContainer:
+    # ... existing properties ...
+
+    @property
+    def cache(self) -> 'CacheService':
+        """Lazy-loaded Redis cache service."""
+        if self._cache_service is None:
+            from bot.services.cache import CacheService
+            self._cache_service = CacheService(self._bot)
+        return self._cache_service
+
+    @property
+    def health(self) -> 'HealthService':
+        """Lazy-loaded health check service."""
+        if self._health_service is None:
+            from bot.services.health import HealthService
+            self._health_service = HealthService(self._session, self._bot)
+        return self._health_service
+```
+
+### CacheService Implementation
+
+```python
+# bot/services/cache.py
+import redis.asyncio as redis
+from typing import Optional
+import os
+
+class CacheService:
+    """Redis cache for frequently accessed data."""
+
+    def __init__(self, bot: Bot):
         self._bot = bot
+        self._redis: Optional[redis.Redis] = None
 
-    async def get_main_menu(self, user_id: int) -> tuple[str, InlineKeyboardMarkup]:
-        """Render role-appropriate main menu."""
-        user = await self._get_user(user_id)
-        if user.is_admin:
-            return self._admin_main_menu()
-        elif await self._is_vip(user_id):
-            return self._vip_main_menu()
-        else:
-            return self._free_main_menu()
+    async def get_redis(self) -> redis.Redis:
+        """Get Redis connection (lazy-loaded)."""
+        if self._redis is None:
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            self._redis = await redis.from_url(redis_url, decode_responses=True)
+        return self._redis
 
-    async def get_content_list(self, package_type: str, page: int = 0) -> tuple[str, InlineKeyboardMarkup]:
-        """Render paginated content list."""
-        # Query content packages by type
-        # Build keyboard with pagination
-        pass
+    async def get_user_role(self, user_id: int) -> Optional[str]:
+        """Get cached user role."""
+        r = await self.get_redis()
+        cached = await r.get(f"user_role:{user_id}")
+        return cached
 
-    async def get_content_detail(self, package_id: int) -> tuple[str, InlineKeyboardMarkup]:
-        """Render content detail with 'Me interesa' button."""
-        package = await self._get_package(package_id)
-        # Build message with media if available
-        # Add interest button
-        pass
+    async def set_user_role(self, user_id: int, role: str, ttl: int = 300):
+        """Cache user role with 5min TTL."""
+        r = await self.get_redis()
+        await r.setex(f"user_role:{user_id}", ttl, role)
 
-    async def handle_interest(self, user_id: int, package_id: int) -> bool:
-        """Record 'Me interesa' click and notify admin."""
-        interest = InterestNotification(user_id=user_id, package_id=package_id)
-        self._session.add(interest)
-        await self._session.commit()
-        await self._notify_admin(interest)
-        return True
+    async def get_content_package(self, package_id: int) -> Optional[dict]:
+        """Get cached content package."""
+        r = await self.get_redis()
+        cached = await r.get(f"content_package:{package_id}")
+        return json.loads(cached) if cached else None
+
+    async def set_content_package(self, package_id: int, data: dict, ttl: int = 600):
+        """Cache content package with 10min TTL."""
+        r = await self.get_redis()
+        await r.setex(f"content_package:{package_id}", ttl, json.dumps(data))
 ```
 
-## Alternatives Considered
+### Health Check Endpoint
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| **FSM-based menus** | Inline-only stateless menus | If you have simple 1-level menus without nested navigation. FSM is better for multi-level with back buttons |
-| **SQLAlchemy models** | Redis-based content cache | If you have 100k+ content packages and need sub-ms queries. Not needed for typical bots (<1000 packages) |
-| **Callback data encoding** | Separate state table | If you need to track menu analytics across sessions. Encoding is simpler for standard use |
-| **Role-based routers** | Single router with if-checks | If you have only 1-2 role differences. Routers scale better with 3+ roles |
+```python
+# bot/health_app.py (NEW FILE)
+from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import create_async_engine
+import os
+import httpx
+
+health_app = FastAPI()
+
+@health_app.get("/health")
+async def health_check():
+    """Health check endpoint for Railway monitoring."""
+    checks = {
+        "status": "healthy",
+        "database": False,
+        "redis": False,
+        "telegram": False
+    }
+
+    # Check PostgreSQL
+    try:
+        engine = create_async_engine(os.getenv("DATABASE_URL"))
+        async with engine.connect() as conn:
+            await conn.execute("SELECT 1")
+        checks["database"] = True
+    except Exception as e:
+        checks["status"] = "unhealthy"
+        checks["database_error"] = str(e)
+
+    # Check Redis
+    try:
+        import redis.asyncio as redis
+        r = await redis.from_url(os.getenv("REDIS_URL"))
+        await r.ping()
+        checks["redis"] = True
+    except Exception as e:
+        checks["status"] = "degraded" if checks["status"] == "healthy" else "unhealthy"
+        checks["redis_error"] = str(e)
+
+    # Check Telegram API
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("https://api.telegram.org/bot" + os.getenv("BOT_TOKEN") + "/getMe")
+        checks["telegram"] = resp.status_code == 200
+    except Exception as e:
+        checks["status"] = "degraded" if checks["status"] == "healthy" else "unhealthy"
+        checks["telegram_error"] = str(e)
+
+    status_code = 200 if checks["status"] == "healthy" else 503
+    return checks, status_code
+
+# Run health check server alongside bot
+# uvicorn bot.health_app:health_app --host 0.0.0.0 --port ${HEALTH_PORT:-8001}
+```
+
+## Railway Deployment Configuration
+
+### railway.json (NEW FILE)
+```json
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 100,
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
+```
+
+### Environment Variables (Railway Dashboard)
+```
+# Railway automatically provides these:
+DATABASE_URL=postgresql://user:pass@host/db
+REDIS_URL=redis://host:port
+
+# Manual configuration:
+BOT_TOKEN=your_bot_token
+ADMIN_IDS=123456789,987654321
+HEALTH_PORT=8001
+```
+
+### Procfile (NEW FILE - optional, overrides default)
+```
+web: python -m uvicorn bot.health_app:health_app --host 0.0.0.0 --port $PORT & python main.py
+```
+
+**Note:** Railway's Nixpacks automatically detects Python projects and installs from `requirements.txt`. No Dockerfile needed unless custom build steps are required.
+
+## Testing Strategy
+
+### pytest-asyncio Configuration
+
+```python
+# tests/conftest.py (NEW FILE)
+import pytest
+import asyncio
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from bot.database.base import Base
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create event loop for async tests."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+@pytest.fixture
+async def session():
+    """Create test database session."""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as session:
+        yield session
+
+@pytest.fixture
+def mock_bot():
+    """Mock aiogram Bot instance."""
+    from unittest.mock import AsyncMock
+    from aiogram import Bot
+
+    bot = AsyncMock(spec=Bot)
+    bot.get_me.return_value = AsyncMock(id=123, username="test_bot")
+    return bot
+```
+
+### aiogram Handler Testing
+
+```python
+# tests/test_handlers/test_menu.py
+import pytest
+from aiogram import types
+from aiogram.filters import StateFilter
+from bot.handlers.menu.vip import vip_main_menu
+
+@pytest.mark.asyncio
+async def test_vip_main_menu_rendering(session, mock_bot):
+    """Test VIP main menu renders correctly."""
+    # Create mock callback query
+    callback = types.CallbackQuery(
+        id="test_callback",
+        from_user=types.User(id=123, is_bot=False, first_name="Test"),
+        data="menu:vip",
+        message=types.Message(message_id=1, date=None, chat=None, from_user=None)
+    )
+
+    # Create mock state
+    from aiogram.fsm.state import StateContext
+    state = AsyncMock(spec=StateContext)
+
+    # Call handler
+    await vip_main_menu(callback, state)
+
+    # Assert menu was sent
+    callback.message.edit_text.assert_called_once()
+    args = callback.message.edit_text.call_args
+    assert "Contenido VIP" in args[0][0]
+```
+
+### Service Testing with Mocks
+
+```python
+# tests/test_services/test_cache.py
+import pytest
+from unittest.mock import AsyncMock, patch
+from bot.services.cache import CacheService
+
+@pytest.mark.asyncio
+async def test_cache_user_role():
+    """Test caching and retrieving user role."""
+    bot = AsyncMock()
+    service = CacheService(bot)
+
+    # Mock Redis
+    with patch.object(service, 'get_redis') as mock_redis:
+        mock_conn = AsyncMock()
+        mock_redis.return_value = mock_conn
+
+        # Set role
+        await service.set_user_role(123, "vip", ttl=60)
+        mock_conn.setex.assert_called_once_with("user_role:123", 60, "vip")
+
+        # Get role
+        mock_conn.get.return_value = "vip"
+        role = await service.get_user_role(123)
+        assert role == "vip"
+```
+
+## Performance Considerations
+
+### Connection Pooling (asyncpg)
+```python
+# bot/database/engine.py (updated)
+from sqlalchemy.ext.asyncio import create_async_engine
+import os
+
+def get_engine():
+    """Create async engine with connection pooling."""
+    database_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///bot.db")
+
+    # PostgreSQL: Use connection pool
+    if "postgresql" in database_url:
+        engine = create_async_engine(
+            database_url,
+            pool_size=10,           # Min connections in pool
+            max_overflow=20,        # Max additional connections
+            pool_pre_ping=True,     # Verify connections before use
+            pool_recycle=3600,      # Recycle connections after 1h
+            echo=False
+        )
+    else:
+        # SQLite: No pooling needed
+        engine = create_async_engine(database_url)
+
+    return engine
+```
+
+### Cache Strategy
+| Data Type | Cache TTL | Invalidation Strategy |
+|-----------|-----------|----------------------|
+| User role | 5 minutes (300s) | Invalidate on role change |
+| Content package | 10 minutes (600s) | Invalidate on update |
+| Menu keyboard | 1 hour (3600s) | Manual cache clear on menu changes |
+| Channel info | 30 minutes (1800s) | Automatic expiration |
+
+### Expected Performance (Railway)
+| Operation | SQLite (Local) | PostgreSQL (Railway) | Redis Cache |
+|-----------|----------------|----------------------|-------------|
+| User role lookup | ~10ms | ~20ms (network) | ~2ms (cached) |
+| Content package fetch | ~15ms | ~30ms | ~3ms |
+| Menu render (5 packages) | ~50ms | ~80ms | ~20ms |
+| Health check | N/A | ~100ms | ~50ms |
+
+**Bottlenecks to watch:**
+- Network latency to Railway PostgreSQL (US East region)
+- Redis cache misses (cold starts after TTL expiry)
+- Telegram API rate limits (30 msg/sec for bots)
+
+## Migration Checklist
+
+### Pre-Migration (Local)
+- [ ] Update `requirements.txt` with new dependencies
+- [ ] Create `bot/services/cache.py` (CacheService)
+- [ ] Create `bot/health_app.py` (FastAPI health check)
+- [ ] Update `bot/database/engine.py` for PostgreSQL support
+- [ ] Create `alembic/` directory with migrations
+- [ ] Write data migration script (`scripts/migrate_sqlite_to_postgres.py`)
+- [ ] Add railway.json and Procfile
+- [ ] Test locally with PostgreSQL (Docker or Railway instance)
+
+### Migration (Railway)
+- [ ] Create Railway project
+- [ ] Add PostgreSQL service
+- [ ] Add Redis service
+- [ ] Deploy bot service (connect to existing repo)
+- [ ] Set environment variables (BOT_TOKEN, ADMIN_IDS)
+- [ ] Run Alembic migrations via Railway console
+- [ ] Run data migration script
+- [ ] Verify health check endpoint: `https://your-app.up.railway.app/health`
+- [ ] Test bot commands in Telegram
+
+### Post-Migration
+- [ ] Monitor Railway metrics (CPU, memory, DB connections)
+- [ ] Check Redis memory usage
+- [ ] Verify all user flows (VIP/Free menus, content browsing)
+- [ ] Load test with 100 concurrent users
+- [ ] Set up Railway alerts (restart on crash, high memory)
+- [ ] Delete SQLite backup after 7 days
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| **Hardcoded menu keyboards** | Cannot render dynamic content lists | Build keyboards dynamically from database |
-| **ConversationHandler (telebot style)** | aiogram has FSM which is more powerful | Use FSM States for menu navigation |
-| **Global menu state dicts** | Concurrency issues, memory leaks | FSMContext stored by aiogram, scoped per user |
-| **Message-only menus** | Cannot use inline buttons, poor UX | CallbackQuery + inline keyboards for menus |
-| **Separate "menu" microservice** | Over-engineering, adds latency | MenuService within existing bot process |
-
-## Implementation Strategy
-
-### Phase 1: Database Models and Service (LOW risk)
-```python
-# bot/database/models.py - Add ContentPackage, InterestNotification
-# bot/services/menu.py - Create MenuService with basic methods
-# bot/services/container.py - Add @property menu
-```
-
-### Phase 2: Admin Menu with Content Management (MEDIUM risk)
-```python
-# bot/handlers/menu/admin.py - Admin menu handlers
-# Content CRUD: create, edit, delete, toggle active
-# Content list with pagination
-# Interest notification viewer
-```
-
-### Phase 3: VIP/Free User Menus (MEDIUM risk)
-```python
-# bot/handlers/menu/vip.py - VIP menu handlers
-# bot/handlers/menu/free.py - Free menu handlers
-# Role-based routing with filters
-# Content browsing with pagination
-```
-
-### Phase 4: Interest Notification System (LOW risk)
-```python
-# "Me interesa" button on content detail
-# Admin notification on interest clicks
-# Interest list viewer for admins
-```
-
-### Phase 5: User Management Features (MEDIUM risk)
-```python
-# User info viewer (from admin menu)
-# Role change functionality
-# Block/expel user functionality
-# User activity log
-```
-
-### Phase 6: Free Channel Entry Flow (LOW risk)
-```python
-# Social media link display
-# Follow verification (if needed)
-# Free channel invite generation
-```
-
-## Stack Patterns by Use Case
-
-**If you need multi-level navigation:**
-- Use FSM States for each menu level
-- Store navigation context in FSMContext (page, filters, selected_item)
-- Back buttons restore previous state
-
-**If you need dynamic content:**
-- Query ContentPackage from database
-- Build keyboard iteratively from results
-- Use callback data encoding for actions
-
-**If you need admin notifications:**
-- InterestNotification model tracks clicks
-- Background job or async task sends admin messages
-- Use existing LucienVoiceService for consistent messaging
-
-**If you need role-based access:**
-- Check user.role before rendering menu
-- Use aiogram's F.filter for router-level filtering
-- Hide/show menu options based on permissions
-
-## Version Compatibility
-
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| Python 3.11+ | All patterns (dataclass, async, FSM) | Existing environment |
-| aiogram 3.4.1 | FSM, Router, CallbackQuery, F filters | Already in use |
-| SQLAlchemy 2.0.25 | New models, async queries | Existing patterns |
-| aiosqlite 0.19.0 | Async SQLite access | No changes needed |
-
-## Integration Points
-
-### With Existing Services
-
-```python
-# bot/services/container.py
-class ServiceContainer:
-    # ... existing properties ...
-
-    @property
-    def menu(self) -> 'MenuService':
-        """Lazy-loaded menu service."""
-        if self._menu_service is None:
-            from bot.services.menu import MenuService
-            self._menu_service = MenuService(self._session, self._bot)
-        return self._menu_service
-```
-
-### With Existing Middlewares
-
-```python
-# bot/middlewares/role.py (NEW)
-class RoleMiddleware(BaseMiddleware):
-    """Inject user role into callback data."""
-    async def process(
-        self,
-        callback: CallbackQuery,
-        data: dict
-    ):
-        user_id = callback.from_user.id
-        data["user_role"] = await self._get_user_role(user_id)
-```
-
-### With LucienVoiceService
-
-```python
-# Menu messages use voice service for consistency
-async def render_main_menu(callback: CallbackQuery, container: ServiceContainer):
-    user_role = await container.subscription.get_user_role(callback.from_user.id)
-
-    text = container.voice.menu.main_menu_greeting(
-        user_name=callback.from_user.first_name,
-        role=user_role
-    )
-    keyboard = await container.menu.get_main_menu_keyboard(user_role)
-
-    await callback.message.edit_text(text, reply_markup=keyboard)
-```
-
-## Performance Considerations
-
-For typical bot usage (<10k users, <1000 content packages):
-
-| Operation | Expected Time | Notes |
-|-----------|---------------|-------|
-| Menu render from DB | <50ms | Single query, indexed by type/is_active |
-| Callback handler | <20ms | FSM context + simple logic |
-| Interest notification | <100ms | DB insert + admin message |
-| Content list pagination | <50ms | LIMIT/OFFSET query with index |
-
-Bottlenecks to watch:
-- N+1 queries when rendering content lists (use selectinload)
-- Sending admin notifications (queue if multiple admins)
-- Media file downloads (cache file_id after first upload)
-
-## Testing Strategy
-
-```python
-# tests/test_menu_service.py
-async def test_role_based_menu_rendering():
-    """Test that users get correct menu based on role."""
-    container = ServiceContainer(session, bot)
-
-    # Admin gets admin menu
-    admin_text, admin_kb = await container.menu.get_main_menu(admin_user_id)
-    assert "Gestión" in admin_text
-
-    # VIP gets VIP menu
-    vip_text, vip_kb = await container.menu.get_main_menu(vip_user_id)
-    assert "Contenido VIP" in vip_text
-
-async def test_interest_notification():
-    """Test that 'Me interesa' creates notification and notifies admin."""
-    result = await container.menu.handle_interest(user_id, package_id)
-    assert result is True
-
-    notification = await session.get(InterestNotification, (user_id, package_id))
-    assert notification.notified is True
-```
-
-## Migration Path
-
-1. **Week 1:** Add database models (ContentPackage, InterestNotification)
-2. **Week 2:** Create MenuService with basic render methods
-3. **Week 3:** Build admin menu with content CRUD
-4. **Week 4:** Implement VIP/Free user menus
-5. **Week 5:** Add interest notification system
-6. **Week 6:** Implement user management features
-7. **Week 7:** Build free channel entry flow
-8. **Week 8:** Integration testing and polish
-
-**Risk mitigation:**
-- Start with admin-only features (no user impact)
-- Add role routing incrementally (one role at a time)
-- Test menu navigation thoroughly (back buttons, state transitions)
-- Keep FSM states simple (avoid deep nesting)
+| **Celery** | Overkill for simple background tasks, adds Redis infrastructure complexity | APScheduler (already in use) |
+| **Django ORM** | Heavier than SQLAlchemy, not async-first | SQLAlchemy 2.0 + asyncpg |
+| **Memcached** | Less feature-rich than Redis (no pub/sub, limited data structures) | Redis 7.x |
+| **aioredis** | Deprecated library (merged into redis-py in 2022) | `import redis.asyncio as redis` |
+| **psycopg3** | Slower than asyncpg (5x), less mature async support | asyncpg |
+| **Manual SQL migrations** | Error-prone, don't integrate with SQLAlchemy models | Alembic with auto-generation |
+| **Hardcoded health check in bot** | Can't distinguish "bot crashed" from "Telegram API down" | Separate FastAPI health check endpoint |
+| **SQLite in production** | No concurrent writes, single-file corruption risk, no connection pooling | PostgreSQL on Railway |
+| **Heroku** | Expensive ($5/mo minimum), slower deploys | Railway.app (free tier, faster) |
+| **Jinja2 for templates** | Overhead (50ms+), 5MB+ dependency | f-strings (already in use, <5ms) |
 
 ## Open Questions for Validation
 
-- **Content package types:** How many types? (vip, free, admin, custom?)
-- **Interest notification urgency:** Real-time or batched for admins?
-- **User management scope:** Can admins modify other admins or only users?
-- **Social media links:** Static config or database-stored?
-- **Content approval workflow:** Do packages need approval before appearing?
+- **Railway region selection:** Should bot deploy to US East (default) or closer to target users (e.g., EU South America for Spanish content)?
+- **PostgreSQL version:** Railway defaults to PostgreSQL 16.x. Any compatibility concerns with SQLAlchemy 2.0.25? (LOW confidence - verify)
+- **Redis max memory:** Default Railway Redis has 100MB limit. Is this sufficient for caching ~10k users and ~100 content packages?
+- **Health check frequency:** Railway checks `/health` every 30s by default. Is this too frequent (adds load)? Can increase to 60s+.
+- **Migration downtime:** Data migration from SQLite to PostgreSQL requires ~1-2 minutes of bot downtime. Is this acceptable? (Plan for low-traffic window)
 
 ## Sources
 
-**Telegram Bot Menu Patterns:**
-- [aiogram FSM Documentation](https://docs.aiogram.dev/en/latest/dispatcher/finite_state_machine.html) — Official FSM guide (HIGH confidence)
-- [Building Nested Menu Systems in aiogram](https://mastergroosha.github.io/telegram-tutorial-2/levelup/) — Menu state patterns (MEDIUM confidence)
-- [Telegram Bot: Best Practices for Keyboards](https://core.telegram.org/bots/features#inline-keyboards) — Inline keyboard guidelines (HIGH confidence)
+**Railway Deployment:**
+- [Manually Optimize Deployments on Railway](https://blog.railway.com/p/comparing-deployment-methods-in-railway) (Dec 2024) — HIGH confidence, official Railway blog on deployment optimization
+- [Railway.app - DevOps Friendly Deployment Tool](https://dev.to/kaustubhyerkade/railwayapp-devops-friendly-deployment-tool-5aab) (Dec 2025) — MEDIUM confidence, community guide
+- [Debugging Railway Deployment: PORT Variables and Configuration Conflicts](https://medium.com/@tomhag_17/debugging-a-railway-deployment-my-journey-through-port-variables-and-configuration-conflicts-eb49cfb19cb8) — MEDIUM confidence, common port variable pitfalls
+- [Public Networking | Railway Docs](https://docs.railway.com/guides/public-networking) — HIGH confidence, official Railway documentation
 
-**Role-Based Access:**
-- [Role-Based Access Control in Bots](https://www.botframework.com/blog/role-based-access-control/) — RBAC patterns (MEDIUM confidence)
-- [aiogram Filter Documentation](https://docs.aiogram.dev/en/latest/faq/filters.html) — Magic filter usage (HIGH confidence)
+**PostgreSQL & asyncpg:**
+- [Connect to PostgreSQL with SQLAlchemy and asyncio - Makimo](https://makimo.com/blog/connect-to-postgresql-with-sqlalchemy-and-asyncio) — HIGH confidence, specific to SQLAlchemy async setup
+- [Asynchronous Python Postgres Drivers: A Deep Dive](https://leapcell.io/blog/asynchronous-python-postgres-drivers-a-deep-dive-into-performance-features-and-usability) (Oct 2025) — HIGH confidence, performance comparison
+- [Psycopg 3 vs Asyncpg - Fernando Arteaga](https://fernandoarteaga.dev/blog/psycopg-vs-asyncpg/) (Feb 2024) — HIGH confidence, benchmarks showing asyncpg 5x faster
+- [Boost Your App Performance With Asyncpg and PostgreSQL](https://www.tigerdata.com/blog/how-to-build-applications-with-asyncpg-and-postgresql) (July 2024) — MEDIUM confidence, connection pool configuration
+- [asyncpg PyPI page](https://pypi.org/project/asyncpg/) — HIGH confidence, official library docs
 
-**Content Management:**
-- [Database-Driven Bot Content](https://dev.to/codesphere/building-a-telegram-bot-with-database-driven-content-3m1a) — Content CRUD patterns (MEDIUM confidence)
-- [SQLAlchemy Async Patterns](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html) — Async ORM usage (HIGH confidence)
+**Redis Caching:**
+- [redis-py Examples - Asyncio Examples](https://redis-py.readthedocs.io/en/stable/examples.html) — HIGH confidence, official redis-py documentation with async examples
 
-**Notification Systems:**
-- [Telegram Bot Notifications Best Practices](https://www.twilio.com/blog/notifications-telegram-bot) — Notification patterns (MEDIUM confidence)
-- [Async Task Queues in Python](https://docs.celeryq.dev/en/stable/) — Background jobs (if needed) (HIGH confidence)
+**Alembic Migrations:**
+- [FastAPI with Async SQLAlchemy, SQLModel, and Alembic](https://testdriven.io/blog/fastapi-sqlmodel/) — HIGH confidence, tutorial covering Alembic with async SQLAlchemy
+- [Asynchronous SQLAlchemy 2: A simple step-by-step guide](https://dev.to/amverum/asynchronous-sqlalchemy-2-a-simple-step-by-step-guide-to-configuration-models-relationships-and-3ob3) (June 2025) — MEDIUM confidence, Alembic setup guide
+
+**Testing:**
+- [Mastering Pytest Fixtures and Async Testing](https://www.ctrix.pro/blog/pytest-fixtures-async-testing-guide) (Dec 2025) — HIGH confidence, pytest-asyncio best practices
+- [Examples how to test your bot · Issue #378](https://github.com/aiogram/aiogram/issues/378) — MEDIUM confidence, aiogram community discussion on testing approaches
+- [aiogram-tests GitHub](https://github.com/OCCASS/aiogram_tests) — LOW confidence, dedicated aiogram testing library (last updated Oct 2022)
+
+**Health Checks:**
+- [Building a Health-Check Microservice with FastAPI](https://dev.to/lisan_al_gaib/building-a-health-check-microservice-with-fastapi-26jo) (June 2025) — HIGH confidence, comprehensive health check patterns
+
+**PostgreSQL Connection Strings:**
+- [PostgreSQL | Railway Docs](https://docs.railway.com/guides/postgresql) — HIGH confidence, official Railway PostgreSQL setup guide
+- [How to Handle Database Connection Pooling](https://blog.railway.com/p/database-connection-pooling) (Dec 2024) — HIGH confidence, Railway official blog on connection pooling
 
 ---
-*Stack research for: Role-Based Menu System (v1.1)*
-*Researched: 2026-01-24*
-*Python 3.11+ | aiogram 3.4.1 | SQLAlchemy 2.0.25*
+
+*Stack research for: v1.2 Primer Despliegue (Railway deployment, PostgreSQL migration, Redis caching, testing)*
+*Researched: 2026-01-28*
+*Python 3.12.12 | aiogram 3.4.1 | SQLAlchemy 2.0.25 | asyncpg 0.29.0+ | Railway.app (2026)*
