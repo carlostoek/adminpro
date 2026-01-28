@@ -1,8 +1,9 @@
 # Phase 12: Rediseño de Menú de Paquetes con Vista de Detalles - Planning Summary
 
 **Planned:** 2026-01-27
-**Status:** Ready for execution
+**Status:** ✅ Complete (with post-phase fixes)
 **Plans:** 4 plans in 2 waves
+**Completed:** 2026-01-27
 
 ---
 
@@ -258,6 +259,36 @@ await handle_vip_premium(callback, container)
 - ✅ Admin notifications still sent (Phase 8 integration)
 - ✅ No code duplication in navigation handlers
 - ✅ Consistent with Phase 6 navigation patterns
+
+---
+
+## Post-Phase Fixes (2026-01-27)
+
+### Issues Identified After Implementation
+
+Following phase completion, 6 architectural issues were identified and fixed:
+
+| Error | Root Cause | Fix |
+|-------|------------|-----|
+| **Navigation crash** | Generic handler `user:packages:{id}` registered before specific `user:packages:back` | Reordered handlers: specific before generic |
+| **AttributeError `.flow`** | Code used `container.message.user.flow` but ServiceContainer exposes `.flows` | Changed to `container.message.user.flows` |
+| **Incorrect menu for VIP channel users** | Used `is_vip_active()` which only checks subscription, not channel membership | Changed to `container.role_detection.get_user_role()` |
+| **Inconsistent role detection** | Used stale `user.role` from DB instead of real-time detection | Implemented correct priority: Admin > VIP Channel > VIP Subscription > Free |
+| **VIP status AttributeError** | Model uses `expiry_date` but code accessed `expires_at` | Changed to `subscriber.expiry_date` |
+| **Service container access** | Manual instantiation of RoleDetectionService with `container.session` | Use `container.role_detection` property |
+
+### Commits
+
+- `2c5e62b` - Architectural role detection fixes (6 errors)
+- `d6f9cbb` - Fix container.session access
+- `8a94e75` - Fix expires_at → expiry_date
+
+### Lessons Learned
+
+1. **Handler Registration Order:** Specific callback patterns must be registered before generic patterns to prevent capture conflicts
+2. **Role Detection Priority:** VIP channel membership is the highest priority for VIP detection (above subscription checks)
+3. **Service Container Usage:** Always use container properties (e.g., `container.role_detection`) instead of manual service instantiation
+4. **Model Attribute Names:** Verify model schema (Column names) before accessing attributes in handlers
 
 ---
 
