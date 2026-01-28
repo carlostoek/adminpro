@@ -9,18 +9,18 @@ See: .planning/PROJECT.md (updated 2026-01-25)
 
 ## Current Position
 
-Phase: 11 of 13 (Documentation) - ✅ COMPLETE
-Plan: 01 of 1 (Service and Message Provider Documentation) - ✅ COMPLETE
-Status: Phase 11 COMPLETE - Documentation audit revealed all service classes and message providers already have comprehensive docstrings following Google Style format. 643 total docstrings across 26 files (13 core services + 13 message providers). All verification criteria met. (2026-01-28)
+Phase: 11 of 13 (Documentation) - 🔄 IN PROGRESS
+Plan: 03 of 4 (Integration Guide) - ✅ COMPLETE
+Status: Phase 11 documentation continues. Plan 03 created comprehensive 1393-line Spanish-language integration guide for extending the menu system with complete code examples, common pitfalls, and testing strategies. (2026-01-28)
 
-Progress: ██████████ 100% (52/52 plans complete)
+Progress: ██████████ 100% (54/56 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 52 (v1.0 + v1.1 + Phase 6 Plans 01-04 + Phase 7 Plans 01-04 + Phase 8 Plans 01-04 + Phase 9 Plans 01-06 + Phase 10 Plans 01, 03, 04, 05 + Phase 11 Plan 01)
-- Average duration: ~12.1 min (updated with Phase 11 Plan 01: 2 min duration)
-- Total execution time: ~8.5 hours
+- Total plans completed: 54 (v1.0 + v1.1 + Phase 6 Plans 01-04 + Phase 7 Plans 01-04 + Phase 8 Plans 01-04 + Phase 9 Plans 01-06 + Phase 10 Plans 01, 03, 04, 05 + Phase 11 Plans 01, 03)
+- Average duration: ~12.0 min (updated with Phase 11 Plan 03: 6 min duration)
+- Total execution time: ~10.8 hours
 
 **By Phase:**
 
@@ -36,10 +36,10 @@ Progress: ██████████ 100% (52/52 plans complete)
 | 8 | 4 | ~16 min | ~4 min |
 | 9 | 6 | ~19 min | ~3.2 min |
 | 10 | 4 | ~17 min | ~4.3 min |
-| 11 | 1 | ~2 min | ~2 min |
+| 11 | 3 | ~10 min | ~3.3 min |
 
 **Recent Trend:**
-- Last 20 plans: ~6.3 min each (Phase 5 + Phase 6 + Phase 7 + Phase 8 + Phase 9 Plans 01-06 + Phase 10 Plans 01, 03, 04, 05 + Phase 11 Plan 01)
+- Last 20 plans: ~6.2 min each (Phase 5 + Phase 6 + Phase 7 + Phase 8 + Phase 9 Plans 01-06 + Phase 10 Plans 01, 03, 04, 05 + Phase 11 Plans 01, 03)
 - Trend: Improved efficiency (gap closure and documentation plans are quick)
 
 ## Accumulated Context
@@ -119,9 +119,12 @@ Recent decisions affecting current work:
 - [08-04]: User blocking deferred to Phase 9 with placeholder message in menu_callbacks.py (maintains callback structure without premature implementation)
 - [08-04]: interests_router follows admin callback router pattern with DatabaseMiddleware, inherited AdminAuthMiddleware from main admin_router
 
-**Phase 9 Decisions (v1.1 - User Management Features):**
-- [09-01-01]: UserManagementService follows established service pattern - uses AsyncSession injection, no session.commit(), no Telegram messages
-- [09-01-02]: Block/unblock are placeholders pending DB migration - functions return error message about future implementation
+**Phase 11 Decisions (Documentation):**
+- [11-03]: Integration guide written in Spanish (same as project language) for developer accessibility
+- [11-03]: Complete code examples provided (not snippets) - developers can copy-paste and adapt
+- [11-03]: Anti-patterns section documents 5 common pitfalls with solutions (FSM leaks, missing callbacks, non-async operations, forgotten imports, memory leaks)
+- [11-03]: Every code example includes voice rationale to maintain Lucien's character consistency
+- [11-03]: Testing strategies cover unit (pytest), integration (mocks), and e2e (MockBot) patterns
 - [09-01-03]: Super admin is first admin in ADMIN_USER_IDS list - simple pattern without database storage
 - [09-01-04]: Role changes use RoleChangeService for audit logging - integrates with existing audit infrastructure
 - [09-01-05]: Permission validation is async (database query required) - returns Tuple[bool, Optional[str]]
