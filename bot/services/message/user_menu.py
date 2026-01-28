@@ -539,7 +539,7 @@ class UserMenuMessages(BaseMessageProvider):
         ]
         return create_content_with_navigation(
             content_buttons,
-            include_back=False  # Main menu has only exit button
+            include_back=False  # Main menu has no navigation buttons (content only)
         )
 
     def _free_main_menu_keyboard(self) -> InlineKeyboardMarkup:
@@ -564,5 +564,5 @@ class UserMenuMessages(BaseMessageProvider):
         ]
         return create_content_with_navigation(
             content_buttons,
-            include_back=False  # Main menu has only exit button
+            include_back=False  # Main menu has no navigation buttons (content only)
         )
