@@ -649,8 +649,15 @@ async def handle_menu_back(callback: CallbackQuery, container):
     try:
         # Build data dict for menu handler
         data = {"container": container}
+        # IMPORTANT: Pass user_id and user_first_name from callback, not from message
+        # When bot edits its own messages, message.from_user is the bot, not the user
         from .menu import show_free_menu
-        await show_free_menu(callback.message, data)
+        await show_free_menu(
+            callback.message,
+            data,
+            user_id=user.id,
+            user_first_name=user.first_name
+        )
         await callback.answer()
     except Exception as e:
         logger.error(f"Error volviendo al menú Free para {user.id}: {e}", exc_info=True)
