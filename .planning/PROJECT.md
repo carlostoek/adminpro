@@ -4,18 +4,33 @@
 
 Un servicio centralizado que gestiona todos los mensajes del bot con la voz caracteristica de Lucien (mayordomo sofisticado de Diana). El servicio provee templates organizados por flujo de navegacion, soporta dinamismo completo (variables, condicionales, listas dinamicas, variaciones aleatorias), y retorna mensajes formateados en HTML junto con sus keyboards inline correspondientes. Diseado para reemplazar todos los mensajes hardcodeados dispersos en los handlers actuales.
 
-## Current Milestone: v1.1 Sistema de Menús
+## Current State
 
-**Goal:** Sistema de menús contextuales según rol (Admin/VIP/Free) completamente integrado con LucienVoiceService, con gestión de contenido y notificaciones de interés.
+**v1.1 SHIPPED** (2026-01-28)
 
-**Target features:**
-- Menús adaptados según rol del usuario (Admin/VIP/Free)
-- Integración profunda con LucienVoiceService para todos los textos
-- Sistema de paquetes de contenido gestionable por admin
-- Sistema "Me interesa" con notificaciones al admin
-- Gestión de usuarios (ver info, cambiar rol, bloquear, expulsar)
-- Flujo de ingreso al canal Free con redes sociales
-- Documentación exhaustiva
+Sistema de menús contextuales según rol (Admin/VIP/Free) completamente integrado:
+- RoleDetectionService con detección automática de rol (Admin > VIP > Free)
+- 3 nuevos modelos de base de datos (ContentPackage, UserInterest, UserRoleChangeLog)
+- ContentService con operaciones CRUD para paquetes de contenido
+- InterestService con deduplicación de 5 minutos y notificaciones admin
+- UserManagementService con validación de permisos y logging de auditoría
+- Flujo de ingreso al canal Free con teclado de redes sociales
+- Flujo de entrada VIP ritualizado en 3 etapas
+- Vista detallada de paquetes con UX mejorada
+- Documentación exhaustiva: MENU_SYSTEM.md (1,353 líneas), INTEGRATION_GUIDE.md (1,393 líneas), EXAMPLES.md (3,031 líneas)
+- 1,070+ docstrings en servicios y handlers
+- 57/57 requerimientos v1.1 satisfechos (100%)
+
+**v1.0 SHIPPED** (2026-01-24)
+
+The centralized message service is production-ready with:
+- 7 message providers delivering Lucien's voice across all bot interactions
+- Stateless architecture with lazy loading via ServiceContainer
+- Session-aware variation selection preventing repetition
+- Voice validation pre-commit hook for consistency enforcement
+- Message preview CLI tool for development workflow
+- ~330 lines of hardcoded strings eliminated
+- 140/140 tests passing
 
 ## Current State
 
@@ -94,42 +109,96 @@ Testing:
 - ✓ TEST-02: Unit tests — v1.0
 - ✓ TEST-03: Integration tests — v1.0
 
+**v1.1 Menu System Requirements (ALL SATISFIED):**
+
+Role Detection (MENU):
+- ✓ MENU-01: Sistema detecta automáticamente rol del usuario — v1.1
+- ✓ MENU-02: Menú principal adaptado según rol — v1.1
+- ✓ MENU-03: Admin puede ver rol de cualquier usuario — v1.1
+- ✓ MENU-04: Recálculo automático de rol — v1.1
+
+Lucien Menu Providers (VOICE):
+- ✓ VOICE-01: UserMenuProvider VIP con voz de Lucien — v1.1
+- ✓ VOICE-02: UserMenuProvider Free con voz de Lucien — v1.1
+- ✓ VOICE-03: UserFlowProvider bienvenida canal Free con redes sociales — v1.1
+- ✓ VOICE-04: UserFlowProvider aprobación acceso con botón al canal — v1.1
+- ✓ VOICE-05: UserFlowProvider bienvenida canal VIP — v1.1
+- ✓ VOICE-06: Terminología de Lucien en botones de navegación — v1.1
+
+Keyboard & Navigation (NAV):
+- ✓ NAV-01: MenuService centraliza navegación — v1.1
+- ✓ NAV-02: Callbacks unificados (menu:main, menu:vip, menu:free) — v1.1
+- ✓ NAV-03: Navegación jerárquica con botón "Volver" — v1.1
+- ✓ NAV-04: Handlers integrados con LucienVoiceService — v1.1
+- ✓ NAV-05: Sistema reemplaza keyboards.py hardcoded — v1.1
+
+VIP Menu (VIPMENU):
+- ✓ VIPMENU-01: Menú VIP muestra info de suscripción — v1.1
+- ✓ VIPMENU-02: Menú VIP tiene opción "Premium" — v1.1
+- ✓ VIPMENU-03: Botón "Me interesa" en paquetes premium — v1.1
+- ✓ VIPMENU-04: Navegación fluida en menú VIP — v1.1
+
+Free Menu (FREEMENU):
+- ✓ FREEMENU-01: Menú Free tiene opción "Mi Contenido" — v1.1
+- ✓ FREEMENU-02: Submenú lista paquetes disponibles — v1.1
+- ✓ FREEMENU-03: Botón "Me interesa" en cada paquete — v1.1
+- ✓ FREEMENU-04: Menú Free tiene opción "Canal VIP" — v1.1
+- ✓ FREEMENU-05: Menú Free tiene opción redes sociales — v1.1
+
+Content Packages (CONTENT):
+- ✓ CONTENT-01: Tabla ContentPackage en BD — v1.1
+- ✓ CONTENT-02: Categorías FREE_CONTENT, VIP_CONTENT, VIP_PREMIUM — v1.1
+- ✓ CONTENT-03: ContentService para CRUD — v1.1
+- ✓ CONTENT-04: Admin puede crear paquetes — v1.1
+- ✓ CONTENT-05: Admin puede editar paquetes — v1.1
+- ✓ CONTENT-06: Admin puede desactivar paquetes (soft delete) — v1.1
+- ✓ CONTENT-07: Menús muestran solo paquetes activos — v1.1
+
+Interest Notifications (INTEREST):
+- ✓ INTEREST-01: Botón "Me interesa" crea registro — v1.1
+- ✓ INTEREST-02: Tabla UserInterest en BD — v1.1
+- ✓ INTEREST-03: Admin recibe notificación privada — v1.1
+- ✓ INTEREST-04: Notificación incluye info usuario y paquete — v1.1
+- ✓ INTEREST-05: InterestService para gestión — v1.1
+
+Admin User Management (ADMIN-USR):
+- ✓ ADMIN-USR-01: Menú admin tiene "Gestión de Usuarios" — v1.1
+- ✓ ADMIN-USR-02: Admin puede ver info detallada de usuario — v1.1
+- ✓ ADMIN-USR-03: Admin puede cambiar rol de usuario — v1.1
+- ✓ ADMIN-USR-04: Admin puede bloquear usuario — v1.1
+- ✓ ADMIN-USR-05: Admin puede expulsar usuario del canal — v1.1
+
+Admin Interests (ADMIN-INT):
+- ✓ ADMIN-INT-01: Menú admin tiene "Intereses" — v1.1
+- ✓ ADMIN-INT-02: Lista de intereses organizada por fecha — v1.1
+- ✓ ADMIN-INT-03: Admin puede marcar como "Atendido" — v1.1
+- ✓ ADMIN-INT-04: Admin tiene link al perfil del usuario — v1.1
+- ✓ ADMIN-INT-05: Admin puede ver paquete de interés — v1.1
+
+Admin Content (ADMIN-CONTENT):
+- ✓ ADMIN-CONTENT-01: Menú admin tiene "Paquetes de Contenido" — v1.1
+- ✓ ADMIN-CONTENT-02: Admin puede listar todos los paquetes — v1.1
+- ✓ ADMIN-CONTENT-03: Admin puede crear paquete con wizard — v1.1
+- ✓ ADMIN-CONTENT-04: Admin puede editar paquete — v1.1
+- ✓ ADMIN-CONTENT-05: Admin puede desactivar paquete — v1.1
+
+Free Entry Flow (FLOW-FREE):
+- ✓ FLOW-FREE-01: Mensaje solicitud usa voz de Lucien — v1.1
+- ✓ FLOW-FREE-02: Mensaje incluye redes sociales — v1.1
+- ✓ FLOW-FREE-03: Mensaje explica tiempo de espera — v1.1
+- ✓ FLOW-FREE-04: Mensaje sugiere seguir redes sociales — v1.1
+- ✓ FLOW-FREE-05: Mensaje aprobación tiene botón acceso — v1.1
+- ✓ FLOW-FREE-06: Aprobación automática después de tiempo — v1.1
+
+Documentation (DOCS):
+- ✓ DOCS-01: Docstrings exhaustivos en código — v1.1
+- ✓ DOCS-02: Documentación .md arquitectura menús — v1.1
+- ✓ DOCS-03: Guía integración nuevas opciones — v1.1
+- ✓ DOCS-04: Ejemplos de uso del sistema — v1.1
+
 ### Active
 
-**v1.1 Sistema de Menús** (60 requerimientos):
-
-Role Detection:
-- [ ] MENU-01: Sistema detecta automáticamente rol del usuario
-- [ ] MENU-02: Menú principal adaptado según rol
-- [ ] MENU-03: Admin puede ver rol de cualquier usuario
-- [ ] MENU-04: Recálculo automático de rol
-
-Lucien Menu Providers:
-- [ ] VOICE-01 a VOICE-06: Proveedores de mensajes para menús VIP/Free y flujos
-
-Keyboard & Navigation:
-- [ ] NAV-01 a NAV-05: MenuService centralizado, callbacks unificados
-
-User Menus (VIP/Free):
-- [ ] VIPMENU-01 a VIPMENU-04: Menú VIP con suscripción y premium
-- [ ] FREEMENU-01 a FREEMENU-05: Menú Free con contenido y VIP
-
-Content Packages:
-- [ ] CONTENT-01 a CONTENT-07: Sistema de paquetes en BD
-
-Interest System:
-- [ ] INTEREST-01 a INTEREST-05: Sistema "Me interesa" con notificaciones
-
-Admin Management:
-- [ ] ADMIN-USR-01 a ADMIN-USR-05: Gestión de usuarios
-- [ ] ADMIN-INT-01 a ADMIN-INT-05: Gestión de intereses
-- [ ] ADMIN-CONTENT-01 a ADMIN-CONTENT-05: Gestión de paquetes
-
-Entry Flow:
-- [ ] FLOW-FREE-01 a FLOW-FREE-06: Flujo de ingreso canal Free
-
-Documentation:
-- [ ] DOCS-01 a DOCS-04: Documentación exhaustiva
+*No active requirements - Ready for next milestone planning*
 
 ### Out of Scope
 
@@ -157,16 +226,18 @@ El bot tiene una arquitectura solida en produccion con v1.0 message service inte
 - **Background tasks**: APScheduler para mantenimiento autonomo
 - **Message service**: LucienVoiceService with session-aware variation selection
 
-### Metrics (v1.0)
+### Metrics (v1.1)
 
-- Total lines of code: ~13,000 Python
-- Message service code: ~3,500 lines
-- Test files: 7 (140 tests passing)
-- Providers: 7 (Common, AdminMain, AdminVIP, AdminFree, UserStart, UserFlow, SessionHistory)
-- Handlers migrated: 5 files
+- Total lines of code: ~166,000 Python (entira base de código)
+- Bot directory: ~24,328 lines of Python
+- Message providers: 13 (Common, AdminMain, AdminVIP, AdminFree, UserStart, UserFlow, SessionHistory, UserMenu, AdminContent, AdminInterest, AdminUser, VIPEntryFlow)
+- Services: 12 (incl. RoleDetection, Content, Interest, VIPEntry, UserManagement, RoleChange)
+- Documentation: 5,777 lines (4 main .md files + 1,070+ docstrings)
+- Handlers organized: 23 files (admin/user split)
 - Hardcoded strings eliminated: ~330 lines
 - Memory overhead: ~80 bytes/user for session history
 - Voice linter performance: 5.09ms average
+- Test files: 7 (140 tests passing)
 
 ### Guia de Estilo
 
@@ -203,4 +274,4 @@ Existe `docs/guia-estilo.md` con 410 lineas que definen:
 
 ---
 
-*Last updated: 2026-01-24 after v1.1 milestone initiation*
+*Last updated: 2026-01-28 after v1.1 milestone completion*

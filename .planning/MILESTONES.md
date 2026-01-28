@@ -1,5 +1,40 @@
 # Project Milestones: LucienVoiceService
 
+## v1.1 Sistema de Menús (Shipped: 2026-01-28)
+
+**Delivered:** Role-based menu system (Admin/VIP/Free) with automatic role detection, content package management, interest notifications, user management, social media integration, VIP ritualized entry flow, and comprehensive documentation.
+
+**Phases completed:** 5-13 (48 plans total)
+
+**Key accomplishments:**
+
+- RoleDetectionService with automatic role calculation (Admin > VIP > Free priority)
+- Role-based menu routing with MenuRouter and separate routers per role
+- 3 new database models (ContentPackage, UserInterest, UserRoleChangeLog)
+- ContentService with full CRUD operations for content packages
+- InterestService with 5-minute deduplication window and admin notifications
+- UserManagementService with permission validation and audit logging
+- Free channel entry flow with social media keyboard (Instagram, TikTok, X)
+- VIP ritualized 3-stage entry flow (confirmation → alignment → access delivery)
+- Package detail view redesign with improved UX
+- Comprehensive documentation: MENU_SYSTEM.md (1,353 lines), INTEGRATION_GUIDE.md (1,393 lines), EXAMPLES.md (3,031 lines)
+- 1,070+ docstrings across services and handlers
+- 57/57 v1.1 requirements satisfied (100%)
+
+**Stats:**
+
+- 201 commits since v1.0
+- 24,328 lines of Python code (bot/ directory only)
+- 9 phases, 48 plans, ~200+ tasks
+- 26 documentation files (5,777 lines across 4 main .md files)
+- 49 days from v1.0 to v1.1 ship (2025-12-10 to 2026-01-28)
+
+**Git range:** `v1.0` to current HEAD
+
+**What's next:** Run `/gsd:new-milestone` to define v1.2 goals (Potential areas: Analytics dashboard, User onboarding improvements, Advanced content features)
+
+---
+
 ## v1.0 LucienVoiceService (Shipped: 2026-01-24)
 
 **Delivered:** Centralized message service maintaining Lucien's sophisticated mayordomo voice across all bot interactions with stateless architecture, template composition, and session-aware variation selection.
