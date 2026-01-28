@@ -31,7 +31,7 @@ admin_router.include_router(admin_users.users_router)
 
 # Importar handlers para que se registren sus callbacks
 # (usan @admin_router.callback_query decorator)
-from bot.handlers.admin import vip, free, pricing, stats, dashboard
+from bot.handlers.admin import vip, free, pricing, stats, dashboard, broadcast, management
 
 # Registrar handlers de callbacks del menú
 from bot.handlers.admin.menu_callbacks import register_menu_callbacks

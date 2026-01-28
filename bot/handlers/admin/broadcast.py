@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @admin_router.callback_query(F.data == "vip:broadcast")
 async def callback_broadcast_to_vip(
     callback: CallbackQuery,
+    session: AsyncSession,
     state: FSMContext
 ):
     """
@@ -36,6 +37,7 @@ async def callback_broadcast_to_vip(
 
     Args:
         callback: Callback query
+        session: Sesión de BD (inyectada por middleware)
         state: FSM context
     """
     logger.info(f"📤 Usuario {callback.from_user.id} iniciando broadcast a VIP")
@@ -70,6 +72,7 @@ async def callback_broadcast_to_vip(
 @admin_router.callback_query(F.data == "free:broadcast")
 async def callback_broadcast_to_free(
     callback: CallbackQuery,
+    session: AsyncSession,
     state: FSMContext
 ):
     """
@@ -77,6 +80,7 @@ async def callback_broadcast_to_free(
 
     Args:
         callback: Callback query
+        session: Sesión de BD (inyectada por middleware)
         state: FSM context
     """
     logger.info(f"📤 Usuario {callback.from_user.id} iniciando broadcast a Free")
@@ -343,6 +347,7 @@ async def callback_broadcast_confirm(
 )
 async def callback_broadcast_change(
     callback: CallbackQuery,
+    session: AsyncSession,
     state: FSMContext
 ):
     """
@@ -350,6 +355,7 @@ async def callback_broadcast_change(
 
     Args:
         callback: Callback query
+        session: Sesión de BD (inyectada por middleware)
         state: FSM context
     """
     logger.debug(f"🔄 Usuario {callback.from_user.id} cambiando contenido de broadcast")
@@ -381,6 +387,7 @@ async def callback_broadcast_change(
 @admin_router.callback_query(F.data == "broadcast:cancel")
 async def callback_broadcast_cancel(
     callback: CallbackQuery,
+    session: AsyncSession,
     state: FSMContext
 ):
     """
@@ -390,6 +397,7 @@ async def callback_broadcast_cancel(
 
     Args:
         callback: Callback query
+        session: Sesión de BD (inyectada por middleware)
         state: FSM context
     """
     logger.info(f"❌ Usuario {callback.from_user.id} canceló broadcasting")
