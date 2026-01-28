@@ -280,9 +280,7 @@ async def _send_welcome_message(
 
     # Usuario normal: detectar rol usando RoleDetectionService
     # Esto verifica: Admin > VIP Channel > VIP Subscription > Free
-    from bot.services.role_detection import RoleDetectionService
-
-    role_service = RoleDetectionService(container.session, message.bot)
+    role_service = container.role_detection
     detected_role = await role_service.get_user_role(user_id)
     is_vip = detected_role == UserRole.VIP
 
