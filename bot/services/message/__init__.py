@@ -32,6 +32,7 @@ from .admin_user import AdminUserMessages
 from .user_start import UserStartMessages
 from .user_flows import UserFlowMessages
 from .user_menu import UserMenuMessages
+from .vip_entry import VIPEntryFlowMessages
 
 __all__ = [
     "BaseMessageProvider",
@@ -48,6 +49,7 @@ __all__ = [
     "UserStartMessages",
     "UserFlowMessages",
     "UserMenuMessages",
+    "VIPEntryFlowMessages",
 ]
 
 
@@ -256,7 +258,8 @@ class UserMessages:
             └─ user: UserMessages (this class)
                 ├─ start: UserStartMessages (Phase 3 Plan 01) ✅
                 ├─ flows: UserFlowMessages (Phase 3 Plan 02) ✅
-                └─ menu: UserMenuMessages (Phase 6 Plan 01) ✅ NEW
+                ├─ menu: UserMenuMessages (Phase 6 Plan 01) ✅
+                └─ vip_entry: VIPEntryFlowMessages (Phase 13 Plan 02) ✅ NEW
 
     Usage:
         container = ServiceContainer(session, bot)
@@ -283,7 +286,8 @@ class UserMessages:
         """
         self._start = None
         self._flows = None
-        self._menu = None  # NEW
+        self._menu = None
+        self._vip_entry = None  # Phase 13 Plan 02
 
     @property
     def start(self):
@@ -353,6 +357,28 @@ class UserMessages:
             from .user_menu import UserMenuMessages
             self._menu = UserMenuMessages()
         return self._menu
+
+    @property
+    def vip_entry(self):
+        """
+        VIP entry flow messages (Phase 13 Plan 02) ✅ NEW.
+
+        Lazy-loaded: creates VIPEntryFlowMessages instance on first access.
+        Provides 3-stage ritual admission messages with Lucien's voice.
+
+        Returns:
+            VIPEntryFlowMessages: Provider for VIP entry ritual messages
+
+        Examples:
+            >>> user = UserMessages()
+            >>> text, kb = user.vip_entry.stage_1_activation_confirmation()
+            >>> '🎩 Lucien:' in text and 'pocos toman' in text
+            True
+        """
+        if self._vip_entry is None:
+            from .vip_entry import VIPEntryFlowMessages
+            self._vip_entry = VIPEntryFlowMessages()
+        return self._vip_entry
 
 
 class LucienVoiceService:
