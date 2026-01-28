@@ -75,7 +75,14 @@ class VIPEntryService:
         Returns:
             Etapa actual (1, 2, 3) o NULL si flujo completado/no iniciado
         """
-        pass  # Implement in T2
+        result = await self.session.execute(
+            select(VIPSubscriber.vip_entry_stage).where(
+                VIPSubscriber.user_id == user_id
+            )
+        )
+        stage = result.scalar_one_or_none()
+        return stage
+
 
     async def advance_stage(self, user_id: int, from_stage: int) -> bool:
         """
@@ -93,7 +100,47 @@ class VIPEntryService:
         Returns:
             True si etapa avanzó correctamente, False si error
         """
-        pass  # Implement in T2
+        # Get subscriber
+        result = await self.session.execute(
+            select(VIPSubscriber).where(VIPSubscriber.user_id == user_id)
+        )
+        subscriber = result.scalar_one_or_none()
+
+        if not subscriber:
+            logger.error(f"❌ VIPSubscriber not found for user {user_id}")
+            return False
+
+        # Validate subscription not expired
+        if subscriber.is_expired():
+            logger.warning(
+                f"⚠️ Cannot advance stage: User {user_id} subscription expired"
+            )
+            return False
+
+        # Validate from_stage matches current stage
+        current_stage = subscriber.vip_entry_stage if subscriber.vip_entry_stage else 0
+
+        if from_stage != current_stage:
+            logger.warning(
+                f"⚠️ Stage mismatch: expected {current_stage}, got {from_stage} "
+                f"for user {user_id}"
+            )
+            return False
+
+        # Validate sequential progression (no skips)
+        if from_stage not in (1, 2):  # Only advance from stage 1 or 2
+            logger.warning(f"⚠️ Cannot advance from stage {from_stage}")
+            return False
+
+        # Advance to next stage
+        next_stage = from_stage + 1
+        subscriber.vip_entry_stage = next_stage
+
+        logger.info(
+            f"✅ User {user_id} VIP entry advanced: stage {from_stage} → {next_stage}"
+        )
+
+        return True
 
     # ===== TOKEN GENERATION =====
 
