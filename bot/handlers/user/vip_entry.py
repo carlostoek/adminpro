@@ -262,7 +262,7 @@ async def handle_vip_entry_main_menu(
 
     Muestra el menú principal al usuario después de haber completado el flujo de entrada VIP.
     """
-    user_id = callback.chat.id  # Use chat.id for correct user ID
+    user_id = callback.from_user.id  # CallbackQuery uses from_user, not chat
 
     # Clear FSM state
     await state.clear()
