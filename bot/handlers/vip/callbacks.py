@@ -593,8 +593,15 @@ async def handle_menu_back(callback: CallbackQuery, container):
         # Build data dict for menu handler
         data = {"container": container}
         # Re-show VIP menu (reusing show_vip_menu logic)
+        # IMPORTANT: Pass user_id and user_first_name from callback, not from message
+        # When bot edits its own messages, message.from_user is the bot, not the user
         from .menu import show_vip_menu
-        await show_vip_menu(callback.message, data)
+        await show_vip_menu(
+            callback.message,
+            data,
+            user_id=user.id,
+            user_first_name=user.first_name
+        )
         await callback.answer()
 
     except Exception as e:
