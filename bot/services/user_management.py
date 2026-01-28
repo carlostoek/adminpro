@@ -423,6 +423,10 @@ class UserManagementService:
         """
         Obtiene lista de usuarios con filtros y paginación.
 
+        NOTA: Este método retorna usuarios con roles en tiempo real usando RoleDetectionService,
+        no los roles stale de la base de datos. Esto garantiza que los usuarios en el canal VIP
+        se muestren como VIP incluso si su suscripción expiró.
+
         Args:
             role: Filtrar por rol (None = todos)
             limit: Máximo de registros a retornar
@@ -431,13 +435,14 @@ class UserManagementService:
 
         Returns:
             Tupla (users, total_count):
-            - users: Lista de objetos User
+            - users: Lista de objetos User con roles actualizados en tiempo real
             - total_count: Total de registros (sin paginar)
         """
         try:
             # Build base query for count
             count_stmt = select(func.count(User.user_id))
             if role is not None:
+                # Para contar, filtramos por rol en BD primero (aproximación)
                 count_stmt = count_stmt.where(User.role == role)
 
             # Execute count
@@ -447,7 +452,7 @@ class UserManagementService:
             # Build query for users
             stmt = select(User)
 
-            # Apply filter
+            # Apply filter (para paginación inicial)
             if role is not None:
                 stmt = stmt.where(User.role == role)
 
@@ -464,11 +469,29 @@ class UserManagementService:
             result = await self.session.execute(stmt)
             users = result.scalars().all()
 
+            # IMPORTANTE: Actualizar roles en tiempo real usando RoleDetectionService
+            # Esto es necesario para mostrar correctamente usuarios en canal VIP
+            from bot.services.role_detection import RoleDetectionService
+
+            role_service = RoleDetectionService(self.session, self.bot)
+
+            # Filtrar y actualizar roles
+            filtered_users = []
+            for user in users:
+                # Detectar rol real en tiempo real
+                real_role = await role_service.get_user_role(user.user_id)
+
+                # Si se solicitó filtro, verificar que coincide
+                if role is None or real_role == role:
+                    # Actualizar rol del objeto User para display correcto
+                    user.role = real_role
+                    filtered_users.append(user)
+
             logger.debug(
-                f"Retrieved {len(users)} users (total: {total_count}, role: {role})"
+                f"Retrieved {len(filtered_users)} users (total: {total_count}, role: {role})"
             )
 
-            return (users, total_count)
+            return (filtered_users, total_count)
 
         except Exception as e:
             logger.error(f"Error getting user list: {e}", exc_info=True)

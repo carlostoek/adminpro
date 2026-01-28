@@ -30,6 +30,212 @@ free_callbacks_router = Router()
 free_callbacks_router.callback_query.middleware(DatabaseMiddleware())
 
 
+# Register SPECIFIC handlers BEFORE GENERIC ones to avoid pattern matching conflicts
+# "user:packages:back" must be registered before "user:packages:{id}"
+
+@free_callbacks_router.callback_query(lambda c: c.data == "user:packages:back")
+async def handle_packages_back_to_list(callback: CallbackQuery, container):
+    """
+    Vuelve al listado de paquetes Free (desde vista de detalle o confirmación).
+
+    Reutiliza handle_free_content() para consistencia.
+
+    Args:
+        callback: CallbackQuery de Telegram
+        container: ServiceContainer inyectado por middleware
+    """
+    await handle_free_content(callback, container)
+
+
+@free_callbacks_router.callback_query(lambda c: c.data and c.data.startswith("user:packages:back:"))
+async def handle_packages_back_with_role(callback: CallbackQuery, container):
+    """
+    Vuelve al listado de paquetes desde confirmación de interés (con user_role).
+
+    Callback data format: "user:packages:back:{user_role}"
+
+    Ignora el user_role y siempre vuelve al listado Free (router Free).
+
+    Args:
+        callback: CallbackQuery de Telegram
+        container: ServiceContainer inyectado por middleware
+    """
+    await handle_free_content(callback, container)
+
+
+@free_callbacks_router.callback_query(lambda c: c.data and c.data.startswith("user:packages:"))
+async def handle_package_detail(callback: CallbackQuery, container):
+    """
+    Muestra vista detallada de un paquete específico.
+
+    Callback data format: "user:packages:{package_id}"
+
+    Args:
+        callback: CallbackQuery de Telegram
+        container: ServiceContainer inyectado por middleware
+    """
+    user = callback.from_user
+
+    if not container:
+        await callback.answer("⚠️ Error: servicio no disponible", show_alert=True)
+        return
+
+    try:
+        # Extract package ID from callback data
+        package_id_str = callback.data.split(":")[-1]
+        package_id = int(package_id_str)
+
+        # Fetch package from ContentService
+        package = await container.content.get_package(package_id)
+
+        if not package:
+            await callback.answer("⚠️ Paquete no encontrado", show_alert=True)
+            logger.warning(f"⚠️ Usuario Free {user.id} solicitó paquete inexistente: {package_id}")
+            return
+
+        # Get session context for message variations
+        session_ctx = None
+        try:
+            session_ctx = container.message.get_session_context(container)
+        except Exception as e:
+            logger.warning(f"No se pudo obtener contexto de sesión para {user.id}: {e}")
+
+        # Generate detail view using UserMenuMessages
+        text, keyboard = container.message.user.menu.package_detail_view(
+            package=package,
+            user_role="Free",
+            user_id=user.id,
+            session_history=session_ctx
+        )
+
+        # Update message with detail view
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+        await callback.answer()
+
+        logger.info(f"📦 Vista detallada mostrada a usuario Free {user.id}: {package.name}")
+
+    except (ValueError, IndexError) as e:
+        logger.error(f"Error parsing package ID from callback {callback.data}: {e}")
+        await callback.answer("⚠️ Error: ID de paquete inválido", show_alert=True)
+    except Exception as e:
+        logger.error(f"Error mostrando detalle de paquete para {user.id}: {e}", exc_info=True)
+        await callback.answer("⚠️ Error cargando detalles del paquete", show_alert=True)
+
+
+@free_callbacks_router.callback_query(lambda c: c.data and c.data.startswith("user:package:interest:"))
+async def handle_package_interest_confirm(callback: CallbackQuery, container):
+    """
+    Registra interés en paquete y muestra mensaje de confirmación con contacto directo.
+
+    Callback data format: "user:package:interest:{package_id}"
+
+    Flujo:
+    1. Extraer package_id del callback
+    2. Fetch paquete desde ContentService
+    3. Registrar interés usando InterestService (con deduplicación de 5 min)
+    4. Si success=True:
+       - Enviar notificación admin (reutilizar _send_admin_interest_notification)
+       - Mostrar confirmación con botón "Escribirme" (tg://resolve link)
+       - Botones de navegación: "Regresar" (a listado) e "Inicio" (a menú Free)
+    5. Si success=False y status=="debounce":
+       - Feedback sutil: "Interés registrado previamente"
+       - NO actualizar mensaje ni enviar notificación
+    6. Si success=False (error):
+       - Mostrar alerta de error
+
+    Args:
+        callback: CallbackQuery de Telegram
+        container: ServiceContainer inyectado por middleware
+    """
+    user = callback.from_user
+
+    if not container:
+        await callback.answer("⚠️ Error: servicio no disponible", show_alert=True)
+        return
+
+    try:
+        # Extract package ID from callback data
+        package_id_str = callback.data.split(":")[-1]
+        package_id = int(package_id_str)
+
+        # Fetch package from ContentService
+        package = await container.content.get_package(package_id)
+
+        if not package:
+            await callback.answer("⚠️ Paquete no encontrado", show_alert=True)
+            logger.warning(f"⚠️ Usuario Free {user.id} solicitó paquete inexistente: {package_id}")
+            return
+
+        # Register interest using InterestService (with deduplication)
+        success, status, interest = await container.interest.register_interest(
+            user_id=user.id,
+            package_id=package_id
+        )
+
+        if success:
+            # New interest or re-interest after debounce window
+            logger.info(
+                f"✅ Usuario Free {user.id} ({user.first_name}) interesado en paquete {package_id} "
+                f"(status: {status})"
+            )
+
+            # Send admin notification (reuse existing function)
+            await _send_admin_interest_notification(
+                bot=callback.bot,
+                container=container,
+                user=user,
+                package=interest.package,
+                interest=interest,
+                user_role="Free"
+            )
+
+            # Get session context for message variations
+            session_ctx = None
+            try:
+                session_ctx = container.message.get_session_context(container)
+            except Exception as e:
+                logger.warning(f"No se pudo obtener contexto de sesión para {user.id}: {e}")
+
+            # Generate confirmation message with contact button
+            text, keyboard = container.message.user.flows.package_interest_confirmation(
+                user_name=user.first_name or "Usuario",
+                package_name=package.name,
+                user_role="Free",
+                user_id=user.id,
+                session_history=session_ctx
+            )
+
+            # Update message with confirmation
+            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+            await callback.answer("✅ Interés registrado")
+
+        else:
+            # Debounce window active - no notification, no message update
+            if status == "debounce":
+                logger.debug(
+                    f"⏱️ Interés de usuario Free {user.id} en paquete {package_id} "
+                    f"ignorado (ventana de debounce activa)"
+                )
+                # Show subtle feedback (no alert, just toast)
+                await callback.answer("✅ Interés registrado previamente")
+            else:
+                # Error occurred
+                logger.error(
+                    f"❌ Error registrando interés para usuario Free {user.id}: {status}"
+                )
+                await callback.answer(
+                    "⚠️ Error registrando interés",
+                    show_alert=True
+                )
+
+    except (ValueError, IndexError) as e:
+        logger.error(f"Error parsing package ID from callback {callback.data}: {e}")
+        await callback.answer("⚠️ Error: ID de paquete inválido", show_alert=True)
+    except Exception as e:
+        logger.error(f"Error registrando interés para {user.id}: {e}", exc_info=True)
+        await callback.answer("⚠️ Error registrando interés", show_alert=True)
+
+
 @free_callbacks_router.callback_query(lambda c: c.data == "menu:free:content")
 async def handle_free_content(callback: CallbackQuery, container):
     """
@@ -426,6 +632,9 @@ async def _send_admin_interest_notification(
 async def handle_menu_back(callback: CallbackQuery, container):
     """
     Vuelve al menú principal Free.
+
+    Este handler sirve tanto para "menu:free:main" (desde confirmación de interés)
+    como para "menu:back" (desde otras secciones del menú Free).
 
     Args:
         callback: CallbackQuery de Telegram

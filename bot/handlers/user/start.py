@@ -278,14 +278,17 @@ async def _send_welcome_message(
     """
     user_name = message.from_user.first_name or "Usuario"
 
-    # Usuario normal: verificar si es VIP activo
-    is_vip = await container.subscription.is_vip_active(user_id)
+    # Usuario normal: detectar rol usando RoleDetectionService
+    # Esto verifica: Admin > VIP Channel > VIP Subscription > Free
+    role_service = container.role_detection
+    detected_role = await role_service.get_user_role(user_id)
+    is_vip = detected_role == UserRole.VIP
 
     # Preparar data dictionary para menu handlers (simula middleware injection)
     data = {
         "container": container,
         "session": None,  # Ya estamos dentro del contexto de sesión
-        "user_role": user.role,  # Usar rol del usuario de BD
+        "user_role": detected_role,  # Usar rol detectado en tiempo real
     }
 
     # Mostrar menú apropiado según rol

@@ -1,5 +1,5 @@
 ---
-status: verifying
+status: resolved
 trigger: "Continue investigating menu-role-detection issue. The fix was applied (commit 52d4f11) but error persists. New logs show same error \"MenuRouter._route_to_menu() missing 1 required positional argument: 'data'\" occurring after the fix was committed.
 
 **Summary:** MenuRouter signature fixed but error still happening. Need to determine if bot restart is needed or if there's another underlying issue."

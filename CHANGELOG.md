@@ -7,6 +7,16 @@ y este proyecto sigue [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Fixed
+- **Post-Fase 12 Architectural Fixes** (2026-01-27)
+  - Handler registration order: Specific `user:packages:back` now registered before generic `user:packages:{id}` to prevent navigation crash
+  - Role detection priority: Implemented correct order (Admin > VIP Channel > VIP Subscription > Free) with real-time detection
+  - Attribute access: Fixed `.flow` → `.flows` in VIP/Free callbacks to match ServiceContainer structure
+  - Start handler: Changed from `is_vip_active()` to `RoleDetectionService.get_user_role()` for accurate VIP channel detection
+  - UserManagementService: Added real-time role detection in `get_user_list()` for admin panel
+  - VIP status handler: Fixed `expires_at` → `expiry_date` attribute name to match VIPSubscriber model
+  - Service container access: Fixed manual `RoleDetectionService` instantiation to use `container.role_detection` property
+
 ### Added
 - T6: Service Container - Contenedor de servicios con patrón Dependency Injection + Lazy Loading para reducir consumo de memoria en Termux
 - T7: Subscription Service - Gestión completa de suscripciones VIP (tokens, validación, canjes) y cola de acceso Free

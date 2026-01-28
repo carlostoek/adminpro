@@ -3,8 +3,8 @@
 ## Milestones
 
 - ✅ **v1.0 LucienVoiceService** - Phases 1-4 (shipped 2026-01-24)
-- 🚧 **v1.1 Sistema de Menús** - Phases 5-11 (in progress)
-- 📋 **v2.0 Future Enhancements** - Phases 12+ (planned)
+- 🚧 **v1.1 Sistema de Menús** - Phases 5-13 (in progress)
+- 📋 **v2.0 Future Enhancements** - Phases 14+ (planned)
 
 ## Phases
 
@@ -185,36 +185,57 @@ Plans:
   2. Documentación en .md sobre arquitectura de menús existe
   3. Guía de integración para agregar nuevas opciones de menú existe
   4. Ejemplos de uso del sistema de menús están documentados
-**Plans**: TBD
+**Plans:** 4 plans
 
 Plans:
-- [ ] 11-01: Code documentation with comprehensive docstrings
-- [ ] 11-02: Architecture documentation for menu system
-- [ ] 11-03: Integration guide for adding new menu options
-- [ ] 11-04: Usage examples and documentation
+- [ ] 11-01-PLAN.md — Add comprehensive Google Style docstrings to all service classes and message providers (container, subscription, channel, config, admin/user message providers)
+- [ ] 11-02-PLAN.md — Create MENU_SYSTEM.md with complete architecture documentation (role detection, message providers, keyboard factory, callback routing, Lucien voice integration)
+- [ ] 11-03-PLAN.md — Create INTEGRATION_GUIDE.md with step-by-step instructions for adding menu options (message provider creation, handler implementation, callback routing, testing)
+- [ ] 11-04-PLAN.md — Create EXAMPLES.md with practical usage examples (admin menu, user menu with role detection, content management, testing, voice integration)
 
 ### Phase 12: Rediseño de Menú de Paquetes con Vista de Detalles
 **Goal**: Rediseñar la interfaz de paquetes para mostrar información detallada (descripción, precio) antes de registrar interés, con botones individuales por paquete.
 **Depends on**: Phase 8
+**Status**: ✅ Complete
+**Completed**: 2026-01-27
+**Requirements**: (no new requirements - UX improvement based on Phase 8 testing)
 **Success Criteria** (what must be TRUE):
   1. Usuario ve lista de paquetes con botones individuales (no genéricos "Me interesa")
   2. Al hacer clic en un paquete, se muestra vista detallada (nombre, descripción, precio, tipo)
   3. Vista de detalles incluye botón "Me interesa" para registrar interés
   4. Navegación permite volver a la lista de paquetes desde vista de detalles
+**Plans**: 4 plans completed
+
+Plans:
+- [x] 12-01-PLAN.md — Rediseñar presentación de paquetes en lista minimalista (solo nombre), ordenados por precio
+- [x] 12-02-PLAN.md — Crear vista de detalles con información completa y botón "Me interesa"
+- [x] 12-03-PLAN.md — Implementar flujo post-interés con mensaje de confirmación personal y botón de contacto
+- [x] 12-04-PLAN.md — Completar navegación completa (regresar a listado, volver a menú principal)
+
+### Phase 13: VIP Ritualized Entry Flow
+**Goal**: Reemplazar el flujo actual de acceso VIP (entrega inmediata del enlace) por un proceso secuencial de 3 fases de admisión que aumente percepción de exclusividad, reduzca accesos impulsivos, y prepare psicológicamente al usuario para el tipo de contenido.
+**Depends on**: Phase 6
+**Success Criteria** (what must be TRUE):
+  1. Usuario con VIPSubscriber válido pero vip_entry_stage=1 inicia conversación y recibe mensaje de confirmación ritual (Fase 1)
+  2. Usuario pulsa "Continuar" y recibe mensaje de alineación de expectativas con voz de Lucien (Fase 2)
+  3. Usuario pulsa "Estoy listo" y sistema genera enlace VIP único con validez de 24 horas (Fase 3)
+  4. Después de usar enlace, usuario tiene UserRole.VIP detectado por RoleDetectionService existente
+  5. Flujo soporta reanudación desde vip_entry_stage actual si usuario abandona y vuelve
+  6. Si VIPSubscriber expira antes de completar flujo, sistema cancela proceso y bloquea generación de enlace
 **Plans**: TBD
 
 Plans:
-- [ ] 12-01: Diseñar nueva estructura de callbacks para paquetes (list → detail → interest)
-- [ ] 12-02: Actualizar UserMenuProvider para generar botones individuales por paquete
-- [ ] 12-03: Crear handler para vista de detalles de paquete
-- [ ] 12-04: Integrar botón "Me interesa" en vista de detalles
+- [ ] 13-01: Database extension - VIP entry stage fields (vip_entry_stage int in VIPSubscriber, vip_entry_token unique, invite_link_sent_at timestamp)
+- [ ] 13-02: VIPEntryFlowMessages provider with Lucien voice for 3-phase ritual (activation confirmation, expectation alignment, access delivery)
+- [ ] 13-03: VIP entry flow FSM states (VIPEntryStates with stages 1-3) and handlers for each phase transition
+- [ ] 13-04: VIP entry service with stage validation, invite link generation (24h expiry), and expiry cancellation logic
 
 ---
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12
+Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -228,7 +249,8 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12
 | 8. Interest Notification System | v1.1 | 4/4 | Complete | 2026-01-26 |
 | 9. User Management Features | v1.1 | 6/6 | Complete | 2026-01-26 |
 | 10. Free Channel Entry Flow | v1.1 | 5/5 | Complete | 2026-01-27 |
-| 11. Documentation | v1.1 | 0/TBD | Not started | - |
-| 12. Rediseño de Menú de Paquetes con Vista de Detalles | v1.1 | 0/TBD | Not started | - |
+| 11. Documentation | v1.1 | 0/4 | Planned | 2026-01-27 |
+| 12. Rediseño de Menú de Paquetes con Vista de Detalles | v1.1 | 4/4 | Complete | 2026-01-27 |
+| 13. VIP Ritualized Entry Flow | v1.1 | 0/4 | Not started | - |
 
-**v1.1 Progress:** █████████░ 58% (42/72 requirements complete)
+**v1.1 Progress:** █████████░ 63% (46/76 requirements complete)
