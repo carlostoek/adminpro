@@ -161,8 +161,9 @@ async def handle_vip_entry_stage_transition(
     service = container.vip_entry
 
     # Parse callback data
+    # Format: vip_entry:stage_{N} → ['vip_entry', 'stage_2']
     parts = callback.data.split(":")
-    target_stage = int(parts[2])  # "vip_entry:stage_{N}"
+    target_stage = int(parts[1].split("_")[1])  # Extract '2' from 'stage_2'
 
     logger.info(f"🎭 VIP entry transition: User {user_id} → Stage {target_stage}")
 
