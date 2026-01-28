@@ -163,7 +163,37 @@ class VIPEntryService:
         Raises:
             RuntimeError: Si no se puede generar token único después de 10 intentos
         """
-        pass  # Implement in T3
+        max_attempts = 10
+
+        for attempt in range(max_attempts):
+            # Generate random token (64 characters from token_urlsafe(48))
+            token = secrets.token_urlsafe(48)
+
+            # Check uniqueness
+            result = await self.session.execute(
+                select(VIPSubscriber).where(VIPSubscriber.vip_entry_token == token)
+            )
+            existing = result.scalar_one_or_none()
+
+            if not existing:
+                # Token is unique - store it
+                subscriber_result = await self.session.execute(
+                    select(VIPSubscriber).where(VIPSubscriber.user_id == user_id)
+                )
+                subscriber = subscriber_result.scalar_one_or_none()
+
+                if subscriber:
+                    subscriber.vip_entry_token = token
+                    logger.info(f"✅ Entry token generated for user {user_id}")
+                    return token
+                else:
+                    logger.error(f"❌ VIPSubscriber not found for user {user_id}")
+                    raise RuntimeError("Subscriber not found")
+
+        # Could not generate unique token
+        logger.error(f"❌ Failed to generate unique token after {max_attempts} attempts")
+        raise RuntimeError("Could not generate unique entry token")
+
 
     async def is_entry_token_valid(self, token: str) -> bool:
         """
@@ -175,7 +205,18 @@ class VIPEntryService:
         Returns:
             True si token existe y corresponde a usuario en etapa 3
         """
-        pass  # Implement in T3
+        result = await self.session.execute(
+            select(VIPSubscriber).where(
+                VIPSubscriber.vip_entry_token == token,
+                VIPSubscriber.vip_entry_stage == 3
+            )
+        )
+        subscriber = result.scalar_one_or_none()
+
+        if subscriber and not subscriber.is_expired():
+            return True
+
+        return False
 
     # ===== INVITE LINK CREATION =====
 
