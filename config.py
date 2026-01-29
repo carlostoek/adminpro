@@ -29,6 +29,10 @@ class Config:
     # Formato en .env: "123456,789012,345678"
     ADMIN_USER_IDS: List[int] = []
 
+    # ===== ENVIRONMENT =====
+    # Entorno: "production" o "development" (default: development)
+    ENV: str = os.getenv("ENV", "development")
+
     # ===== DATABASE =====
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
@@ -229,6 +233,7 @@ class Config:
 ╔════════════════════════════════════════╗
 ║     CONFIGURACIÓN DEL BOT              ║
 ╚════════════════════════════════════════╝
+🌍 Ambiente: {cls.ENV.upper()}
 🤖 Bot Token: {token_preview}
 👤 Admins: {len(cls.ADMIN_USER_IDS)} configurado(s)
 💾 Database: {cls.DATABASE_URL}
