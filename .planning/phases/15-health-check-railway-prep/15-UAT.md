@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 15-health-check-railway-prep
 source: [15-01-SUMMARY.md, 15-02-SUMMARY.md, 15-03-SUMMARY.md, 15-04-SUMMARY.md]
 started: 2026-01-29T12:00:00Z
-updated: 2026-01-29T12:50:00Z
+updated: 2026-01-29T13:00:00Z
 ---
 
 ## Current Test
@@ -69,7 +69,15 @@ skipped: 0
   reason: "User reported: al presionar el control+C sí se detiene el servidor FastAPI, pero el bot no y no lo puedo detener ya, aunque le presione control C, no lo puedo detener, sigue corriendo"
   severity: major
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "AiohttpSession timeout=120 combined with polling timeout=30 creates 150-second HTTP timeout for getUpdates long-polling. When Ctrl+C is pressed, the health API stops quickly but the bot is stuck waiting for the long-polling HTTP request to complete. aiohttp HTTP requests do not respond immediately to asyncio task cancellation - they must complete or timeout first."
+  artifacts:
+    - path: "main.py:281"
+      issue: "AiohttpSession(timeout=120) creates 120-second timeout for all bot requests, including polling"
+    - path: "main.py:350"
+      issue: "timeout=30 in start_polling() combines with session timeout to create 150-second HTTP timeout"
+    - path: "main.py:333/362"
+      issue: "await bot.session.close() in finally block never executes because start_polling() never returns"
+  missing:
+    - "Proper cancellation of aiohttp HTTP requests during shutdown"
+    - "Separation of concerns between handler timeout (for processing updates) and polling timeout (for fetching updates)"
+  debug_session: "agent ad00a65"
