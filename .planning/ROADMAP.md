@@ -111,10 +111,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 15-01: FastAPI health check endpoint with DB status
-- [ ] 15-02: Concurrent bot and health API execution
-- [ ] 15-03: Railway.toml and Dockerfile configuration
-- [ ] 15-04: Environment variable validation and webhook/polling mode switching
+- [x] 15-01: FastAPI health check endpoint with DB status
+- [x] 15-02: Concurrent bot and health API execution
+- [x] 15-03: Railway.toml and Dockerfile configuration
+- [x] 15-04: Environment variable validation and webhook/polling mode switching
 
 #### Phase 16: Testing Infrastructure
 **Goal**: pytest-asyncio setup with fixtures and in-memory database
@@ -196,9 +196,9 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 12. Rediseño de Menú de Paquetes | v1.1 | 4/4 | Complete | 2026-01-27 |
 | 13. VIP Ritualized Entry Flow | v1.1 | 4/4 | Complete | 2026-01-27 |
 | 14. Database Migration Foundation | v1.2 | 4/4 | Complete | 2026-01-29 |
-| 15. Health Check & Railway Preparation | v1.2 | 0/4 | Not started | - |
+| 15. Health Check & Railway Preparation | v1.2 | 4/4 | Complete | 2026-01-29 |
 | 16. Testing Infrastructure | v1.2 | 0/3 | Not started | - |
 | 17. System Tests | v1.2 | 0/4 | Not started | - |
 | 18. Admin Test Runner & Performance Profiling | v1.2 | 0/4 | Not started | - |
 
-**Overall Progress:** 52/67 plans complete (78%)
+**Overall Progress:** 56/67 plans complete (84%)

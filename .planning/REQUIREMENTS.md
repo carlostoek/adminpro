@@ -19,19 +19,19 @@ Requisitos para el hito de despliegue inicial. Cada requisito se mapea a una fas
 
 ### Health Monitoring (HEALTH)
 
-- [ ] **HEALTH-01**: Endpoint HTTP /health retorna estado del bot
-- [ ] **HEALTH-02**: Health check verifica conexión a base de datos
-- [ ] **HEALTH-03**: Health check retorna 200 OK si todo está bien, 503 si hay errores
-- [ ] **HEALTH-04**: Health check se ejecuta en puerto separado (FastAPI + uvicorn)
-- [ ] **HEALTH-05**: Bot y API de salud corren concurrentemente
+- [x] **HEALTH-01**: Endpoint HTTP /health retorna estado del bot
+- [x] **HEALTH-02**: Health check verifica conexión a base de datos
+- [x] **HEALTH-03**: Health check retorna 200 OK si todo está bien, 503 si hay errores
+- [x] **HEALTH-04**: Health check se ejecuta en puerto separado (FastAPI + uvicorn)
+- [x] **HEALTH-05**: Bot y API de salud corren concurrentemente
 
 ### Railway Preparation (RAIL)
 
-- [ ] **RAIL-01**: Railway.toml configurado con comando de inicio y health check path
-- [ ] **RAIL-02**: Dockerfile creado para despliegue en Railway
-- [ ] **RAIL-03**: Variables de entorno requeridas documentadas
-- [ ] **RAIL-04**: Validación de variables de entorno al inicio
-- [ ] **RAIL-05**: Bot puede cambiar entre polling y webhook vía variable de entorno
+- [x] **RAIL-01**: Railway.toml configurado con comando de inicio y health check path
+- [x] **RAIL-02**: Dockerfile creado para despliegue en Railway
+- [x] **RAIL-03**: Variables de entorno requeridas documentadas
+- [x] **RAIL-04**: Validación de variables de entorno al inicio
+- [x] **RAIL-05**: Bot puede cambiar entre polling y webhook vía variable de entorno
 
 ### Testing Infrastructure (TESTINF)
 
