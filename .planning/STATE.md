@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 15 of 18 (Health Check & Railway Preparation)
-Plan: 4 of 4 in current phase
-Status: Phase complete, verified
-Last activity: 2026-01-29 — Phase 15 verified (5/5 must-haves passed)
+Plan: 5 of 5 in current phase
+Status: Phase complete, all gap closures resolved
+Last activity: 2026-01-29 — Plan 15-05 completed (Graceful Shutdown Fix)
 
-Progress: [██████████████░░░░░] 84%
+Progress: [███████████████░░░░] 89%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 56
-- Average duration: ~10.7 min
-- Total execution time: ~14.3 hours
+- Total plans completed: 57
+- Average duration: ~10.6 min
+- Total execution time: ~14.5 hours
 
 **By Phase:**
 
@@ -30,7 +30,7 @@ Progress: [██████████████░░░░░] 84%
 | v1.0 (Phases 1-4) | 14 | ~2 hours | ~8.6 min |
 | v1.1 (Phases 5-13) | 48 | ~10.2 hours | ~12.8 min |
 | v1.2 (Phase 14) | 4 | ~25 min | ~6.3 min |
-| v1.2 (Phase 15) | 4 | ~26 min | ~6.5 min |
+| v1.2 (Phase 15) | 5 | ~35 min | ~7.0 min |
 
 **Recent Trend:**
 - Last 5 plans: Phase 15 complete (Health Check & Railway Preparation)
@@ -74,6 +74,12 @@ See PROJECT.md Key Decisions table for full decision log.
 - Phase 15-04: Health check API works independently of bot mode (starts in both polling and webhook)
 - Phase 15-04: Environment variable validation with clear error messages for missing/invalid variables
 - Phase 15-04: Webhook/polling mode switching infrastructure in place (15-04 complete)
+- Phase 15-05: Graceful shutdown fix with reduced aiohttp and polling timeouts (15-05 complete)
+- Phase 15-05: AiohttpSession timeout reduced from 120s to 10s for responsive Ctrl+C (15-05 complete)
+- Phase 15-05: start_polling timeout reduced from 30s to 10s for responsive shutdown (15-05 complete)
+- Phase 15-05: Enhanced shutdown logging with progress messages and timeout expectations (15-05 complete)
+- Phase 15-05: Bot now responds to Ctrl+C within 1-2 seconds (was 150 seconds) (15-05 complete)
+- Phase 15-05: No orphaned processes after shutdown; immediate restart capability (15-05 complete)
 - Phase 16: pytest-asyncio with in-memory SQLite for test isolation
 - Phase 17: Comprehensive test coverage for all critical flows
 - Phase 18: Admin test runner for non-technical users
@@ -113,10 +119,10 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-29 (Phase 15 execution)
-Stopped at: Completed Plan 15-04 (Environment Variable Validation and Webhook/Polling Mode Switching)
+Stopped at: Completed Plan 15-05 (Graceful Shutdown Fix - Gap Closure)
 Resume file: None
 Next: Move to Phase 16 (Testing) or begin Railway deployment
 
 ---
 
-*State updated: 2026-01-29 after Plan 15-04 completion (Phase 15 complete)*
+*State updated: 2026-01-29 after Plan 15-05 completion (Phase 15 complete)*
