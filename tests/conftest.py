@@ -4,6 +4,10 @@ Pytest Configuration and Shared Fixtures.
 Proporciona fixtures comunes para todos los tests:
 - test_db: Isolated in-memory database
 - test_session: Active database session
+- test_engine: Raw database engine
+- test_vip_subscriber: Pre-created VIP subscriber
+- test_invitation_token: Pre-created invitation token
+- test_free_request: Pre-created free channel request
 - mock_bot: Mock del bot de Telegram
 - container: ServiceContainer with dependencies
 - container_with_preload: Container with services preloaded
@@ -17,13 +21,14 @@ from unittest.mock import AsyncMock, Mock
 from tests.fixtures import (
     test_db,
     test_session,
+    test_engine,
+    test_vip_subscriber,
+    test_invitation_token,
+    test_free_request,
     mock_bot,
     container,
     container_with_preload,
 )
-
-from bot.database.engine import get_session
-from bot.database import init_db, close_db
 
 
 @pytest.fixture(scope="session")
@@ -34,41 +39,6 @@ def event_loop_policy():
     Modern pytest-asyncio pattern for session-scoped event loop configuration.
     """
     return asyncio.get_event_loop_policy()
-
-
-@pytest.fixture(autouse=True)
-async def db_setup():
-    """
-    Setup database before each test and cleanup after.
-
-    Uses modern async fixture pattern compatible with pytest-asyncio auto mode.
-    Automatically initializes and closes database for each test.
-    """
-    # Initialize database before test
-    await init_db()
-
-    yield
-
-    # Cleanup database after test
-    await close_db()
-
-
-@pytest.fixture
-async def db_session():
-    """
-    Fixture: Provides a database session for tests.
-
-    Yields an async database session that is automatically committed/rolled back.
-    Use this for tests that need direct database access.
-
-    Example:
-        async def test_user_creation(db_session):
-            user = User(name="test")
-            db_session.add(user)
-            await db_session.commit()
-    """
-    async with get_session() as session:
-        yield session
 
 
 # ============================================================================
