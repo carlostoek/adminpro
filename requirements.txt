@@ -8,7 +8,7 @@ asyncpg==0.29.0
 
 # Health Check
 fastapi==0.109.0
-uvicorn[standard]==0.27.0
+uvicorn==0.27.0  # [standard] excluded (uvloop fails on Termux ARM)
 
 # Background Tasks
 APScheduler==3.10.4
