@@ -16,6 +16,7 @@ from aiogram.client.session.aiohttp import AiohttpSession
 
 from config import Config
 from bot.database import init_db, close_db
+from bot.database.migrations import run_migrations_if_needed
 from bot.background import start_background_tasks, stop_background_tasks
 
 # Configurar logging
@@ -76,6 +77,19 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
         sys.exit(1)
 
     logger.info(Config.get_summary())
+
+    # Ejecutar migraciones automáticas (producción)
+    # En producción, esto corre "alembic upgrade head" automáticamente
+    # En desarrollo, omite este paso (developer debe correr manualmente)
+    try:
+        await run_migrations_if_needed()
+    except Exception as e:
+        logger.error(f"❌ Error ejecutando migraciones: {e}")
+        logger.error(
+            "💥 El bot no puede iniciar sin migraciones exitosas. "
+            "Fix the migration issue and restart."
+        )
+        sys.exit(1)
 
     # Inicializar base de datos
     try:
