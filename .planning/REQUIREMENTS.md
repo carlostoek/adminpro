@@ -98,23 +98,23 @@ Los requisitos se mapean a fases durante la creación del roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DBMIG-01 | Phase 14 | Pending |
-| DBMIG-02 | Phase 14 | Pending |
-| DBMIG-03 | Phase 14 | Pending |
-| DBMIG-04 | Phase 14 | Pending |
+| DBMIG-01 | Phase 14 | Complete |
+| DBMIG-02 | Phase 14 | Complete |
+| DBMIG-03 | Phase 14 | Complete |
+| DBMIG-04 | Phase 14 | Complete |
 | DBMIG-05 | Phase 18 | Pending |
-| DBMIG-06 | Phase 14 | Pending |
-| DBMIG-07 | Phase 14 | Pending |
-| HEALTH-01 | Phase 15 | Pending |
-| HEALTH-02 | Phase 15 | Pending |
-| HEALTH-03 | Phase 15 | Pending |
-| HEALTH-04 | Phase 15 | Pending |
-| HEALTH-05 | Phase 15 | Pending |
-| RAIL-01 | Phase 15 | Pending |
-| RAIL-02 | Phase 15 | Pending |
-| RAIL-03 | Phase 15 | Pending |
-| RAIL-04 | Phase 15 | Pending |
-| RAIL-05 | Phase 15 | Pending |
+| DBMIG-06 | Phase 14 | Complete |
+| DBMIG-07 | Phase 14 | Complete |
+| HEALTH-01 | Phase 15 | Complete |
+| HEALTH-02 | Phase 15 | Complete |
+| HEALTH-03 | Phase 15 | Complete |
+| HEALTH-04 | Phase 15 | Complete |
+| HEALTH-05 | Phase 15 | Complete |
+| RAIL-01 | Phase 15 | Complete |
+| RAIL-02 | Phase 15 | Complete |
+| RAIL-03 | Phase 15 | Complete |
+| RAIL-04 | Phase 15 | Complete |
+| RAIL-05 | Phase 15 | Complete |
 | TESTINF-01 | Phase 16 | Pending |
 | TESTINF-02 | Phase 16 | Pending |
 | TESTINF-03 | Phase 16 | Pending |

@@ -116,7 +116,7 @@ Plans:
 - [x] 15-02: Concurrent bot and health API execution
 - [x] 15-03: Railway.toml and Dockerfile configuration
 - [x] 15-04: Environment variable validation and webhook/polling mode switching
-- [ ] 15-05: Graceful shutdown fix - Bot responds to Ctrl+C (gap closure)
+- [x] 15-05: Graceful shutdown fix - Bot responds to Ctrl+C (gap closure)
 
 #### Phase 16: Testing Infrastructure
 **Goal**: pytest-asyncio setup with fixtures and in-memory database
@@ -198,9 +198,9 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 12. Rediseño de Menú de Paquetes | v1.1 | 4/4 | Complete | 2026-01-27 |
 | 13. VIP Ritualized Entry Flow | v1.1 | 4/4 | Complete | 2026-01-27 |
 | 14. Database Migration Foundation | v1.2 | 4/4 | Complete | 2026-01-29 |
-| 15. Health Check & Railway Preparation | v1.2 | 4/5 | In Progress | 2026-01-29 |
+| 15. Health Check & Railway Preparation | v1.2 | 5/5 | Complete | 2026-01-29 |
 | 16. Testing Infrastructure | v1.2 | 0/3 | Not started | - |
 | 17. System Tests | v1.2 | 0/4 | Not started | - |
 | 18. Admin Test Runner & Performance Profiling | v1.2 | 0/4 | Not started | - |
 
-**Overall Progress:** 56/68 plans complete (82%)
+**Overall Progress:** 57/68 plans complete (84%)
