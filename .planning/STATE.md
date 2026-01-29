@@ -5,72 +5,51 @@
 See: .planning/PROJECT.md (updated 2026-01-28)
 
 **Core value:** Consistencia absoluta en la voz de Lucien: cada mensaje del bot debe sonar elegante, misterioso y natural viniendo del mayordomo, sin importar que handler o flujo lo invoque.
-**Current focus:** v1.2 Milestone - Primer Despliegue (Railway deployment + Testing + Performance)
-**Next:** Run `/gsd:plan-phase 14` to start execution
+**Current focus:** Phase 14 - Database Migration Foundation
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements for v1.2
-Last activity: 2026-01-28 — Milestone v1.2 started
+Phase: 14 of 18 (Database Migration Foundation)
+Plan: 0 of 3 in current phase
+Status: Ready to plan
+Last activity: 2026-01-28 — v1.2 roadmap created
 
-Progress: ○○○○○○○○○○ 0% (v1.2 planning)
-
-## Milestone v1.1 Summary
-
-**Shipped:** Sistema de Menús Contextuales por Rol
-
-**Key Deliverables:**
-- RoleDetectionService con detección automática de rol (Admin > VIP > Free)
-- Menús adaptados según rol (Admin/VIP/Free)
-- 3 nuevos modelos de base de datos (ContentPackage, UserInterest, UserRoleChangeLog)
-- ContentService con operaciones CRUD completas
-- InterestService con deduplicación de 5 minutos y notificaciones admin
-- UserManagementService con validación de permisos y logging de auditoría
-- Flujo de ingreso al canal Free con teclado de redes sociales
-- Flujo de entrada VIP ritualizado en 3 etapas (confirmación → alineación → acceso)
-- Vista detallada de paquetes con UX mejorada
-- Documentación exhaustiva: MENU_SYSTEM.md (1,353 líneas), INTEGRATION_GUIDE.md (1,393 líneas), EXAMPLES.md (3,031 líneas)
-- 1,070+ docstrings en servicios y handlers
-
-**Stats:**
-- 201 commits since v1.0
-- 49 days from v1.0 to v1.1 ship (2025-12-10 → 2026-01-28)
-- 24,328 lines of Python code (bot/ directory)
-- 9 phases, 48 plans, ~200+ tasks
-- 26 documentation files (5,777 lines)
+Progress: [████████░░░░░░░░░░░] 76%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 62 (v1.0: 14 + v1.1: 48)
-- Average duration: ~11.8 min per plan
+- Total plans completed: 48
+- Average duration: ~11.8 min
 - Total execution time: ~12.2 hours
 
-**By Phase (v1.1):**
+**By Phase:**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 5 | 6 | ~17 min | ~3.4 min |
-| 6 | 4 | ~47 min | ~11.8 min |
-| 7 | 4 | ~23 min | ~5.8 min |
-| 8 | 4 | ~16 min | ~4 min |
-| 9 | 6 | ~19 min | ~3.2 min |
-| 10 | 5 | ~17 min | ~3.4 min |
-| 11 | 4 | ~10 min | ~2.5 min |
-| 12 | 4 | ~24 min | ~6 min |
-| 13 | 4 | ~22 min | ~5.5 min |
+| Phase | Plans | Total Time | Avg/Plan |
+|-------|-------|------------|----------|
+| v1.0 (Phases 1-4) | 14 | ~2 hours | ~8.6 min |
+| v1.1 (Phases 5-13) | 48 | ~10.2 hours | ~12.8 min |
 
 **Recent Trend:**
-- Last 20 plans: ~5.2 min each (Phases 9-13)
-- Trend: Highly efficient execution (documentation and gap plans are quick)
+- Last 5 plans: Phase 13 completion (VIP ritualized entry flow)
+- Trend: Stable
 
 ## Accumulated Context
 
 ### Decisions
 
 See PROJECT.md Key Decisions table for full decision log.
+
+**v1.2 Key Decisions:**
+- Phase 14: PostgreSQL migration with Alembic for production deployment
+- Phase 14: Database abstraction layer for SQLite/PostgreSQL switching via DATABASE_URL
+- Phase 15: FastAPI health check endpoint for Railway monitoring
+- Phase 15: Railway deployment preparation (NOT execution - deployment in v1.3+)
+- Phase 16: pytest-asyncio with in-memory SQLite for test isolation
+- Phase 17: Comprehensive test coverage for all critical flows
+- Phase 18: Admin test runner for non-technical users
+- Phase 18: Performance profiling with pyinstrument for bottleneck identification
+- **v1.2: Redis caching DEFERRED to v1.3 (out of scope)**
 
 **v1.1 Key Decisions:**
 - Role detection is stateless (no caching) - always recalculates from fresh sources
@@ -85,9 +64,15 @@ See PROJECT.md Key Decisions table for full decision log.
 
 ### Pending Todos
 
-None - All v1.1 todos completed.
+None.
 
 ### Blockers/Concerns
+
+**Research Gaps to Address (from research/SUMMARY.md):**
+
+- **Phase 14:** Alembic auto-migration on startup patterns need validation. Best practice for running migrations in Railway deployment environment requires confirmation.
+- **Phase 16:** aiogram FSM testing patterns with pytest-asyncio for aiogram 3.4.1 needs verification. Manual mocking approaches need validation.
+- **Phase 18:** pyinstrument vs cProfile for async code needs validation. Async profiling tools are evolving.
 
 **Resolved in v1.1:**
 - Phase 5 gap: RoleDetectionMiddleware properly registered in main.py
@@ -96,25 +81,13 @@ None - All v1.1 todos completed.
 - MissingGreenlet error: Applied eager loading with selectinload()
 - Role change confirmation callback parsing: Fixed index checking
 
-**Remaining concerns:**
-- User blocking feature requires DB migration for User.is_blocked field (placeholder UI implemented)
-- Some duplicate notification functions in VIP and Free handlers (future refactoring candidate)
-
-## Quick Tasks Completed
-
-| # | Description | Date | Status |
-|---|-------------|------|--------|
-| 001 | Fix Phase 5 gaps | 2026-01-25 | ✅ Complete |
-| 002 | Eliminar botón de salir de la navegación | 2026-01-28 | ✅ Complete |
-| 003 | Completar eliminación de botón de salir | 2026-01-28 | ✅ Complete |
-
 ## Session Continuity
 
-Last session: 2026-01-28
-Stopped at: v1.2 Milestone initiated - requirements gathering in progress.
+Last session: 2026-01-28 (Roadmap creation)
+Stopped at: ROADMAP.md and STATE.md created for v1.2 milestone
 Resume file: None
-Next phase: Research decision → Requirements definition → Roadmap creation
+Next: Run `/gsd:plan-phase 14` to start execution
 
 ---
 
-*State updated: 2026-01-28 after v1.2 milestone initiation*
+*State updated: 2026-01-28 after v1.2 roadmap creation*

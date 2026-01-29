@@ -98,52 +98,59 @@ Los requisitos se mapean a fases durante la creación del roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DBMIG-01 | TBD | Pending |
-| DBMIG-02 | TBD | Pending |
-| DBMIG-03 | TBD | Pending |
-| DBMIG-04 | TBD | Pending |
-| DBMIG-05 | TBD | Pending |
-| DBMIG-06 | TBD | Pending |
-| DBMIG-07 | TBD | Pending |
-| HEALTH-01 | TBD | Pending |
-| HEALTH-02 | TBD | Pending |
-| HEALTH-03 | TBD | Pending |
-| HEALTH-04 | TBD | Pending |
-| HEALTH-05 | TBD | Pending |
-| RAIL-01 | TBD | Pending |
-| RAIL-02 | TBD | Pending |
-| RAIL-03 | TBD | Pending |
-| RAIL-04 | TBD | Pending |
-| RAIL-05 | TBD | Pending |
-| TESTINF-01 | TBD | Pending |
-| TESTINF-02 | TBD | Pending |
-| TESTINF-03 | TBD | Pending |
-| TESTINF-04 | TBD | Pending |
-| TESTINF-05 | TBD | Pending |
-| TESTSYS-01 | TBD | Pending |
-| TESTSYS-02 | TBD | Pending |
-| TESTSYS-03 | TBD | Pending |
-| TESTSYS-04 | TBD | Pending |
-| TESTSYS-05 | TBD | Pending |
-| TESTSYS-06 | TBD | Pending |
-| TESTSYS-07 | TBD | Pending |
-| TESTSYS-08 | TBD | Pending |
-| TESTSYS-09 | TBD | Pending |
-| TESTSYS-10 | TBD | Pending |
-| ADMINTEST-01 | TBD | Pending |
-| ADMINTEST-02 | TBD | Pending |
-| ADMINTEST-03 | TBD | Pending |
-| ADMINTEST-04 | TBD | Pending |
-| PERF-01 | TBD | Pending |
-| PERF-02 | TBD | Pending |
-| PERF-03 | TBD | Pending |
-| PERF-04 | TBD | Pending |
+| DBMIG-01 | Phase 14 | Pending |
+| DBMIG-02 | Phase 14 | Pending |
+| DBMIG-03 | Phase 14 | Pending |
+| DBMIG-04 | Phase 14 | Pending |
+| DBMIG-05 | Phase 18 | Pending |
+| DBMIG-06 | Phase 14 | Pending |
+| DBMIG-07 | Phase 14 | Pending |
+| HEALTH-01 | Phase 15 | Pending |
+| HEALTH-02 | Phase 15 | Pending |
+| HEALTH-03 | Phase 15 | Pending |
+| HEALTH-04 | Phase 15 | Pending |
+| HEALTH-05 | Phase 15 | Pending |
+| RAIL-01 | Phase 15 | Pending |
+| RAIL-02 | Phase 15 | Pending |
+| RAIL-03 | Phase 15 | Pending |
+| RAIL-04 | Phase 15 | Pending |
+| RAIL-05 | Phase 15 | Pending |
+| TESTINF-01 | Phase 16 | Pending |
+| TESTINF-02 | Phase 16 | Pending |
+| TESTINF-03 | Phase 16 | Pending |
+| TESTINF-04 | Phase 16 | Pending |
+| TESTINF-05 | Phase 16 | Pending |
+| TESTSYS-01 | Phase 17 | Pending |
+| TESTSYS-02 | Phase 17 | Pending |
+| TESTSYS-03 | Phase 17 | Pending |
+| TESTSYS-04 | Phase 17 | Pending |
+| TESTSYS-05 | Phase 17 | Pending |
+| TESTSYS-06 | Phase 17 | Pending |
+| TESTSYS-07 | Phase 17 | Pending |
+| TESTSYS-08 | Phase 17 | Pending |
+| TESTSYS-09 | Phase 17 | Pending |
+| TESTSYS-10 | Phase 17 | Pending |
+| ADMINTEST-01 | Phase 18 | Pending |
+| ADMINTEST-02 | Phase 18 | Pending |
+| ADMINTEST-03 | Phase 18 | Pending |
+| ADMINTEST-04 | Phase 18 | Pending |
+| PERF-01 | Phase 18 | Pending |
+| PERF-02 | Phase 18 | Pending |
+| PERF-03 | Phase 18 | Pending |
+| PERF-04 | Phase 18 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 37 total
-- Mapped to phases: 0 (pendiente de roadmap)
-- Unmapped: 37 ⚠️
+- Mapped to phases: 37 (100%)
+- Unmapped: 0 ✓
+
+**Phase Distribution:**
+- Phase 14: 6 requirements (DBMIG-01, DBMIG-02, DBMIG-03, DBMIG-04, DBMIG-06, DBMIG-07)
+- Phase 15: 10 requirements (HEALTH-01 to HEALTH-05, RAIL-01 to RAIL-05)
+- Phase 16: 5 requirements (TESTINF-01 to TESTINF-05)
+- Phase 17: 10 requirements (TESTSYS-01 to TESTSYS-10)
+- Phase 18: 6 requirements (ADMINTEST-01 to ADMINTEST-04, PERF-01 to PERF-04, DBMIG-05)
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-01-28 after initial definition*
+*Last updated: 2026-01-28 after roadmap creation*

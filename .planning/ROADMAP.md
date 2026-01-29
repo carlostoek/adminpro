@@ -1,16 +1,58 @@
-# Roadmap: Telegram Bot VIP/Free - Sistema de Menus
+# Roadmap: LucienVoiceService - Telegram Bot VIP/Free
+
+## Overview
+
+Transformación desde un bot Telegram local con SQLite hacia una solución production-ready en Railway con PostgreSQL, testing comprehensivo y profiling de performance. El viaje establece infraestructura de despliegue (v1.2), cimiento para caching avanzado (v1.3), y optimización continua.
 
 ## Milestones
 
 - ✅ **v1.0 LucienVoiceService** - Phases 1-4 (shipped 2026-01-24)
 - ✅ **v1.1 Sistema de Menús** - Phases 5-13 (shipped 2026-01-28)
-- 📋 **v1.2 Future Enhancements** - To be defined
+- 🚧 **v1.2 Primer Despliegue** - Phases 14-18 (in progress)
 
 ## Phases
 
 <details>
 <summary>✅ v1.0 LucienVoiceService (Phases 1-4) - SHIPPED 2026-01-24</summary>
-[Archived - see .planning/milestones/v1-ROADMAP.md]
+
+### Phase 1: Service Foundation & Voice Rules
+**Goal**: Centralized message system with Lucien's voice
+**Plans**: 3 plans
+
+Plans:
+- [x] 01-01-PLAN.md — BaseMessageProvider and LucienVoiceService foundation
+- [x] 01-02-PLAN.md — Voice consistency rules and variation system
+- [x] 01-03-PLAN.md — Common and Admin message providers
+
+### Phase 2: Template Organization & Admin Migration
+**Goal**: Variable interpolation and admin handler migration
+**Plans**: 3 plans
+
+Plans:
+- [x] 02-01-PLAN.md — Template composition and keyboard integration
+- [x] 02-02-PLAN.md — Admin main menu migration
+- [x] 02-03-PLAN.md — Admin VIP and Free menu migration
+
+### Phase 3: User Flow Migration & Testing Strategy
+**Goal**: User handler migration and semantic test helpers
+**Plans**: 4 plans
+
+Plans:
+- [x] 03-01-PLAN.md — User start and VIP flow migration
+- [x] 03-02-PLAN.md — Free flow migration
+- [x] 03-03-PLAN.md — Session-aware variation system
+- [x] 03-04-PLAN.md — Semantic test helpers
+
+### Phase 4: Advanced Voice Features
+**Goal**: Voice validation and message preview tools
+**Plans**: 4 plans
+
+Plans:
+- [x] 04-01-PLAN.md — Voice validation pre-commit hook
+- [x] 04-02-PLAN.md — Message preview CLI tool
+- [x] 04-03-PLAN.md — Dynamic content features (conditionals, lists)
+- [x] 04-04-PLAN.md — E2E tests and completion
+
 </details>
 
 <details>
@@ -30,208 +72,112 @@ Role-based menu system (Admin/VIP/Free) with automatic role detection, content p
 - Package detail view redesign
 - 5,777 lines of documentation
 
-**[Full details archived - see .planning/milestones/v1.1-ROADMAP.md]**
+**[Full phases 5-13 archived in previous roadmap]**
 
 </details>
 
----
+### 🚧 v1.2 Primer Despliegue (In Progress)
 
-## 📋 v1.2 Future Enhancements (Not Started)
+**Milestone Goal:** Deploy bot to Railway with PostgreSQL migration, comprehensive test coverage, and performance profiling infrastructure. Redis caching DEFERRED to v1.3.
 
-**To be defined** - Run `/gsd:new-milestone` to plan v1.2 goals
-
-Potential areas to explore:
-- Analytics dashboard for admin insights
-- User onboarding improvements and tutorials
-- Advanced content features (scheduling, expiration, categories)
-- Performance optimizations and caching
-- Enhanced testing coverage
-
----
-
-### Phase 5: Role Detection & Database Foundation
-**Goal**: Sistema detecta automáticamente rol del usuario (Admin/VIP/Free) con modelos de base de datos para contenido, intereses y cambios de rol.
-**Status**: ✅ Complete
-**Completed**: 2026-01-25
-**Plans**: 5 plans completed
+#### Phase 14: Database Migration Foundation
+**Goal**: PostgreSQL-ready database layer with automatic dialect detection and Alembic migrations
+**Depends on**: Phase 13 (v1.1 complete)
+**Requirements**: DBMIG-01, DBMIG-02, DBMIG-03, DBMIG-04, DBMIG-06, DBMIG-07
+**Success Criteria** (what must be TRUE):
+  1. Sistema soporta SQLite y PostgreSQL mediante variable de entorno DATABASE_URL
+  2. Motor de base de datos detecta automáticamente dialecto (postgresql+asyncpg vs sqlite+aiosqlite)
+  3. Alembic está configurado con migración inicial que crea todos los modelos
+  4. Sistema ejecuta `alembic upgrade head` automáticamente al iniciar en producción
+  5. Rolling back de migraciones funciona con `alembic downgrade`
+**Plans**: 3 plans
 
 Plans:
-- [x] 05-01-PLAN.md — Role detection service with automatic role calculation
-- [x] 05-02A-PLAN.md — Database enums and ContentPackage model
-- [x] 05-02B-PLAN.md — UserInterest and UserRoleChangeLog models with table creation
-- [x] 05-03-PLAN.md — ContentService with CRUD operations for content packages
-- [x] 05-04-PLAN.md — MenuRouter and role-based menu routing
-- [x] 05-05-PLAN.md — RoleChangeService for audit logging (MENU-04)
+- [ ] 14-01: Database abstraction layer with dialect detection
+- [ ] 14-02: Alembic configuration and initial migration
+- [ ] 14-03: Auto-migration on startup and rollback support
 
-### Phase 6: VIP/Free User Menus
-**Goal**: Menús de usuario VIP y Free con información de suscripción, contenido Premium y botones "Me interesa" que notifican al admin.
-**Status**: ✅ Complete
-**Completed**: 2026-01-25
-**Requirements**: VOICE-01, VOICE-02, VOICE-06, VIPMENU-01, VIPMENU-02, VIPMENU-03, VIPMENU-04, FREEMENU-01, FREEMENU-02, FREEMENU-03, FREEMENU-04, FREEMENU-05, CONTENT-07, NAV-04, NAV-05
+#### Phase 15: Health Check & Railway Preparation
+**Goal**: Health monitoring endpoint and Railway deployment configuration
+**Depends on**: Phase 14
+**Requirements**: HEALTH-01, HEALTH-02, HEALTH-03, HEALTH-04, HEALTH-05, RAIL-01, RAIL-02, RAIL-03, RAIL-04, RAIL-05
 **Success Criteria** (what must be TRUE):
-  1. Usuario VIP abre menú con su información de suscripción (expiración, plan actual)
-  2. Usuario VIP ve opción "Premium" con paquetes y botones "Me interesa"
-  3. Usuario Free abre menú con "Mi Contenido" listando paquetes disponibles
-  4. Cada paquete muestra información con botón "Me interesa" que crea registro de interés
-  5. Menú Free tiene opción "Canal VIP" con información de suscripción
+  1. Endpoint HTTP /health retorna 200 OK cuando bot y base de datos están funcionando
+  2. Health check retorna 503 Service Unavailable cuando hay errores en DB
+  3. Bot y API de salud corren concurrentemente (FastAPI en puerto separado)
+  4. Railway.toml configurado con comando de inicio y health check path
+  5. Dockerfile creado para despliegue en Railway con variables de entorno validadas
 **Plans**: 4 plans
 
 Plans:
-- [x] 06-01-PLAN.md — UserMenuProvider with VIP and Free menu messages
-- [x] 06-02-PLAN.md — VIP menu handlers with subscription info and Premium section
-- [x] 06-03-PLAN.md — Free menu handlers with content browsing and VIP upgrade option
-- [x] 06-04-PLAN.md — Menu navigation with back buttons replacing hardcoded keyboards.py
+- [ ] 15-01: FastAPI health check endpoint with DB status
+- [ ] 15-02: Concurrent bot and health API execution
+- [ ] 15-03: Railway.toml and Dockerfile configuration
+- [ ] 15-04: Environment variable validation and webhook/polling mode switching
 
-### Phase 7: Admin Menu with Content Management
-**Goal**: Menú admin con gestión completa de paquetes de contenido (crear, editar, desactivar) y navegación centralizada.
-**Depends on**: Phase 5
-**Requirements**: ADMIN-CONTENT-01, ADMIN-CONTENT-02, ADMIN-CONTENT-03, ADMIN-CONTENT-04, ADMIN-CONTENT-05, CONTENT-04, CONTENT-05, CONTENT-06, NAV-01, NAV-02, NAV-03
-**Status**: ✅ Complete
-**Completed**: 2026-01-26
+#### Phase 16: Testing Infrastructure
+**Goal**: pytest-asyncio setup with fixtures and in-memory database
+**Depends on**: Phase 15
+**Requirements**: TESTINF-01, TESTINF-02, TESTINF-03, TESTINF-04, TESTINF-05
 **Success Criteria** (what must be TRUE):
-  1. Admin abre menú con opción "Paquetes de Contenido"
-  2. Admin puede listar todos los paquetes (activos e inactivos)
-  3. Admin puede crear nuevo paquete con wizard paso a paso
-  4. Admin puede editar paquete existente (nombre, descripción, precio, categoría)
-  5. Admin puede desactivar paquete (soft delete con is_active)
-  6. Sistema de callbacks unificado para navegación (menu:main, menu:vip, menu:free)
+  1. pytest-asyncio configurado con async_mode=auto
+  2. Fixtures creados (test_db, mock_bot, container) para todos los tests
+  3. Base de datos en memoria se crea y limpia automáticamente entre tests
+  4. Tests están aislados (cleanup completo entre tests)
+  5. Coverage reporting configurado para medir cobertura de código
+**Plans**: 3 plans
+
+Plans:
+- [ ] 16-01: pytest-asyncio configuration and test structure
+- [ ] 16-02: Test fixtures (test_db, mock_bot, container)
+- [ ] 16-03: In-memory database and test isolation
+
+#### Phase 17: System Tests
+**Goal**: Comprehensive test coverage for critical flows and message providers
+**Depends on**: Phase 16
+**Requirements**: TESTSYS-01, TESTSYS-02, TESTSYS-03, TESTSYS-04, TESTSYS-05, TESTSYS-06, TESTSYS-07, TESTSYS-08, TESTSYS-09, TESTSYS-10
+**Success Criteria** (what must be TRUE):
+  1. Test de arranque verifica que bot inicia, DB conecta, y servicios cargan
+  2. Tests de menú principal Admin cubren todos los comandos y callbacks
+  3. Tests de menú VIP y Free verifican navegación y rol routing
+  4. Test de detección de roles valida prioridad Admin > VIP > Free
+  5. Tests de flujos VIP/Free verifican tokens, entrada ritual, y aprobación Free
 **Plans**: 4 plans
 
 Plans:
-- [x] 07-01-PLAN.md — AdminContentMessages provider with Lucien's voice for content UI
-- [x] 07-02-PLAN.md — Content navigation handlers (menu, list, detail, pagination)
-- [x] 07-03-PLAN.md — ContentPackageStates FSM state group for creation wizard
-- [x] 07-04-PLAN.md — Content CRUD operations (create wizard, edit prompts, toggle active/inactive)
+- [ ] 17-01: System startup and configuration tests
+- [ ] 17-02: Menu system tests (Admin/VIP/Free with FSM)
+- [ ] 17-03: Role detection and user management tests
+- [ ] 17-04: VIP/Free flow tests and message provider tests
 
-### Phase 8: Interest Notification System
-**Goal**: Botón "Me interesa" crea registro de interés y envía notificación privada al admin con información del usuario y paquete.
-**Depends on**: Phase 7
-**Requirements**: INTEREST-01, INTEREST-02, INTEREST-03, INTEREST-04, INTEREST-05, ADMIN-INT-01, ADMIN-INT-02, ADMIN-INT-03, ADMIN-INT-04, ADMIN-INT-05
+#### Phase 18: Admin Test Runner & Performance Profiling
+**Goal**: Centralized test execution and performance bottleneck detection
+**Depends on**: Phase 17
+**Requirements**: ADMINTEST-01, ADMINTEST-02, ADMINTEST-03, ADMINTEST-04, PERF-01, PERF-02, PERF-03, PERF-04, DBMIG-05
 **Success Criteria** (what must be TRUE):
-  1. Usuario marca "Me interesa" en paquete y sistema crea registro en UserInterest
-  2. Admin recibe mensaje privado con nombre de usuario, link al perfil y paquete de interés
-  3. Admin puede ver lista de intereses organizada por fecha (último arriba)
-  4. Admin puede marcar interés como "Atendido"
-  5. InterestService existe para gestionar intereses con deduplicación
-**Status**: ✅ Complete
-**Completed**: 2026-01-26
+  1. Script /run_tests ejecuta todos los tests desde línea de comandos
+  2. Admin puede ejecutar tests desde Telegram con comando /run_tests
+  3. Test runner envía reporte detallado (pass/fail, coverage) al admin via mensaje
+  4. Integración con pyinstrument permite profiling de handlers específicos
+  5. Script de migración de datos SQLite → PostgreSQL funciona sin pérdida de datos
 **Plans**: 4 plans
 
 Plans:
-- [x] 08-01-PLAN.md — InterestService with deduplication (5-min window), filtering, pagination
-- [x] 08-02-PLAN.md — Admin notifications to Telegram with user info, package details, Lucien's voice
-- [x] 08-03-PLAN.md — AdminInterestMessages provider for interest UI
-- [x] 08-04-PLAN.md — Interest management handlers (list, view filters, mark attended)
+- [ ] 18-01: Admin test runner script and Telegram command
+- [ ] 18-02: Test reporting with coverage and detailed results
+- [ ] 18-03: Performance profiling with pyinstrument integration
+- [ ] 18-04: SQLite → PostgreSQL data migration script and N+1 query detection
 
-### Phase 9: User Management Features
-**Goal**: Admin puede gestionar usuarios (ver info, cambiar rol, bloquear, expulsar) con registro de auditoría.
-**Depends on**: Phase 8
-**Requirements**: ADMIN-USR-01, ADMIN-USR-02, ADMIN-USR-03, ADMIN-USR-04, ADMIN-USR-05, MENU-03
-**Success Criteria** (what must be TRUE):
-  1. Admin abre menú con opción "Gestión de Usuarios"
-  2. Admin puede ver información detallada de cualquier usuario (rol, suscripción, estado)
-  3. Admin puede cambiar rol de usuario (Free↔VIP) con confirmación
-  4. Admin puede bloquear usuario (impide usar el bot) con confirmación
-  5. Admin puede expulsar usuario (elimina del canal) con confirmación
-  6. Admin puede ver rol de cualquier usuario en el sistema
-**Status**: ✅ Complete
-**Completed**: 2026-01-26
-**Plans**: 6 plans completed
+### 📋 v1.3 Redis Caching (Planned)
 
-Plans:
-- [x] 09-01-PLAN.md — UserManagementService with user info, role change, block, expel operations, permission validation
-- [x] 09-02-PLAN.md — AdminUserMessages provider with Lucien's voice for user management UI
-- [x] 09-03-PLAN.md — User management handlers (navigation, listing, search, detail view, role change)
-- [x] 09-04-PLAN.md — User expel and block functionality with confirmation
-- [x] 09-05-PLAN.md — Fix Interests tab MissingGreenlet error (eager loading)
-- [x] 09-06-PLAN.md — Fix role change confirmation callback parsing
+**Milestone Goal:** Add Redis caching layer for FSM state persistence and application-level caching (BotConfig, roles, channels).
 
-### Phase 10: Free Channel Entry Flow
-**Goal**: Flujo de ingreso al canal Free con voz de Lucien, redes sociales de la creadora, tiempo de espera y aprobación automática.
-**Depends on**: Phase 6
-**Requirements**: FLOW-FREE-01, FLOW-FREE-02, FLOW-FREE-03, FLOW-FREE-04, FLOW-FREE-05, FLOW-FREE-06, VOICE-03, VOICE-04, VOICE-05
-**Success Criteria** (what must be TRUE):
-  1. Mensaje de solicitud de acceso usa voz de Lucien explicando tiempo de espera
-  2. Mensaje incluye redes sociales de la creadora con links clickeables
-  3. Mensaje sugiere seguir redes sociales para acelerar ingreso
-  4. Mensaje de aprobación incluye botón de acceso directo al canal
-  5. Aprobación automática después de tiempo configurado (5 min actual)
-  6. Mensaje de bienvenida al canal VIP con voz de Lucien
-**Status**: ✅ Complete
-**Completed**: 2026-01-27
-**Plans**: 5 plans completed
-
-Plans:
-- [x] 10-01-PLAN.md — Database Extension - Social Media Fields (BotConfig fields + ConfigService getters/setters)
-- [x] 10-02-PLAN.md — UserFlowMessages - Lucien Voice + Social Media Keyboard
-- [x] 10-03-PLAN.md — Free Flow Handler - Social Media Keyboard Integration
-- [x] 10-04-PLAN.md — Approval Message - Send with Channel Link Button
-- [x] 10-05-PLAN.md — Database Migration - Auto-Create New Columns
-
-### Phase 11: Documentation
-**Goal**: Documentación exhaustiva del sistema de menús en código y archivos .md con guía de integración para agregar nuevas opciones.
-**Depends on**: Phase 10
-**Requirements**: DOCS-01, DOCS-02, DOCS-03, DOCS-04
-**Success Criteria** (what must be TRUE):
-  1. Todos los servicios y handlers tienen docstrings exhaustivos
-  2. Documentación en .md sobre arquitectura de menús existe
-  3. Guía de integración para agregar nuevas opciones de menú existe
-  4. Ejemplos de uso del sistema de menús están documentados
-**Status**: ✅ Complete
-**Completed**: 2026-01-28
-**Plans**: 4 plans completed
-
-Plans:
-- [x] 11-01-PLAN.md — Add comprehensive Google Style docstrings to all service classes and message providers (container, subscription, channel, config, admin/user message providers)
-- [x] 11-02-PLAN.md — Create MENU_SYSTEM.md with complete architecture documentation (role detection, message providers, keyboard factory, callback routing, Lucien voice integration)
-- [x] 11-03-PLAN.md — Create INTEGRATION_GUIDE.md with step-by-step instructions for adding menu options (message provider creation, handler implementation, callback routing, testing)
-- [x] 11-04-PLAN.md — Create EXAMPLES.md with practical usage examples (admin menu, user menu with role detection, content management, testing, voice integration)
-
-### Phase 12: Rediseño de Menú de Paquetes con Vista de Detalles
-**Goal**: Rediseñar la interfaz de paquetes para mostrar información detallada (descripción, precio) antes de registrar interés, con botones individuales por paquete.
-**Depends on**: Phase 8
-**Status**: ✅ Complete
-**Completed**: 2026-01-27
-**Requirements**: (no new requirements - UX improvement based on Phase 8 testing)
-**Success Criteria** (what must be TRUE):
-  1. Usuario ve lista de paquetes con botones individuales (no genéricos "Me interesa")
-  2. Al hacer clic en un paquete, se muestra vista detallada (nombre, descripción, precio, tipo)
-  3. Vista de detalles incluye botón "Me interesa" para registrar interés
-  4. Navegación permite volver a la lista de paquetes desde vista de detalles
-**Plans**: 4 plans completed
-
-Plans:
-- [x] 12-01-PLAN.md — Rediseñar presentación de paquetes en lista minimalista (solo nombre), ordenados por precio
-- [x] 12-02-PLAN.md — Crear vista de detalles con información completa y botón "Me interesa"
-- [x] 12-03-PLAN.md — Implementar flujo post-interés con mensaje de confirmación personal y botón de contacto
-- [x] 12-04-PLAN.md — Completar navegación completa (regresar a listado, volver a menú principal)
-
-### Phase 13: VIP Ritualized Entry Flow
-**Goal**: Reemplazar el flujo actual de acceso VIP (entrega inmediata del enlace) por un proceso secuencial de 3 fases de admisión que aumente percepción de exclusividad, reduzca accesos impulsivos, y prepare psicológicamente al usuario para el tipo de contenido.
-**Depends on**: Phase 6
-**Status**: ✅ Complete
-**Completed**: 2026-01-27
-**Success Criteria** (what must be TRUE):
-  1. Usuario con VIPSubscriber válido pero vip_entry_stage=1 inicia conversación y recibe mensaje de confirmación ritual (Fase 1)
-  2. Usuario pulsa "Continuar" y recibe mensaje de alineación de expectativas con voz de Lucien (Fase 2)
-  3. Usuario pulsa "Estoy listo" y sistema genera enlace VIP único con validez de 24 horas (Fase 3)
-  4. Después de usar enlace, usuario tiene UserRole.VIP detectado por RoleDetectionService existente
-  5. Flujo soporta reanudación desde vip_entry_stage actual si usuario abandona y vuelve
-  6. Si VIPSubscriber expira antes de completar flujo, sistema cancela proceso y bloquea generación de enlace
-**Plans**: 4 plans
-
-Plans:
-- [x] 13-01-PLAN.md — Database extension - VIP entry stage fields (vip_entry_stage int in VIPSubscriber, vip_entry_token unique, invite_link_sent_at timestamp)
-- [x] 13-02-PLAN.md — VIPEntryFlowMessages provider with Lucien voice for 3-phase ritual (activation confirmation, expectation alignment, access delivery)
-- [x] 13-03-PLAN.md — VIP entry flow FSM states (VIPEntryStates with stages 1-3) and handlers for each phase transition
-- [x] 13-04-PLAN.md — VIP entry service with stage validation, invite link generation (24h expiry), and expiry cancellation logic
-
----
+*Note: Redis requirements (CACHE-01 through CACHE-05) are DEFERRED to v1.3.*
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13
+Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -248,5 +194,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 11. Documentation | v1.1 | 4/4 | Complete | 2026-01-28 |
 | 12. Rediseño de Menú de Paquetes | v1.1 | 4/4 | Complete | 2026-01-27 |
 | 13. VIP Ritualized Entry Flow | v1.1 | 4/4 | Complete | 2026-01-27 |
+| 14. Database Migration Foundation | v1.2 | 0/3 | Not started | - |
+| 15. Health Check & Railway Preparation | v1.2 | 0/4 | Not started | - |
+| 16. Testing Infrastructure | v1.2 | 0/3 | Not started | - |
+| 17. System Tests | v1.2 | 0/4 | Not started | - |
+| 18. Admin Test Runner & Performance Profiling | v1.2 | 0/4 | Not started | - |
 
-**v1.1 Progress:** ██████████ 100% (48/48 plans complete, 57/57 requirements satisfied)
+**Overall Progress:** 48/63 plans complete (76%)
