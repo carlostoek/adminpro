@@ -19,11 +19,11 @@ async def test_database_is_in_memory(test_engine):
     assert ":memory:" in str(test_engine.url)
 
 
-async def test_tables_exist(test_session):
+async def test_tables_exist(test_engine):
     """All model tables exist."""
-    tables = await test_session.run_sync(
-        lambda conn: inspect(conn).get_table_names()
-    )
+    async with test_engine.connect() as conn:
+        tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
+    
     expected = [
         'bot_config',
         'users',
@@ -73,51 +73,59 @@ async def test_botconfig_has_subscription_fees(test_session):
 
 async def test_database_isolation_write(test_session):
     """Write data in one test - should not exist in subsequent tests."""
-    from datetime import datetime, timedelta
-
-    subscriber = VIPSubscriber(
-        user_id=999888777,
-        username="isolation_test_user",
-        expires_at=datetime.utcnow() + timedelta(days=30),
-        status="active"
+    # Use InvitationToken which has no foreign key constraints
+    token = InvitationToken(
+        token="ISOLATION_TEST_TOKEN",
+        generated_by=111111111,
+        duration_hours=24
     )
-    test_session.add(subscriber)
+    test_session.add(token)
     await test_session.commit()
+    await test_session.refresh(token)
 
-    result = await test_session.get(VIPSubscriber, 999888777)
+    # Verify it exists in this test
+    result = await test_session.get(InvitationToken, token.id)
     assert result is not None
-    assert result.username == "isolation_test_user"
+    assert result.token == "ISOLATION_TEST_TOKEN"
 
 
 async def test_database_isolation_verify(test_session):
     """Verify data from previous test doesn't exist (isolation)."""
-    result = await test_session.get(VIPSubscriber, 999888777)
-    assert result is None
+    # The token from previous test should not exist
+    result = await test_session.execute(
+        text("SELECT * FROM invitation_tokens WHERE token = 'ISOLATION_TEST_TOKEN'")
+    )
+    assert result.fetchone() is None
 
 
 async def test_database_isolation_write_alt_id(test_session):
     """Write data with different ID to further verify isolation."""
-    from datetime import datetime, timedelta
-
-    subscriber = VIPSubscriber(
-        user_id=888777666,
-        username="another_isolation_test",
-        expires_at=datetime.utcnow() + timedelta(days=30),
-        status="active"
+    token = InvitationToken(
+        token="ISOLATION_TEST_TOKEN_2",
+        generated_by=222222222,
+        duration_hours=48
     )
-    test_session.add(subscriber)
+    test_session.add(token)
     await test_session.commit()
 
-    result = await test_session.get(VIPSubscriber, 888777666)
-    assert result is not None
+    # Verify it exists
+    result = await test_session.execute(
+        text("SELECT * FROM invitation_tokens WHERE token = 'ISOLATION_TEST_TOKEN_2'")
+    )
+    assert result.fetchone() is not None
 
 
 async def test_database_isolation_verify_alt_id(test_session):
     """Verify the alt ID data also doesn't persist."""
-    result1 = await test_session.get(VIPSubscriber, 999888777)
-    result2 = await test_session.get(VIPSubscriber, 888777666)
-    assert result1 is None
-    assert result2 is None
+    # Both previous isolation test tokens should not exist
+    result1 = await test_session.execute(
+        text("SELECT * FROM invitation_tokens WHERE token = 'ISOLATION_TEST_TOKEN'")
+    )
+    result2 = await test_session.execute(
+        text("SELECT * FROM invitation_tokens WHERE token = 'ISOLATION_TEST_TOKEN_2'")
+    )
+    assert result1.fetchone() is None
+    assert result2.fetchone() is None
 
 
 # ============================================================================
@@ -134,7 +142,7 @@ async def test_invitation_token_fixture(test_invitation_token):
     """Test that test_invitation_token fixture creates a valid token."""
     assert test_invitation_token.token == "TEST_TOKEN_12345"
     assert test_invitation_token.generated_by == 987654321
-    assert test_invitation_token.is_used is False
+    assert test_invitation_token.used is False
     assert test_invitation_token.duration_hours == 168
 
 
