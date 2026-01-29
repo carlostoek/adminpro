@@ -116,8 +116,12 @@ async def on_startup_webhook(bot: Bot, dispatcher: Dispatcher) -> None:
     # Iniciar health check API
     try:
         health_task = await start_health_server()
-        dispatcher.workflow_data['health_task'] = health_task
-        logger.info("✅ Health check API iniciado")
+        if health_task is not None:
+            dispatcher.workflow_data['health_task'] = health_task
+            logger.info("✅ Health check API iniciado")
+        else:
+            logger.warning("⚠️ Health API no disponible - bot continúa sin health checks")
+            logger.warning("   Esto no afecta la funcionalidad del bot")
     except Exception as e:
         logger.error(f"❌ Error iniciando health API: {e}")
         logger.warning("⚠️ Bot continuará sin health check endpoint")

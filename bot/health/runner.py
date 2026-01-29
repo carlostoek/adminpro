@@ -20,41 +20,39 @@ from config import Config
 logger = logging.getLogger(__name__)
 
 
-def is_port_available(host: str, port: int) -> bool:
-    """Check if a port is available for binding."""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(1)
-            result = sock.connect_ex((host, port))
-            return result != 0  # 0 means port is in use
-    except Exception:
-        return False
-
-
-def wait_for_port_release(host: str, port: int, timeout: int = 10) -> bool:
+def create_socket_with_reuse(host: str, port: int) -> Optional[socket.socket]:
     """
-    Wait for a port to become available.
+    Create a socket with SO_REUSEADDR to allow port reuse.
+
+    This handles the case where the port is in TIME_WAIT state from
+    a previous session, which is common during rapid restarts.
 
     Args:
-        host: Host to check
-        port: Port to check
-        timeout: Maximum time to wait in seconds
+        host: Host to bind to
+        port: Port to bind to
 
     Returns:
-        True if port became available, False if timeout
+        Socket if successful, None if port is truly in use
     """
-    logger.info(f"⏳ Esperando que el puerto {port} se libere...")
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        if is_port_available(host, port):
-            logger.info(f"✅ Puerto {port} liberado")
-            return True
-        time.sleep(0.5)
-    logger.warning(f"⚠️ Timeout esperando puerto {port}")
-    return False
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Try to bind - this will fail if port is truly in use
+        sock.bind((host, port))
+        return sock
+    except OSError as e:
+        if e.errno == 98:  # Address already in use
+            logger.warning(f"⚠️ Puerto {port} está ocupado (no TIME_WAIT)")
+        else:
+            logger.error(f"❌ Error creando socket: {e}")
+        try:
+            sock.close()
+        except:
+            pass
+        return None
 
 
-async def run_health_api(host: str, port: int) -> None:
+async def run_health_api(host: str, port: int) -> bool:
     """
     Run FastAPI health check API server asynchronously.
 
@@ -66,16 +64,24 @@ async def run_health_api(host: str, port: int) -> None:
         port: Port to listen on (e.g., 8000)
 
     Returns:
-        None (runs indefinitely until cancelled or KeyboardInterrupt)
+        bool: True if server started and ran successfully, False if bind failed
 
     Note:
         - Uses "asyncio" loop mode to share event loop with bot
         - Enables access logging for monitoring
         - Handles KeyboardInterrupt gracefully
-        - Properly shuts down server on cancellation to release port
+        - Uses SO_REUSEADDR to handle TIME_WAIT state
+        - Captures SystemExit to prevent uvicorn from killing the bot
     """
     # Create FastAPI app
     app = create_health_app()
+
+    # Create socket with SO_REUSEADDR to handle TIME_WAIT
+    sock = create_socket_with_reuse(host, port)
+    if sock is None:
+        logger.error(f"❌ No se pudo crear socket en {host}:{port}")
+        logger.error("   Puerto está ocupado por otro proceso")
+        return False
 
     # Configure uvicorn
     uvicorn_config = UvicornConfig(
@@ -94,45 +100,66 @@ async def run_health_api(host: str, port: int) -> None:
     logger.info(f"🏥 Health API starting on http://{host}:{port}")
 
     try:
-        # Run server (blocking until cancelled)
-        await server.serve()
+        # Run server with pre-created socket (prevents bind errors)
+        # We need to pass the socket to uvicorn's startup
+        await server.startup(sockets=[sock])
+        await server.main_loop()
     except KeyboardInterrupt:
         logger.info("⌨️ Health API recibió KeyboardInterrupt")
     except asyncio.CancelledError:
         logger.info("🛑 Health API task cancelado - iniciando shutdown...")
         # CancelledError indica que debemos cerrar limpiamente
         raise  # Re-raise para que el caller sepa que fue cancelado
+    except SystemExit as e:
+        # Uvicorn calls sys.exit() on some errors - don't let it kill the bot
+        logger.error(f"❌ Health API SystemExit({e.code}) - capturado, no se propaga")
+        return False
+    except OSError as e:
+        if e.errno == 98:  # Address already in use
+            logger.error(f"❌ Puerto {port} ocupado: {e}")
+        else:
+            logger.error(f"❌ Error en Health API server: {e}", exc_info=True)
+        return False
     except Exception as e:
-        logger.error(f"❌ Error en Health API server: {e}", exc_info=True)
+        logger.error(f"❌ Error inesperado en Health API: {e}", exc_info=True)
+        return False
     finally:
         # Asegurar que el servidor se cierre y libere el puerto
-        if server.started:
-            logger.info("🔌 Cerrando servidor Health API...")
-            server.should_exit = True
-            # Dar tiempo al servidor para cerrar conexiones
-            await asyncio.sleep(0.5)
+        try:
+            if server.started:
+                logger.info("🔌 Cerrando servidor Health API...")
+                await server.shutdown(sockets=[sock] if sock else None)
+        except Exception as e:
+            logger.warning(f"⚠️ Error durante shutdown: {e}")
+        finally:
+            # Cerrar el socket si todavía está abierto
+            try:
+                if sock:
+                    sock.close()
+            except:
+                pass
         logger.info("🔌 Health API server detenido")
 
+    return True
 
-async def start_health_server() -> asyncio.Task:
+
+async def start_health_server() -> Optional[asyncio.Task]:
     """
     Start health check API server as background asyncio task.
 
     Gets configuration from Config.HEALTH_PORT and Config.HEALTH_HOST,
     creates asyncio task for run_health_api(), and returns task reference.
 
-    Waits for port to be available if it was recently released (handles
-    rapid restarts where the port might still be in TIME_WAIT state).
+    If the port is unavailable, logs a warning and returns None instead
+    of failing, allowing the bot to continue running without health checks.
 
     Returns:
-        asyncio.Task: Task object for tracking and graceful shutdown
-
-    Raises:
-        Exception: If task creation fails (logged, caught by caller)
+        asyncio.Task: Task object for tracking and graceful shutdown, or None if failed to start
 
     Note:
         Task runs in background and does not block bot startup.
         Store task reference for graceful shutdown in on_shutdown().
+        If health API fails to start, bot continues running (health is optional).
     """
     logger.info("🚀 Starting health API server...")
 
@@ -140,13 +167,22 @@ async def start_health_server() -> asyncio.Task:
     port = Config.HEALTH_PORT
     host = Config.HEALTH_HOST  # Default: "0.0.0.0" for external access
 
-    # Check if port is available, wait if needed (handles rapid restarts)
-    if not is_port_available(host, port):
-        logger.warning(f"⚠️ Puerto {port} está ocupado, esperando liberación...")
-        if not wait_for_port_release(host, port, timeout=10):
-            logger.error(f"❌ Puerto {port} sigue ocupado después de 10s")
-            logger.error("   Posible causa: proceso anterior no terminó limpiamente")
-            logger.error("   Solución: kill $(lsof -t -i:{port}) o esperar 60s")
+    # Quick check if port is available with SO_REUSEADDR test
+    sock = create_socket_with_reuse(host, port)
+    if sock is None:
+        logger.error(f"❌ Puerto {port} no disponible - Health API no iniciará")
+        logger.error("   Bot continuará funcionando sin health checks")
+        logger.error(f"   Para liberar: kill $(lsof -t -i:{port}) 2>/dev/null")
+        return None
+
+    # Close the test socket - we'll create a new one in run_health_api
+    try:
+        sock.close()
+    except:
+        pass
+
+    # Wait a moment for the port to be fully released
+    await asyncio.sleep(0.5)
 
     # Create asyncio task for health API
     task = asyncio.create_task(run_health_api(host, port))
