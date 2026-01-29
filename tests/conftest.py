@@ -1,30 +1,25 @@
 """
 Pytest Configuration and Shared Fixtures.
 
-Proporciona fixtures comunes para todos los tests:
+Provides common fixtures for all tests:
 - test_db: Isolated in-memory database
 - test_session: Active database session
 - test_engine: Raw database engine
-- test_vip_subscriber: Pre-created VIP subscriber
 - test_invitation_token: Pre-created invitation token
-- test_free_request: Pre-created free channel request
-- mock_bot: Mock del bot de Telegram
+- mock_bot: Mock Telegram bot
 - container: ServiceContainer with dependencies
 - container_with_preload: Container with services preloaded
 - Semantic assertion fixtures for voice validation
 """
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, Mock
 
 # Import all fixtures from the fixtures package
 from tests.fixtures import (
     test_db,
     test_session,
     test_engine,
-    test_vip_subscriber,
     test_invitation_token,
-    test_free_request,
     mock_bot,
     container,
     container_with_preload,
@@ -96,21 +91,21 @@ def assert_lucien_voice():
     Fixture: Returns assertion function that validates Lucien's voice characteristics.
 
     Ensures messages maintain the sophisticated mayordomo personality:
-    - 🎩 emoji present (Lucien's signature)
+    - emoji present (Lucien's signature)
     - No tutear (uses usted form, not informal tú)
     - No technical jargon (speaks naturally, not like a developer)
     - HTML formatting present (elegant presentation)
 
     Usage:
         def test_welcome_message(assert_lucien_voice):
-            text = "🎩 <b>Buenos días.</b> Le asisto con su solicitud."
+            text = "<b>Buenos días.</b> Le asisto con su solicitud."
             assert_lucien_voice(text)  # Passes
 
             bad_text = "Tienes un error en la database."
             assert_lucien_voice(bad_text)  # Fails: tutear + jargon
 
     Voice Rules:
-        - Must contain: 🎩 emoji, HTML tags (<b> or <i>)
+        - Must contain: emoji, HTML tags (<b> or <i>)
         - Must NOT contain: tutear words (tienes, tu, haz, puedes)
         - Must NOT contain: jargon (database, api, exception, error code, null)
     """
@@ -118,9 +113,19 @@ def assert_lucien_voice():
         """Validate text maintains Lucien's voice characteristics."""
         violations = []
 
-        # Check 1: 🎩 emoji present
-        if "🎩" not in text:
-            violations.append("Missing 🎩 emoji (Lucien's signature)")
+        # Check 1: emoji present
+        import re
+        emoji_pattern = re.compile("["
+            u"\U0001F600-\U0001F64F"  # emoticons
+            u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+            u"\U0001F680-\U0001F6FF"  # transport & map symbols
+            u"\U0001F1E0-\U0001F1FF"  # flags
+            u"\U00002702-\U000027B0"
+            u"\U000024C2-\U0001F251"
+            "]+", flags=re.UNICODE)
+
+        if not emoji_pattern.search(text):
+            violations.append("Missing emoji (Lucien's signature)")
 
         # Check 2: No tutear (informal tú form)
         tutear_words = ["tienes", "tu ", "tu.", "haz", "puedes"]

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy import text
 
 from bot.database.base import Base
-from bot.database.models import BotConfig, VIPSubscriber, InvitationToken, FreeChannelRequest
+from bot.database.models import BotConfig, InvitationToken
 
 
 @pytest_asyncio.fixture
@@ -124,8 +124,6 @@ async def test_engine():
                 result = await conn.execute(text("SELECT 1"))
                 assert result.scalar() == 1
     """
-    from sqlalchemy.ext.asyncio import AsyncEngine
-
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         echo=False,
@@ -140,32 +138,6 @@ async def test_engine():
     await engine.dispose()
 
 
-# ============================================================================
-# MODEL-SPECIFIC FIXTURES
-# ============================================================================
-
-@pytest_asyncio.fixture
-async def test_vip_subscriber(test_session):
-    """
-    Fixture: Creates a test VIP subscriber.
-
-    Returns:
-        VIPSubscriber: Created subscriber instance
-    """
-    from datetime import datetime, timedelta
-
-    subscriber = VIPSubscriber(
-        user_id=123456789,
-        username="test_vip_user",
-        expires_at=datetime.utcnow() + timedelta(days=30),
-        status="active"
-    )
-    test_session.add(subscriber)
-    await test_session.commit()
-    await test_session.refresh(subscriber)
-    return subscriber
-
-
 @pytest_asyncio.fixture
 async def test_invitation_token(test_session):
     """
@@ -174,38 +146,12 @@ async def test_invitation_token(test_session):
     Returns:
         InvitationToken: Created token instance
     """
-    from datetime import datetime, timedelta
-
     token = InvitationToken(
         token="TEST_TOKEN_12345",
         generated_by=987654321,
-        expires_at=datetime.utcnow() + timedelta(hours=24),
-        is_used=False,
         duration_hours=168  # 7 days
     )
     test_session.add(token)
     await test_session.commit()
     await test_session.refresh(token)
     return token
-
-
-@pytest_asyncio.fixture
-async def test_free_request(test_session):
-    """
-    Fixture: Creates a test free channel request.
-
-    Returns:
-        FreeChannelRequest: Created request instance
-    """
-    from datetime import datetime
-
-    request = FreeChannelRequest(
-        user_id=111222333,
-        username="test_free_user",
-        requested_at=datetime.utcnow(),
-        status="pending"
-    )
-    test_session.add(request)
-    await test_session.commit()
-    await test_session.refresh(request)
-    return request
