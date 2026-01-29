@@ -9,7 +9,7 @@ import logging
 from typing import Optional
 
 import uvicorn
-from uvicorn.config import Config
+from uvicorn.config import Config as UvicornConfig
 from uvicorn.server import Server
 
 from bot.health.endpoints import create_health_app
@@ -41,7 +41,7 @@ async def run_health_api(host: str, port: int) -> None:
     app = create_health_app()
 
     # Configure uvicorn
-    uvicorn_config = Config(
+    uvicorn_config = UvicornConfig(
         app=app,
         host=host,
         port=port,
