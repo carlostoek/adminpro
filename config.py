@@ -87,6 +87,11 @@ class Config:
         os.getenv("FREE_REQUEST_SPAM_WINDOW_MINUTES", "5")
     )
 
+    # ===== HEALTH CHECK =====
+    # Puerto para el endpoint de health check (FastAPI)
+    # Default: 8000 (no debe colisionar con otros servicios)
+    HEALTH_PORT: int = int(os.getenv("HEALTH_PORT", "8000"))
+
     @classmethod
     def validate_database_url(cls) -> bool:
         """
@@ -240,6 +245,7 @@ class Config:
 📺 Canal VIP: {cls.VIP_CHANNEL_ID or 'No configurado'}
 📺 Canal Free: {cls.FREE_CHANNEL_ID or 'No configurado'}
 ⏱️  Tiempo espera: {cls.DEFAULT_WAIT_TIME_MINUTES} min
+🏥 Health Port: {cls.HEALTH_PORT}
 📝 Log level: {cls.LOG_LEVEL}
         """.strip()
 
