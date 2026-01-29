@@ -277,8 +277,11 @@ async def main() -> None:
     - Webhook: Telegram envía updates al bot (óptimo para Railway)
     """
     # Crear instancia del bot con sesión customizada
-    # Aumentar timeout a 120s para handlers que tardan más tiempo
-    session = AiohttpSession(timeout=120)
+    # AiohttpSession timeout: 10s para shutdown responsivo
+    # NOTA: Este es el timeout para request HTTP, NO para handlers
+    # Los handlers pueden tardar más tiempo, esto es solo para conexiones HTTP
+    # Un timeout más corto permite que el bot responda a Ctrl+C rápidamente
+    session = AiohttpSession(timeout=10)
 
     bot = Bot(
         token=Config.BOT_TOKEN,
@@ -323,17 +326,19 @@ async def main() -> None:
                 secret_token=Config.WEBHOOK_SECRET
             )
         except KeyboardInterrupt:
-            logger.info("⌨️ Interrupción por teclado (Ctrl+C)")
+            logger.info("⌨️ Interrupción por teclado (Ctrl+C) - Deteniendo webhook...")
         except Exception as e:
             logger.error(f"❌ Error crítico en webhook: {e}", exc_info=True)
         finally:
             # Cleanup forceful
-            logger.info("🧹 Limpiando recursos...")
+            logger.info("⏱️ Esperando shutdown limpio (máx 10s)...")
+            logger.info("🧹 Iniciando limpieza de recursos...")
             try:
                 await bot.session.close()
-                logger.info("🔌 Sesión del bot cerrada")
+                logger.info("✅ Sesión del bot cerrada correctamente")
             except Exception as e:
                 logger.warning(f"⚠️ Error cerrando sesión: {e}")
+            logger.info("👋 Bot detenido completamente")
     else:
         logger.info("🔄 Iniciando en modo POLLING...")
         # Registrar callbacks de polling
@@ -342,27 +347,33 @@ async def main() -> None:
 
         # Iniciar polling
         try:
-            # Iniciar polling (long polling con timeout de 30s)
+            # Iniciar polling con timeout de 10s para shutdown responsivo
+            # Balance entre:
+            # - Shutdown rápido (Ctrl+C funciona en ~10s)
+            # - Conexiones inestables (timeout suficiente para redes lentas)
+            # - Eficiencia (no hacer requests muy frecuentes)
             logger.info("🔄 Iniciando polling...")
             await dp.start_polling(
                 bot,
                 allowed_updates=dp.resolve_used_update_types(),
-                timeout=30,  # Timeout apropiado para conexiones inestables en Termux
+                timeout=10,  # 10s timeout para shutdown responsivo (era 30)
                 drop_pending_updates=True,  # Ignorar updates pendientes del pasado
                 relax_timeout=True  # Reduce requests frecuentes
             )
         except KeyboardInterrupt:
-            logger.info("⌨️ Interrupción por teclado (Ctrl+C)")
+            logger.info("⌨️ Interrupción por teclado (Ctrl+C) - Deteniendo bot...")
+            logger.info("⏱️ Cerrando sesión HTTP (puede tomar hasta 10s)...")
         except Exception as e:
             logger.error(f"❌ Error crítico en polling: {e}", exc_info=True)
         finally:
             # Cleanup forceful
-            logger.info("🧹 Limpiando recursos...")
+            logger.info("🧹 Iniciando limpieza de recursos...")
             try:
                 await bot.session.close()
-                logger.info("🔌 Sesión del bot cerrada")
+                logger.info("✅ Sesión del bot cerrada correctamente")
             except Exception as e:
                 logger.warning(f"⚠️ Error cerrando sesión: {e}")
+            logger.info("👋 Bot detenido completamente")
 
 
 _shutdown_timeout_active = False
