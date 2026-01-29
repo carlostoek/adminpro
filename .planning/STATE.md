@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 16 of 18 (Testing Infrastructure)
-Plan: 1 of ? in current phase
-Status: In progress - pytest-asyncio configuration complete
-Last activity: 2026-01-29 — Plan 16-01 completed (pytest-asyncio Configuration)
+Plan: 5 of ? in current phase
+Status: In progress - Coverage reporting configured
+Last activity: 2026-01-29 — Plan 16-05 completed (Coverage Reporting Configuration)
 
-Progress: [███████████████░░░] 90%
+Progress: [███████████████░░░] 91%
 
 ## Performance Metrics
 
@@ -82,6 +82,11 @@ See PROJECT.md Key Decisions table for full decision log.
 - Phase 15-05: Bot now responds to Ctrl+C within 1-2 seconds (was 150 seconds) (15-05 complete)
 - Phase 15-05: No orphaned processes after shutdown; immediate restart capability (15-05 complete)
 - Phase 16-01: pytest-asyncio configured with asyncio_mode=auto (no decorators needed)
+- Phase 16-05: Coverage reporting configured with pytest-cov and .coveragerc
+- Phase 16-05: Branch coverage enabled for thorough measurement
+- Phase 16-05: Coverage exclusions for tests, migrations, venv, scripts configured
+- Phase 16-05: HTML and XML coverage reports supported
+- Phase 16-05: scripts/coverage.py helper for convenient coverage runs
 - Phase 16: pytest-asyncio with in-memory SQLite for test isolation
 - Phase 17: Comprehensive test coverage for all critical flows
 - Phase 18: Admin test runner for non-technical users
@@ -121,10 +126,10 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-29 (Phase 16 execution)
-Stopped at: Completed Plan 16-01 (pytest-asyncio Configuration)
+Stopped at: Completed Plan 16-05 (Coverage Reporting Configuration)
 Resume file: None
-Next: Continue Phase 16 - In-memory SQLite test database
+Next: Continue Phase 16 - Additional testing infrastructure or move to Phase 17
 
 ---
 
-*State updated: 2026-01-29 after Plan 16-01 completion*
+*State updated: 2026-01-29 after Plan 16-05 completion*
