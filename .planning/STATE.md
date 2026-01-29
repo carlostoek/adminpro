@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 16 of 18 (Testing Infrastructure)
-Plan: 5 of ? in current phase
-Status: In progress - Coverage reporting configured
-Last activity: 2026-01-29 — Plan 16-05 completed (Coverage Reporting Configuration)
+Plan: 2 of 5 in current phase
+Status: In progress - Core test fixtures documented
+Last activity: 2026-01-29 — Plan 16-02 completed (Core Test Fixtures)
 
 Progress: [███████████████░░░] 91%
 
@@ -82,6 +82,9 @@ See PROJECT.md Key Decisions table for full decision log.
 - Phase 15-05: Bot now responds to Ctrl+C within 1-2 seconds (was 150 seconds) (15-05 complete)
 - Phase 15-05: No orphaned processes after shutdown; immediate restart capability (15-05 complete)
 - Phase 16-01: pytest-asyncio configured with asyncio_mode=auto (no decorators needed)
+- Phase 16-02: Core test fixtures created (test_db, mock_bot, container, container_with_preload)
+- Phase 16-02: In-memory SQLite for isolated test databases
+- Phase 16-02: ServiceContainer fixture with dependency injection for tests
 - Phase 16-05: Coverage reporting configured with pytest-cov and .coveragerc
 - Phase 16-05: Branch coverage enabled for thorough measurement
 - Phase 16-05: Coverage exclusions for tests, migrations, venv, scripts configured
@@ -126,10 +129,10 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-29 (Phase 16 execution)
-Stopped at: Completed Plan 16-05 (Coverage Reporting Configuration)
+Stopped at: Completed Plan 16-02 (Core Test Fixtures)
 Resume file: None
-Next: Continue Phase 16 - Additional testing infrastructure or move to Phase 17
+Next: Continue Phase 16 - Additional testing infrastructure plans
 
 ---
 
-*State updated: 2026-01-29 after Plan 16-05 completion*
+*State updated: 2026-01-29 after Plan 16-02 completion*
