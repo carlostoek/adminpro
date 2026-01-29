@@ -16,42 +16,20 @@ from bot.database.models import BotConfig, InvitationToken
 async def test_db():
     """
     Fixture: Provides an isolated in-memory database for each test.
-
-    Creates a new SQLite in-memory database with:
-    - All tables created from Base.metadata
-    - BotConfig singleton pre-populated (id=1)
-    - WAL mode enabled for better concurrency
-    - Foreign keys enforced
-
-    Yields:
-        async_sessionmaker: Session factory bound to test database
-
-    Example:
-        async def test_example(test_db):
-            async with test_db() as session:
-                # Use session for database operations
-                pass
     """
-    # Create in-memory engine with aiosqlite
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         echo=False,
         future=True,
-        connect_args={
-            "check_same_thread": False,  # Required for async
-        }
+        connect_args={"check_same_thread": False}
     )
 
-    # Create all tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
-        # Enable WAL mode for better concurrency
         await conn.execute(text("PRAGMA journal_mode=WAL"))
         await conn.execute(text("PRAGMA synchronous=NORMAL"))
         await conn.execute(text("PRAGMA foreign_keys=ON"))
 
-    # Create session factory
     session_factory = async_sessionmaker(
         engine,
         class_=AsyncSession,
@@ -60,7 +38,6 @@ async def test_db():
         autoflush=False
     )
 
-    # Create BotConfig singleton with test defaults
     async with session_factory() as session:
         config = BotConfig(
             id=1,
@@ -76,7 +53,6 @@ async def test_db():
 
     yield session_factory
 
-    # Cleanup: Drop all tables and dispose engine
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
@@ -86,43 +62,16 @@ async def test_db():
 async def test_session(test_db):
     """
     Fixture: Provides an active database session for a test.
-
-    The session is automatically rolled back after the test to ensure
-    test isolation - no data persists between tests.
-
-    Args:
-        test_db: The test_db fixture (session factory)
-
-    Yields:
-        AsyncSession: Active database session with active transaction
-
-    Example:
-        async def test_with_session(test_session):
-            config = await test_session.get(BotConfig, 1)
-            assert config.wait_time_minutes == 5
     """
     async with test_db() as session:
         yield session
-        # Rollback ensures no data persists after test
         await session.rollback()
 
 
 @pytest_asyncio.fixture
 async def test_engine():
     """
-    Fixture: Provides a raw database engine for tests that need it.
-
-    Useful for tests that need to execute raw SQL or manage their own
-    sessions.
-
-    Yields:
-        AsyncEngine: SQLAlchemy async engine
-
-    Example:
-        async def test_raw_sql(test_engine):
-            async with test_engine.connect() as conn:
-                result = await conn.execute(text("SELECT 1"))
-                assert result.scalar() == 1
+    Fixture: Provides a raw database engine for tests.
     """
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
@@ -142,14 +91,11 @@ async def test_engine():
 async def test_invitation_token(test_session):
     """
     Fixture: Creates a test invitation token.
-
-    Returns:
-        InvitationToken: Created token instance
     """
     token = InvitationToken(
         token="TEST_TOKEN_12345",
         generated_by=987654321,
-        duration_hours=168  # 7 days
+        duration_hours=168
     )
     test_session.add(token)
     await test_session.commit()
