@@ -64,17 +64,55 @@ async def test_db():
 @pytest_asyncio.fixture
 async def test_session(test_db):
     """
-    Fixture: Provides an active database session for a test.
+    Fixture: Provides an isolated database session for a test.
 
-    Automatically commits or rolls back based on test outcome.
+    Uses nested transactions to ensure complete isolation:
+    - Outer transaction is never committed
+    - Inner transaction (test operations) is rolled back
+    - Database is clean for each test
 
     Args:
         test_db: The test_db fixture (session factory)
 
     Yields:
-        AsyncSession: Active database session
+        AsyncSession: Active database session with transaction isolation
     """
     async with test_db() as session:
+        # Begin nested transaction (savepoint)
+        # This allows us to rollback all changes made during the test
+        await session.begin_nested()
+
         yield session
-        # Rollback after test to ensure isolation
+
+        # Rollback the nested transaction to discard all test changes
         await session.rollback()
+
+
+@pytest_asyncio.fixture
+async def test_engine():
+    """
+    Fixture: Provides an isolated database engine for each test.
+
+    Creates a new SQLite in-memory engine with tables created.
+    Useful for tests that need direct engine access.
+
+    Yields:
+        AsyncEngine: SQLAlchemy async engine bound to test database
+    """
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    # Create in-memory engine
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        echo=False,
+        future=True
+    )
+
+    # Create all tables
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    yield engine
+
+    # Cleanup
+    await engine.dispose()
