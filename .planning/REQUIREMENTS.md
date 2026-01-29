@@ -9,13 +9,13 @@ Requisitos para el hito de despliegue inicial. Cada requisito se mapea a una fas
 
 ### Database Migration (DBMIG)
 
-- [ ] **DBMIG-01**: Sistema soporta PostgreSQL y SQLite con cambio vía variable de entorno
-- [ ] **DBMIG-02**: Motor de base de datos detecta automáticamente el dialecto (postgresql+asyncpg vs sqlite+aiosqlite)
-- [ ] **DBMIG-03**: Alembic está configurado con migración inicial
-- [ ] **DBMIG-04**: Sistema ejecuta migraciones automáticamente al iniciar (producción)
-- [ ] **DBMIG-05**: Script de migración de datos SQLite → PostgreSQL
-- [ ] **DBMIG-06**: Validación de tipos en todos los modelos previo a migración
-- [ ] **DBMIG-07**: Rolling back de migraciones soportado
+- [x] **DBMIG-01**: Sistema soporta PostgreSQL y SQLite con cambio vía variable de entorno
+- [x] **DBMIG-02**: Motor de base de datos detecta automáticamente el dialecto (postgresql+asyncpg vs sqlite+aiosqlite)
+- [x] **DBMIG-03**: Alembic está configurado con migración inicial
+- [x] **DBMIG-04**: Sistema ejecuta migraciones automáticamente al iniciar (producción)
+- [ ] **DBMIG-05**: Script de migración de datos SQLite → PostgreSQL (Phase 18)
+- [x] **DBMIG-06**: Validación de tipos en todos los modelos previo a migración
+- [x] **DBMIG-07**: Rolling back de migraciones soportado
 
 ### Health Monitoring (HEALTH)
 

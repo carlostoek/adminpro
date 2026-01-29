@@ -90,12 +90,13 @@ Role-based menu system (Admin/VIP/Free) with automatic role detection, content p
   3. Alembic está configurado con migración inicial que crea todos los modelos
   4. Sistema ejecuta `alembic upgrade head` automáticamente al iniciar en producción
   5. Rolling back de migraciones funciona con `alembic downgrade`
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 Plans:
-- [ ] 14-01: Database abstraction layer with dialect detection
-- [ ] 14-02: Alembic configuration and initial migration
-- [ ] 14-03: Auto-migration on startup and rollback support
+- [x] 14-01: Database abstraction layer with dialect detection
+- [x] 14-02a: Alembic configuration
+- [x] 14-02b: Initial migration generation
+- [x] 14-03: Auto-migration on startup and rollback support
 
 #### Phase 15: Health Check & Railway Preparation
 **Goal**: Health monitoring endpoint and Railway deployment configuration
@@ -194,10 +195,10 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 11. Documentation | v1.1 | 4/4 | Complete | 2026-01-28 |
 | 12. Rediseño de Menú de Paquetes | v1.1 | 4/4 | Complete | 2026-01-27 |
 | 13. VIP Ritualized Entry Flow | v1.1 | 4/4 | Complete | 2026-01-27 |
-| 14. Database Migration Foundation | v1.2 | 0/3 | Not started | - |
+| 14. Database Migration Foundation | v1.2 | 4/4 | Complete | 2026-01-29 |
 | 15. Health Check & Railway Preparation | v1.2 | 0/4 | Not started | - |
 | 16. Testing Infrastructure | v1.2 | 0/3 | Not started | - |
 | 17. System Tests | v1.2 | 0/4 | Not started | - |
 | 18. Admin Test Runner & Performance Profiling | v1.2 | 0/4 | Not started | - |
 
-**Overall Progress:** 48/63 plans complete (76%)
+**Overall Progress:** 52/67 plans complete (78%)
