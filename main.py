@@ -18,6 +18,7 @@ from config import Config
 from bot.database import init_db, close_db
 from bot.database.migrations import run_migrations_if_needed
 from bot.background import start_background_tasks, stop_background_tasks
+from bot.health.runner import start_health_server
 
 # Configurar logging
 logger = logging.getLogger(__name__)
@@ -100,6 +101,18 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
 
     # Iniciar background tasks
     start_background_tasks(bot)
+
+    # Iniciar health check API (corre concurrentemente con el bot)
+    try:
+        health_task = await start_health_server()
+        logger.info("✅ Health check API iniciado")
+    except Exception as e:
+        logger.error(f"❌ Error iniciando health API: {e}")
+        logger.warning("⚠️ Bot continuará sin health check endpoint")
+        health_task = None
+
+    # Store health task for graceful shutdown
+    dispatcher.workflow_data['health_task'] = health_task
 
     # Notificar a admins que el bot está online (con reintentos)
     bot_info = await _get_bot_info_with_retry(bot)
