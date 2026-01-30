@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 18 of 18 (Admin Test Runner & Performance Profiling)
-Plan: 2 of 4 in current phase
-Status: In progress - Plan 18-02 complete
-Last activity: 2026-01-30 — Completed Plan 18-02 (Test Reporting with Coverage and Detailed Results)
+Plan: 3 of 4 in current phase
+Status: In progress - Plan 18-03 complete
+Last activity: 2026-01-30 — Completed Plan 18-03 (Performance Profiling with pyinstrument Integration)
 
 Progress: [████████████████████] 99%
 
@@ -103,6 +103,7 @@ See PROJECT.md Key Decisions table for full decision log.
 - Phase 17: Comprehensive test coverage for all critical flows (complete)
 - Phase 18-01: Admin test runner with CLI script and Telegram /run_tests command (complete)
 - Phase 18-02: Test reporting with coverage, trends, and multi-format output (complete)
+- Phase 18-03: Performance profiling with pyinstrument integration (complete)
 - **v1.2: Redis caching DEFERRED to v1.3 (out of scope)**
 
 **v1.1 Key Decisions:**
@@ -126,7 +127,7 @@ None.
 
 - **Phase 14:** Alembic auto-migration on startup patterns implemented. Best practice for running migrations in Railway deployment environment implemented with ENV=production detection.
 - **Phase 16:** aiogram FSM testing patterns with pytest-asyncio for aiogram 3.4.1 needs verification. Manual mocking approaches need validation.
-- **Phase 18:** pyinstrument vs cProfile for async code needs validation. Async profiling tools are evolving.
+- **Phase 18:** pyinstrument validated for async code profiling. Statistical profiling with low overhead confirmed working.
 
 **Resolved in v1.1:**
 - Phase 5 gap: RoleDetectionMiddleware properly registered in main.py
@@ -148,13 +149,21 @@ None.
 - Sanitize file paths to hide sensitive project structure
 - Store lightweight TestRunRecord in history (no full stdout)
 
+**Phase 18-03 Key Decisions:**
+- Use pyinstrument for statistical profiling (low overhead ~5-10%)
+- Gate profiling with PROFILE_HANDLERS env var for production safety
+- Support text, HTML (flame graphs), and JSON output formats
+- CLI script uses real database session for accurate profiling
+- SQLAlchemy event monitoring via before_cursor_execute/after_cursor_execute
+- MagicMock detection to avoid attaching events to mock sessions
+
 ## Session Continuity
 
-Last session: 2026-01-30 (Phase 18-02 execution)
-Stopped at: Completed Plan 18-02 (Test Reporting with Coverage and Detailed Results)
+Last session: 2026-01-30 (Phase 18-03 execution)
+Stopped at: Completed Plan 18-03 (Performance Profiling with pyinstrument Integration)
 Resume file: None
-Next: Continue Phase 18 (Plan 18-03: Performance Profiling)
+Next: Continue Phase 18 (Plan 18-04: Load Testing)
 
 ---
 
-*State updated: 2026-01-30 after Plan 18-02 completion*
+*State updated: 2026-01-30 after Plan 18-03 completion*
