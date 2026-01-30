@@ -202,16 +202,18 @@ async def test_background_tasks_scheduler_no_duplicate_start():
     mock_bot = Mock()
     mock_bot.id = 123456789
 
-    # Start twice
-    start_background_tasks(mock_bot)
-    start_background_tasks(mock_bot)  # Should warn but not duplicate
+    try:
+        # Start twice
+        start_background_tasks(mock_bot)
+        start_background_tasks(mock_bot)  # Should warn but not duplicate
 
-    # Should still have only 3 jobs
-    status = get_scheduler_status()
-    assert status["jobs_count"] == 3
+        # Should still have only 3 jobs
+        status = get_scheduler_status()
+        assert status["jobs_count"] == 3
+    finally:
+        # Cleanup
+        stop_background_tasks()
 
-    # Cleanup
-    stop_background_tasks()
 
 
 async def test_background_tasks_job_details():
