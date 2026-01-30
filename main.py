@@ -20,8 +20,18 @@ from bot.database.migrations import run_migrations_if_needed
 from bot.background import start_background_tasks, stop_background_tasks
 from bot.health.runner import start_health_server
 
+# Flag global para señalizar shutdown
+_shutdown_requested = False
+
 # Configurar logging
 logger = logging.getLogger(__name__)
+
+
+def _global_signal_handler(sig, frame):
+    """Manejador global de señales para shutdown inmediato."""
+    global _shutdown_requested
+    logger.info(f"🛑 Señal {sig} recibida - iniciando shutdown...")
+    _shutdown_requested = True
 
 
 def should_use_webhook() -> bool:
@@ -240,21 +250,14 @@ async def on_shutdown(bot: Bot, dispatcher: Dispatcher) -> None:
     # Detener background tasks (sin bloquear)
     stop_background_tasks()
 
-    # Detener health check API
-    health_task = dispatcher.workflow_data.get('health_task')
-    if health_task and not health_task.done():
-        logger.info("🛑 Deteniendo health check API...")
-        health_task.cancel()
-        try:
-            # Esperar más tiempo para que el finally block del runner cierre el socket
-            await asyncio.wait_for(health_task, timeout=8)
-            logger.info("✅ Health API detenida correctamente")
-        except asyncio.TimeoutError:
-            logger.warning("⚠️ Health API no respondió a shutdown (timeout)")
-        except asyncio.CancelledError:
-            logger.info("✅ Health API cancelada")
-        except Exception as e:
-            logger.warning(f"⚠️ Error deteniendo health API: {e}")
+    # Detener health check API usando función explícita
+    logger.info("🛑 Deteniendo health check API...")
+    try:
+        from bot.health.runner import stop_health_server
+        await stop_health_server()
+        logger.info("✅ Health API detenida correctamente")
+    except Exception as e:
+        logger.warning(f"⚠️ Error deteniendo health API: {e}")
 
     # Notificar a admins (con timeout para no bloquear shutdown)
     shutdown_message = "🛑 Bot detenido correctamente"
@@ -272,6 +275,16 @@ async def on_shutdown(bot: Bot, dispatcher: Dispatcher) -> None:
 
     # Cerrar base de datos
     await close_db()
+
+    # Cancelar cualquier tarea pendiente que pueda bloquear el shutdown
+    pending_tasks = [task for task in asyncio.all_tasks()
+                     if task is not asyncio.current_task() and not task.done()]
+    if pending_tasks:
+        logger.info(f"🧹 Cancelando {len(pending_tasks)} tareas pendientes...")
+        for task in pending_tasks:
+            task.cancel()
+        # Esperar un poco pero no bloquear indefinidamente
+        await asyncio.sleep(0.1)
 
     logger.info("✅ Bot cerrado correctamente")
 
@@ -338,9 +351,15 @@ async def main() -> None:
         except Exception as e:
             logger.error(f"❌ Error crítico en webhook: {e}", exc_info=True)
         finally:
-            # Cleanup forceful
-            logger.info("⏱️ Esperando shutdown limpio (máx 10s)...")
-            logger.info("🧹 Iniciando limpieza de recursos...")
+            # Llamar explícitamente al shutdown para cleanup limpio
+            logger.info("🧹 Ejecutando shutdown del dispatcher...")
+            try:
+                await dp.emit_shutdown()
+            except Exception as e:
+                logger.warning(f"⚠️ Error en shutdown del dispatcher: {e}")
+
+            # Cerrar sesión del bot
+            logger.info("🧹 Cerrando sesión del bot...")
             try:
                 await bot.session.close()
                 logger.info("✅ Sesión del bot cerrada correctamente")
@@ -374,8 +393,15 @@ async def main() -> None:
         except Exception as e:
             logger.error(f"❌ Error crítico en polling: {e}", exc_info=True)
         finally:
-            # Cleanup forceful
-            logger.info("🧹 Iniciando limpieza de recursos...")
+            # Llamar explícitamente al shutdown para cleanup limpio
+            logger.info("🧹 Ejecutando shutdown del dispatcher...")
+            try:
+                await dp.emit_shutdown()
+            except Exception as e:
+                logger.warning(f"⚠️ Error en shutdown del dispatcher: {e}")
+
+            # Cerrar sesión del bot
+            logger.info("🧹 Cerrando sesión del bot...")
             try:
                 await bot.session.close()
                 logger.info("✅ Sesión del bot cerrada correctamente")
@@ -422,6 +448,10 @@ if __name__ == "__main__":
     Para ejecutar en background (Termux):
         nohup python main.py > bot.log 2>&1 &
     """
+    # Registrar manejadores de señales para shutdown limpio
+    signal.signal(signal.SIGINT, _global_signal_handler)
+    signal.signal(signal.SIGTERM, _global_signal_handler)
+
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
@@ -432,4 +462,12 @@ if __name__ == "__main__":
     finally:
         # Asegurar salida limpia
         logger.info("🛑 Finalizando...")
+        # Forzar cierre de cualquier tarea pendiente
+        try:
+            pending = asyncio.all_tasks()
+            for task in pending:
+                if not task.done():
+                    task.cancel()
+        except Exception:
+            pass
         sys.exit(0)

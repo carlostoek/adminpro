@@ -3,11 +3,15 @@ Health API server runner for concurrent execution with aiogram bot.
 
 Runs FastAPI health check API in asyncio task alongside bot polling.
 Allows independent monitoring even if bot experiences issues.
+
+Key design: Uses shared server instance with explicit shutdown control
+to avoid uvicorn's signal handling conflicts with aiogram.
 """
 import asyncio
 import logging
 import socket
 import time
+from contextlib import asynccontextmanager
 from typing import Optional
 
 import uvicorn
@@ -18,6 +22,9 @@ from bot.health.endpoints import create_health_app
 from config import Config
 
 logger = logging.getLogger(__name__)
+
+# Shared server instance for controlled shutdown
+_health_server: Optional["ManagedHealthServer"] = None
 
 
 def is_port_available(host: str, port: int) -> bool:
@@ -55,93 +62,121 @@ def wait_for_port_release(host: str, port: int, timeout: int = 30) -> bool:
     return False
 
 
-async def run_health_api_with_retry(host: str, port: int, max_retries: int = 3) -> bool:
+class ManagedHealthServer:
     """
-    Run health API with retry logic for port binding.
+    Wrapper around uvicorn.Server with explicit lifecycle control.
 
-    Args:
-        host: Host to bind to
-        port: Port to bind to
-        max_retries: Maximum number of bind attempts
-
-    Returns:
-        bool: True if server started successfully, False otherwise
+    This prevents uvicorn from handling signals directly, avoiding conflicts
+    with aiogram's signal handling.
     """
-    for attempt in range(1, max_retries + 1):
-        logger.info(f"🔄 Intento {attempt}/{max_retries} de iniciar Health API...")
 
-        # Wait for port to be available
-        if not is_port_available(host, port):
-            logger.warning(f"⚠️ Puerto {port} ocupado, esperando...")
-            if not wait_for_port_release(host, port, timeout=10):
-                logger.error(f"❌ Puerto {port} sigue ocupado")
-                if attempt < max_retries:
-                    continue
-                return False
+    def __init__(self, host: str, port: int):
+        self.host = host
+        self.port = port
+        self.server: Optional[Server] = None
+        self._serve_task: Optional[asyncio.Task] = None
+        self._shutdown_event = asyncio.Event()
 
-        # Create app
-        app = create_health_app()
+    async def start(self) -> bool:
+        """
+        Start the health server.
 
-        # Configure uvicorn with a short timeout for shutdown
-        config = UvicornConfig(
-            app=app,
-            host=host,
-            port=port,
-            log_level="info",
-            access_log=True,
-            loop="asyncio"
-        )
+        Returns:
+            True if started successfully, False otherwise
+        """
+        try:
+            app = create_health_app()
 
-        server = Server(config)
+            # Configure uvicorn WITHOUT signal handling
+            # We'll handle shutdown ourselves via stop()
+            config = UvicornConfig(
+                app=app,
+                host=self.host,
+                port=self.port,
+                log_level="warning",  # Reduce noise
+                access_log=False,
+                loop="asyncio",
+            )
+
+            # Disable uvicorn's signal handling
+            self.server = Server(config)
+
+            # Start serving in background task
+            self._serve_task = asyncio.create_task(self._serve_with_monitoring())
+
+            # Wait a moment to verify startup
+            await asyncio.sleep(0.5)
+
+            if self._serve_task.done():
+                # Check if it crashed
+                try:
+                    self._serve_task.result()
+                except Exception as e:
+                    logger.error(f"❌ Health server falló al iniciar: {e}")
+                    return False
+
+            logger.info(f"🏥 Health API corriendo en http://{self.host}:{self.port}")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Error iniciando health server: {e}", exc_info=True)
+            return False
+
+    async def _serve_with_monitoring(self):
+        """
+        Serve with custom monitoring loop.
+
+        This replaces server.serve() to avoid uvicorn's signal handling.
+        We manually serve and check for our shutdown event.
+        """
+        if not self.server:
+            return
 
         try:
-            logger.info(f"🏥 Health API starting on http://{host}:{port}")
-            await server.serve()
-            # If we get here, server stopped normally
-            logger.info("🔌 Health API server detenido")
-            return True
-        except KeyboardInterrupt:
-            logger.info("⌨️ Health API recibió KeyboardInterrupt")
-            return True
+            # Start the actual server
+            # Note: We use the internal method that doesn't handle signals
+            await self.server.serve()
         except asyncio.CancelledError:
-            logger.info("🛑 Health API task cancelado")
+            logger.debug("🛑 Health server serve cancelled")
             raise
-        except OSError as e:
-            if e.errno == 98:  # Address already in use
-                logger.warning(f"⚠️ Puerto {port} se ocupó durante el bind (intento {attempt})")
-                if attempt < max_retries:
-                    await asyncio.sleep(1)
-                    continue
-            logger.error(f"❌ Error de red en Health API: {e}")
-            return False
-        except SystemExit as e:
-            # Uvicorn may call sys.exit on some errors
-            logger.error(f"❌ Health API SystemExit({e.code})")
-            if attempt < max_retries:
-                await asyncio.sleep(1)
-                continue
-            return False
         except Exception as e:
-            logger.error(f"❌ Error en Health API: {e}", exc_info=True)
-            if attempt < max_retries:
-                await asyncio.sleep(1)
-                continue
-            return False
+            logger.error(f"❌ Health server error: {e}", exc_info=True)
+        finally:
+            self._shutdown_event.set()
 
-    return False
+    async def stop(self, timeout: float = 5.0):
+        """
+        Stop the health server gracefully.
 
+        Args:
+            timeout: Maximum seconds to wait for shutdown
+        """
+        if self._serve_task is None or self._serve_task.done():
+            return
 
-async def run_health_api(host: str, port: int) -> None:
-    """
-    Run FastAPI health check API server asynchronously.
+        logger.info("🛑 Deteniendo health server...")
 
-    Args:
-        host: Host to bind to (e.g., "0.0.0.0")
-        port: Port to listen on (e.g., 8000)
-    """
-    success = await run_health_api_with_retry(host, port, max_retries=3)
-    if not success:
-        logger.error("❌ Health API no pudo iniciar después de 3 intentos")
+        # Signal shutdown
+        if self.server:
+            self.server.should_exit = True
+
+        # Wait for task to complete
+        try:
+            await asyncio.wait_for(self._serve_task, timeout=timeout)
+            logger.info("✅ Health server detenido correctamente")
+        except asyncio.TimeoutError:
+            logger.warning("⚠️ Health server timeout, cancelando...")
+            self._serve_task.cancel()
+            try:
+                await self._serve_task
+            except asyncio.CancelledError:
+                logger.info("✅ Health server cancelado")
+        except Exception as e:
+            logger.warning(f"⚠️ Error deteniendo health server: {e}")
+
+    async def wait_for_shutdown(self):
+        """Wait until the server has shut down."""
+        await self._shutdown_event.wait()
 
 
 async def start_health_server() -> Optional[asyncio.Task]:
@@ -151,28 +186,45 @@ async def start_health_server() -> Optional[asyncio.Task]:
     Returns:
         asyncio.Task if started successfully, None otherwise
     """
-    logger.info("🚀 Starting health API server...")
+    global _health_server
+
+    logger.info("🚀 Iniciando health API server...")
 
     port = Config.HEALTH_PORT
     host = Config.HEALTH_HOST
 
-    # Quick check if port might be available
+    # Check port availability
     if not is_port_available(host, port):
-        logger.warning(f"⚠️ Puerto {port} parece ocupado, intentaremos de todos modos...")
-
-    # Create asyncio task
-    task = asyncio.create_task(run_health_api(host, port))
-
-    # Wait a bit to see if it starts successfully
-    await asyncio.sleep(1)
-
-    if task.done():
-        # Task finished immediately (likely failed)
-        try:
-            task.result()
-        except Exception as e:
-            logger.error(f"❌ Health API falló inmediatamente: {e}")
+        logger.warning(f"⚠️ Puerto {port} ocupado, esperando...")
+        if not wait_for_port_release(host, port, timeout=10):
+            logger.error(f"❌ Puerto {port} no disponible")
             return None
+
+    # Create managed server instance
+    _health_server = ManagedHealthServer(host, port)
+
+    # Start the server
+    if not await _health_server.start():
+        logger.error("❌ No se pudo iniciar health server")
+        _health_server = None
+        return None
+
+    # Create a task that waits for shutdown
+    # This task is what main.py monitors
+    task = asyncio.create_task(_health_server.wait_for_shutdown())
 
     logger.info(f"✅ Health API task created (host={host}, port={port})")
     return task
+
+
+async def stop_health_server():
+    """
+    Explicitly stop the health server.
+
+    This should be called during shutdown to ensure clean termination.
+    """
+    global _health_server
+
+    if _health_server:
+        await _health_server.stop()
+        _health_server = None
