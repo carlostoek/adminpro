@@ -176,8 +176,9 @@ async def on_shutdown(bot: Bot, dispatcher: Dispatcher) -> None:
         health_task.cancel()
         try:
             await asyncio.wait_for(health_task, timeout=5)
-        except (asyncio.CancelledError, asyncio.TimeoutError):
-            logger.warning("⚠️ Health API no respondió a shutdown (timeout)")
+            logger.info("✅ Health API detenido correctamente.")
+        except asyncio.TimeoutError:
+            logger.warning("⚠️ Health API no respondió al apagado en 5s (timeout).")
         except Exception as e:
             logger.warning(f"⚠️ Error deteniendo health API: {e}")
 
