@@ -174,18 +174,19 @@ async def test_background_tasks_scheduler_initialization():
     mock_bot = Mock()
     mock_bot.id = 123456789
 
-    # Start background tasks
-    start_background_tasks(mock_bot)
+    try:
+        # Start background tasks
+        start_background_tasks(mock_bot)
 
-    # Verify scheduler is running
-    status = get_scheduler_status()
-    assert status["running"] is True
-    assert status["jobs_count"] == 3  # Three scheduled jobs
+        # Verify scheduler is running
+        status = get_scheduler_status()
+        assert status["running"] is True
+        assert status["jobs_count"] == 3  # Three scheduled jobs
+    finally:
+        # Stop background tasks to ensure cleanup
+        stop_background_tasks()
 
-    # Stop background tasks
-    stop_background_tasks()
-
-    # Verify scheduler stopped
+    # Verify scheduler stopped after cleanup
     status = get_scheduler_status()
     assert status["running"] is False
 
