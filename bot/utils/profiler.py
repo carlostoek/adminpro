@@ -59,9 +59,39 @@ class AsyncProfiler:
 
     def _attach_query_monitor(self, session: Optional[AsyncSession] = None):
         """Attach SQLAlchemy event listeners para contar queries."""
-        @event.listens_for(AsyncSession, "do_orm_execute")
-        def on_orm_execute(execute_state):
-            self._query_stats["count"] += 1
+        # For async sessions, we use the sync events since they run in the same thread
+        # The before_cursor_execute event fires for all statement executions
+        if not session:
+            return
+
+        try:
+            # Check if session has a real engine (not a mock)
+            # MagicMock returns True for any hasattr check, so we need to be more specific
+            from unittest.mock import MagicMock, NonCallableMagicMock
+
+            bind = getattr(session, 'bind', None)
+            if bind is None or isinstance(bind, (MagicMock, NonCallableMagicMock)):
+                return
+
+            sync_engine = getattr(bind, 'sync_engine', None)
+            if sync_engine is None or isinstance(sync_engine, (MagicMock, NonCallableMagicMock)):
+                return
+
+            # Verify this is a real async engine by checking for dispatch attribute
+            if hasattr(sync_engine, 'dispatch') and not isinstance(sync_engine.dispatch, (MagicMock, NonCallableMagicMock)):
+                @event.listens_for(sync_engine, "before_cursor_execute")
+                def on_before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+                    self._query_stats["count"] += 1
+                    context._query_start_time = time.perf_counter()
+
+                @event.listens_for(sync_engine, "after_cursor_execute")
+                def on_after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+                    if hasattr(context, '_query_start_time'):
+                        query_time = (time.perf_counter() - context._query_start_time) * 1000
+                        self._query_stats["time_ms"] += query_time
+        except (AttributeError, TypeError, ImportError):
+            # Session is a mock or doesn't have proper engine setup
+            pass
 
     async def profile_async(
         self,
@@ -109,15 +139,25 @@ class AsyncProfiler:
     def _extract_top_functions(self, session) -> List[Dict[str, Any]]:
         """Extrae las funciones mas lentas de la sesion."""
         functions = []
-        for frame in session.root_frame().self_and_descendants():
-            if frame.time() > 0.001:  # Only functions > 1ms
+        root = session.root_frame()
+        if not root:
+            return functions
+
+        # Recursively collect all frames
+        def collect_frames(frame):
+            frame_time = frame.time  # time is a property, not a method
+            if frame_time > 0.001:  # Only functions > 1ms
                 functions.append({
                     "name": frame.function,
                     "file": frame.file_path,
                     "line": frame.line_no,
-                    "time_ms": frame.time() * 1000,
-                    "calls": frame.call_count
+                    "time_ms": frame_time * 1000,
+                    "calls": getattr(frame, 'call_count', 1)
                 })
+            for child in frame.children:
+                collect_frames(child)
+
+        collect_frames(root)
         return sorted(functions, key=lambda x: x["time_ms"], reverse=True)[:10]
 
 

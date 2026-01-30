@@ -65,32 +65,82 @@ async def profile_handler(
     handler = import_handler(handler_path)
     profiler = AsyncProfiler()
 
-    # Mock objects for handler
-    from unittest.mock import AsyncMock, MagicMock
-
-    mock_message = MagicMock()
-    mock_message.from_user.id = 123456
-    mock_message.from_user.username = "test_user"
-    mock_message.answer = AsyncMock()
-    mock_message.bot = AsyncMock()
-
-    mock_session = MagicMock()
-
     print(f"Profileando {handler_path} ({iterations} iteraciones)...")
+
+    # Import required modules for database setup
+    import os
+    os.environ['DATABASE_URL'] = 'sqlite+aiosqlite:///./profile_test.db'
+
+    from bot.database.engine import init_db, get_session
+    from bot.database.models import Base
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    # Create fresh database for profiling
+    engine = create_async_engine(
+        'sqlite+aiosqlite:///./profile_test.db',
+        poolclass=NullPool,
+        echo=False
+    )
+
+    # Create tables
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
     results = []
     for i in range(iterations):
         print(f"  Iteracion {i + 1}/{iterations}...")
 
-        # Create fresh mocks for each iteration
-        mock_message.answer.reset_mock()
+        # Create fresh session for each iteration
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.ext.asyncio import async_sessionmaker
 
-        result = await profiler.profile_async(
-            handler,
-            mock_message,
-            session=mock_session
-        )
-        results.append(result)
+        AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+
+        async with AsyncSessionLocal() as session:
+            # Seed BotConfig if needed
+            from bot.database.models import BotConfig
+            from sqlalchemy import text
+
+            config_result = await session.execute(
+                text("SELECT 1 FROM bot_config WHERE id = 1")
+            )
+            if not config_result.scalar():
+                bot_config = BotConfig(
+                    id=1,
+                    wait_time_minutes=60,
+                    vip_channel_id=None,
+                    free_channel_id=None,
+                    vip_reactions="🔥,💎",
+                    free_reactions="👍",
+                    subscription_fees='{"monthly": 9.99, "quarterly": 24.99, "yearly": 79.99}'
+                )
+                session.add(bot_config)
+                await session.commit()
+
+            # Mock objects for handler
+            from unittest.mock import AsyncMock, MagicMock
+
+            mock_message = MagicMock()
+            mock_message.from_user.id = 123456
+            mock_message.from_user.username = "test_user"
+            mock_message.from_user.first_name = "Test"
+            mock_message.from_user.last_name = "User"
+            mock_message.answer = AsyncMock()
+            mock_message.bot = AsyncMock()
+
+            result = await profiler.profile_async(
+                handler,
+                mock_message,
+                session
+            )
+            results.append(result)
+
+    # Cleanup database
+    await engine.dispose()
+    import os
+    if os.path.exists('./profile_test.db'):
+        os.remove('./profile_test.db')
 
     # Aggregate results
     aggregated = ProfileResult(
