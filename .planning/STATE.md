@@ -97,6 +97,7 @@ See PROJECT.md Key Decisions table for full decision log.
 - Phase 16-05: HTML and XML coverage reports supported
 - Phase 16-05: scripts/coverage.py helper for convenient coverage runs
 - Phase 17-01: System startup tests with 44 tests covering database initialization, ServiceContainer lazy loading, BotConfig singleton, background tasks, configuration validation, and health checks
+- Phase 17-02: Menu system tests with 54 tests covering Admin/VIP/Free menus, role-based routing, FSM state management, callback navigation
 - Phase 17-03: Role detection and user management tests with 57 tests covering role priority (Admin > VIP > Free), stateless behavior, user operations, audit logging
 - Phase 17: Comprehensive test coverage for all critical flows (in progress)
 - Phase 18: Admin test runner for non-technical users
@@ -135,11 +136,11 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-30 (Phase 17-03 execution)
-Stopped at: Completed Plan 17-03 (Role Detection and User Management Tests)
+Last session: 2026-01-30 (Phase 17-02 execution)
+Stopped at: Completed Plan 17-02 (Menu System Tests)
 Resume file: None
 Next: Continue Phase 17 (System Tests)
 
 ---
 
-*State updated: 2026-01-30 after Plan 17-03 completion*
+*State updated: 2026-01-30 after Plan 17-02 completion*
