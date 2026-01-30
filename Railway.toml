@@ -1,0 +1,20 @@
+# Railway Deployment Configuration
+# See: https://docs.railway.app/reference/railway-toml
+
+[build]
+# Dockerfile to use for building the image
+dockerfile = "Dockerfile"
+
+[deploy]
+# Start command (optional if Dockerfile has CMD)
+# healthcheckCmd runs in the container to verify health
+healthcheckPath = "/health"
+healthcheckPort = 8000
+healthcheckTimeout = 30
+# Number of seconds to wait for health check before restart
+healthcheckInterval = 30
+
+# Auto-restart on failure
+restartPolicyType = "ON_FAILURE"
+# Maximum number of restarts before giving up
+maxRestartRetries = 10

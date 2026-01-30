@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 15 of 18 (Health Check & Railway Preparation)
-Plan: 2 of 4 in current phase
-Status: In progress
-Last activity: 2026-01-29 — Completed Plan 15-02 (Concurrent Bot and Health API Execution)
+Plan: 4 of 4 in current phase
+Status: Phase complete, verified
+Last activity: 2026-01-29 — Phase 15 verified (5/5 must-haves passed)
 
-Progress: [████████████░░░░░░░] 85%
+Progress: [██████████████░░░░░] 84%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 54
-- Average duration: ~11.1 min
-- Total execution time: ~13.0 hours
+- Total plans completed: 56
+- Average duration: ~10.7 min
+- Total execution time: ~14.3 hours
 
 **By Phase:**
 
@@ -30,10 +30,10 @@ Progress: [████████████░░░░░░░] 85%
 | v1.0 (Phases 1-4) | 14 | ~2 hours | ~8.6 min |
 | v1.1 (Phases 5-13) | 48 | ~10.2 hours | ~12.8 min |
 | v1.2 (Phase 14) | 4 | ~25 min | ~6.3 min |
-| v1.2 (Phase 15) | 2 | ~15 min | ~7.5 min |
+| v1.2 (Phase 15) | 4 | ~26 min | ~6.5 min |
 
 **Recent Trend:**
-- Last 5 plans: Phase 15-02 completed (Concurrent Bot and Health API Execution)
+- Last 5 plans: Phase 15 complete (Health Check & Railway Preparation)
 - Trend: Stable
 
 ## Accumulated Context
@@ -64,6 +64,16 @@ See PROJECT.md Key Decisions table for full decision log.
 - Phase 15-02: Concurrent execution of bot and health API using asyncio tasks (15-02 complete)
 - Phase 15-02: Shared event loop pattern for bot and FastAPI server (15-02 complete)
 - Phase 15-02: Graceful shutdown with 5-second timeout for health API (15-02 complete)
+- Phase 15-03: Railway.toml deployment configuration with health check monitoring (15-03 complete)
+- Phase 15-03: Multi-stage Docker build with non-root user for security (15-03 complete)
+- Phase 15-03: Health check timeout of 300s allows time for DB migrations on Railway (15-03 complete)
+- Phase 15-03: .dockerignore for optimized Docker builds excluding dev artifacts (15-03 complete)
+- Phase 15-04: WEBHOOK_MODE defaults to "polling" for local development (no breaking changes)
+- Phase 15-04: validate_required_vars() returns (is_valid, missing_vars) tuple for detailed error reporting
+- Phase 15-04: WEBHOOK_SECRET is optional but logged as warning when missing in webhook mode (15-04 complete)
+- Phase 15-04: Health check API works independently of bot mode (starts in both polling and webhook)
+- Phase 15-04: Environment variable validation with clear error messages for missing/invalid variables
+- Phase 15-04: Webhook/polling mode switching infrastructure in place (15-04 complete)
 - Phase 16: pytest-asyncio with in-memory SQLite for test isolation
 - Phase 17: Comprehensive test coverage for all critical flows
 - Phase 18: Admin test runner for non-technical users
@@ -103,10 +113,10 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-29 (Phase 15 execution)
-Stopped at: Completed Plan 15-02 (Concurrent Bot and Health API Execution)
+Stopped at: Completed Plan 15-04 (Environment Variable Validation and Webhook/Polling Mode Switching)
 Resume file: None
-Next: Execute Plan 15-03 (Health Check Response Enhancement)
+Next: Move to Phase 16 (Testing) or begin Railway deployment
 
 ---
 
-*State updated: 2026-01-29 after Plan 15-02 completion*
+*State updated: 2026-01-29 after Plan 15-04 completion (Phase 15 complete)*

@@ -108,13 +108,15 @@ Plans:
   3. Bot y API de salud corren concurrentemente (FastAPI en puerto separado)
   4. Railway.toml configurado con comando de inicio y health check path
   5. Dockerfile creado para despliegue en Railway con variables de entorno validadas
-**Plans**: 4 plans
+  6. Bot responde a Ctrl+C y se detiene limpiamente sin procesos huérfanos
+**Plans**: 5 plans
 
 Plans:
-- [ ] 15-01: FastAPI health check endpoint with DB status
-- [ ] 15-02: Concurrent bot and health API execution
-- [ ] 15-03: Railway.toml and Dockerfile configuration
-- [ ] 15-04: Environment variable validation and webhook/polling mode switching
+- [x] 15-01: FastAPI health check endpoint with DB status
+- [x] 15-02: Concurrent bot and health API execution
+- [x] 15-03: Railway.toml and Dockerfile configuration
+- [x] 15-04: Environment variable validation and webhook/polling mode switching
+- [ ] 15-05: Graceful shutdown fix - Bot responds to Ctrl+C (gap closure)
 
 #### Phase 16: Testing Infrastructure
 **Goal**: pytest-asyncio setup with fixtures and in-memory database
@@ -156,7 +158,7 @@ Plans:
 **Depends on**: Phase 17
 **Requirements**: ADMINTEST-01, ADMINTEST-02, ADMINTEST-03, ADMINTEST-04, PERF-01, PERF-02, PERF-03, PERF-04, DBMIG-05
 **Success Criteria** (what must be TRUE):
-  1. Script /run_tests ejecuta todos los tests desde línea de comandos
+  1. Script /run_tests ejecuta todos los tests desde línea comandos
   2. Admin puede ejecutar tests desde Telegram con comando /run_tests
   3. Test runner envía reporte detallado (pass/fail, coverage) al admin via mensaje
   4. Integración con pyinstrument permite profiling de handlers específicos
@@ -196,9 +198,9 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 12. Rediseño de Menú de Paquetes | v1.1 | 4/4 | Complete | 2026-01-27 |
 | 13. VIP Ritualized Entry Flow | v1.1 | 4/4 | Complete | 2026-01-27 |
 | 14. Database Migration Foundation | v1.2 | 4/4 | Complete | 2026-01-29 |
-| 15. Health Check & Railway Preparation | v1.2 | 0/4 | Not started | - |
+| 15. Health Check & Railway Preparation | v1.2 | 4/5 | In Progress | 2026-01-29 |
 | 16. Testing Infrastructure | v1.2 | 0/3 | Not started | - |
 | 17. System Tests | v1.2 | 0/4 | Not started | - |
 | 18. Admin Test Runner & Performance Profiling | v1.2 | 0/4 | Not started | - |
 
-**Overall Progress:** 52/67 plans complete (78%)
+**Overall Progress:** 56/68 plans complete (82%)

@@ -8,6 +8,7 @@ import sys
 import signal
 import threading
 import os
+from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.exceptions import TelegramNetworkError
@@ -18,10 +19,55 @@ from config import Config
 from bot.database import init_db, close_db
 from bot.database.migrations import run_migrations_if_needed
 from bot.background import start_background_tasks, stop_background_tasks
+from bot.health.check import get_health_summary
 from bot.health.runner import start_health_server
 
 # Configurar logging
 logger = logging.getLogger(__name__)
+
+
+def should_use_webhook() -> bool:
+    """
+    Detecta si el bot debe ejecutarse en modo webhook.
+
+    Returns:
+        True si WEBHOOK_MODE=webhook, False para polling
+    """
+    return Config.WEBHOOK_MODE == "webhook"
+
+
+async def health_handler(request: web.Request) -> web.Response:
+    """
+    Handler para el endpoint de health check.
+
+    Reutiliza la lógica de get_health_summary() para verificar
+    el estado del bot y la base de datos.
+    """
+    summary = await get_health_summary()
+
+    # Determinar status HTTP basado en el estado general
+    if summary["status"] == "unhealthy":
+        status = 503
+    else:
+        status = 200
+
+    return web.json_response(summary, status=status)
+
+
+def create_webhook_app() -> web.Application:
+    """
+    Crear aplicación aiohttp con endpoint de health check.
+
+    Returns:
+        web.Application configurada con ruta /health
+    """
+    app = web.Application()
+    app.router.add_get("/health", health_handler)
+    app.router.add_get("/", lambda r: web.json_response({
+        "service": "lucien-bot",
+        "status": "operational"
+    }))
+    return app
 
 
 async def _get_bot_info_with_retry(bot: Bot, max_retries: int = 2, timeout: int = 5) -> dict | None:
@@ -54,6 +100,56 @@ async def _get_bot_info_with_retry(bot: Bot, max_retries: int = 2, timeout: int 
         except Exception as e:
             logger.error(f"❌ Error al obtener info del bot: {e}")
             return None
+
+
+async def on_startup_webhook(bot: Bot, dispatcher: Dispatcher) -> None:
+    """
+    Callback de startup específico para modo webhook.
+
+    Configura el webhook antes de iniciar el servidor.
+    """
+    logger.info("🚀 Iniciando bot en modo WEBHOOK...")
+
+    # Validar configuración
+    if not Config.validate():
+        logger.error("❌ Configuración inválida. Revisa tu archivo .env")
+        sys.exit(1)
+
+    logger.info(Config.get_summary())
+
+    # Ejecutar migraciones automáticas
+    try:
+        await run_migrations_if_needed()
+    except Exception as e:
+        logger.error(f"❌ Error ejecutando migraciones: {e}")
+        sys.exit(1)
+
+    # Inicializar base de datos
+    try:
+        await init_db()
+    except Exception as e:
+        logger.error(f"❌ Error al inicializar BD: {e}")
+        sys.exit(1)
+
+    # Iniciar background tasks
+    start_background_tasks(bot)
+
+    # Configurar webhook
+    webhook_url = f"{Config.WEBHOOK_BASE_URL}{Config.WEBHOOK_PATH}"
+    logger.info(f"🔗 Configurando webhook: {webhook_url}")
+
+    try:
+        await bot.set_webhook(
+            url=webhook_url,
+            secret_token=Config.WEBHOOK_SECRET,
+            drop_pending_updates=True
+        )
+        logger.info("✅ Webhook configurado correctamente")
+    except Exception as e:
+        logger.error(f"❌ Error configurando webhook: {e}")
+        sys.exit(1)
+
+    # Nota: El health check se integra en el mismo servidor aiohttp via web_app
 
 
 async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
@@ -206,11 +302,9 @@ async def main() -> None:
     """
     Función principal que ejecuta el bot.
 
-    Configuración:
-    - Bot con parse_mode HTML por defecto
-    - MemoryStorage para FSM (ligero, apropiado para Termux)
-    - Dispatcher con callbacks de startup/shutdown
-    - Polling con timeout de 30s (apropiado para Termux)
+    Soporta dos modos:
+    - Polling: Bot hace requests a Telegram (default para desarrollo)
+    - Webhook: Telegram envía updates al bot (óptimo para Railway)
     """
     # Crear instancia del bot con sesión customizada
     # Aumentar timeout a 120s para handlers que tardan más tiempo
@@ -240,32 +334,71 @@ async def main() -> None:
     from bot.handlers import register_all_handlers
     register_all_handlers(dp)
 
-    # Registrar callbacks de lifecycle
-    dp.startup.register(on_startup)
-    dp.shutdown.register(on_shutdown)
+    # Detectar modo de operación
+    use_webhook = should_use_webhook()
 
-    try:
-        # Iniciar polling (long polling con timeout de 30s)
-        logger.info("🔄 Iniciando polling...")
-        await dp.start_polling(
-            bot,
-            allowed_updates=dp.resolve_used_update_types(),
-            timeout=30,  # Timeout apropiado para conexiones inestables en Termux
-            drop_pending_updates=True,  # Ignorar updates pendientes del pasado
-            relax_timeout=True  # Reduce requests frecuentes
-        )
-    except KeyboardInterrupt:
-        logger.info("⌨️ Interrupción por teclado (Ctrl+C)")
-    except Exception as e:
-        logger.error(f"❌ Error crítico en polling: {e}", exc_info=True)
-    finally:
-        # Cleanup forceful
-        logger.info("🧹 Limpiando recursos...")
+    if use_webhook:
+        logger.info("🔄 Iniciando en modo WEBHOOK...")
+        # Registrar callbacks de webhook
+        dp.startup.register(on_startup_webhook)
+        dp.shutdown.register(on_shutdown)
+
+        # Crear aplicación aiohttp con endpoint de health check
+        # Esto integra el health check en el mismo servidor que maneja los webhooks
+        webhook_app = create_webhook_app()
+        logger.info("✅ Health check endpoint integrado en servidor webhook")
+
+        # Iniciar webhook server
         try:
-            await bot.session.close()
-            logger.info("🔌 Sesión del bot cerrada")
+            await dp.start_webhook(
+                bot,
+                webhook_path=Config.WEBHOOK_PATH,
+                host=Config.WEBHOOK_HOST,
+                port=Config.PORT,
+                secret_token=Config.WEBHOOK_SECRET,
+                web_app=webhook_app
+            )
+        except KeyboardInterrupt:
+            logger.info("⌨️ Interrupción por teclado (Ctrl+C)")
         except Exception as e:
-            logger.warning(f"⚠️ Error cerrando sesión: {e}")
+            logger.error(f"❌ Error crítico en webhook: {e}", exc_info=True)
+        finally:
+            # Cleanup forceful
+            logger.info("🧹 Limpiando recursos...")
+            try:
+                await bot.session.close()
+                logger.info("🔌 Sesión del bot cerrada")
+            except Exception as e:
+                logger.warning(f"⚠️ Error cerrando sesión: {e}")
+    else:
+        logger.info("🔄 Iniciando en modo POLLING...")
+        # Registrar callbacks de polling
+        dp.startup.register(on_startup)
+        dp.shutdown.register(on_shutdown)
+
+        # Iniciar polling
+        try:
+            # Iniciar polling (long polling con timeout de 30s)
+            logger.info("🔄 Iniciando polling...")
+            await dp.start_polling(
+                bot,
+                allowed_updates=dp.resolve_used_update_types(),
+                timeout=30,  # Timeout apropiado para conexiones inestables en Termux
+                drop_pending_updates=True,  # Ignorar updates pendientes del pasado
+                relax_timeout=True  # Reduce requests frecuentes
+            )
+        except KeyboardInterrupt:
+            logger.info("⌨️ Interrupción por teclado (Ctrl+C)")
+        except Exception as e:
+            logger.error(f"❌ Error crítico en polling: {e}", exc_info=True)
+        finally:
+            # Cleanup forceful
+            logger.info("🧹 Limpiando recursos...")
+            try:
+                await bot.session.close()
+                logger.info("🔌 Sesión del bot cerrada")
+            except Exception as e:
+                logger.warning(f"⚠️ Error cerrando sesión: {e}")
 
 
 _shutdown_timeout_active = False

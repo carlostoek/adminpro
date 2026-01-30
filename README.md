@@ -118,6 +118,66 @@ alembic upgrade head
 
 See [docs/ROLLBACK.md](docs/ROLLBACK.md) for detailed rollback instructions.
 
+## Railway Deployment
+
+This bot is configured for deployment on Railway with the following features:
+
+### Health Monitoring
+
+- **Health Check Endpoint**: `http://your-app.railway.app/health`
+- **Health Check Port**: 8000 (configurable via `HEALTH_PORT`)
+- **Health Check Timeout**: 300s (allows time for DB migrations)
+- **Auto-restart**: Enabled on failure
+
+### Environment Variables (Railway)
+
+Required environment variables in Railway:
+
+- `BOT_TOKEN`: Telegram bot token
+- `ADMIN_USER_IDS`: Comma-separated admin user IDs
+- `DATABASE_URL`: PostgreSQL connection string (Railway provides this)
+- `ENV`: Set to `production` for auto-migrations on startup
+- `PORT`: Automatically set by Railway to 8000
+
+Optional environment variables:
+
+- `HEALTH_PORT`: Health check API port (default: 8000)
+- `HEALTH_HOST`: Health check API host (default: 0.0.0.0)
+- `LOG_LEVEL`: Logging level (default: INFO)
+
+### Deployment Steps
+
+1. Create a new project on Railway
+2. Link your GitHub repository
+3. Add required environment variables in Railway dashboard
+4. Deploy! Railway will automatically detect the Railway.toml and Dockerfile
+
+### Database
+
+- **Local**: SQLite (default) - requires no setup
+- **Railway**: PostgreSQL - provisioned automatically
+- **Migrations**: Auto-run on production startup (`ENV=production`)
+
+### Monitoring
+
+Check the `/health` endpoint to verify bot status:
+
+```bash
+curl https://your-app.railway.app/health
+```
+
+Expected response (200 OK):
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-01-28T12:00:00Z",
+  "components": {
+    "bot": "healthy",
+    "database": "healthy"
+  }
+}
+```
+
 ## 📁 Estructura del Proyecto
 
 ```

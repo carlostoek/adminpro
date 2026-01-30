@@ -33,6 +33,30 @@ class Config:
     # Entorno: "production" o "development" (default: development)
     ENV: str = os.getenv("ENV", "development")
 
+    # ===== WEBHOOK CONFIGURATION =====
+    # Modo de operación: "polling" (default) o "webhook" (Railway)
+    # Polling: El bot hace requests a Telegram (bueno para desarrollo local)
+    # Webhook: Telegram envía updates al bot (bueno para producción en Railway)
+    WEBHOOK_MODE: str = os.getenv("WEBHOOK_MODE", "polling").lower()
+
+    # Puerto donde el bot escucha (solo usado en webhook mode)
+    # Railway asigna este puerto automáticamente
+    PORT: int = int(os.getenv("PORT", "8000"))
+
+    # Secret token para validar webhooks de Telegram (seguridad)
+    # Genera uno seguro para producción: python -c "import secrets; print(secrets.token_urlsafe(32))"
+    WEBHOOK_SECRET: Optional[str] = os.getenv("WEBHOOK_SECRET", None)
+
+    # Webhook path (URL path donde Telegram envía updates)
+    WEBHOOK_PATH: str = os.getenv("WEBHOOK_PATH", "/webhook")
+
+    # Base URL para webhook (ej: https://your-app.railway.app)
+    # Railway asigna RAILWAY_PUBLIC_DOMAIN automáticamente
+    WEBHOOK_BASE_URL: str = os.getenv("WEBHOOK_BASE_URL", "")
+
+    # Host donde el servidor web escucha (default: 0.0.0.0)
+    WEBHOOK_HOST: str = os.getenv("WEBHOOK_HOST", "0.0.0.0")
+
     # ===== DATABASE =====
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
@@ -97,6 +121,35 @@ class Config:
     HEALTH_HOST: str = os.getenv("HEALTH_HOST", "0.0.0.0")
 
     @classmethod
+    def validate_required_vars(cls) -> tuple[bool, list[str]]:
+        """
+        Valida que TODAS las variables de entorno requeridas estén configuradas.
+
+        Returns:
+            Tuple de (is_valid, missing_vars)
+            - is_valid: True si todas las variables requeridas están presentes
+            - missing_vars: Lista de nombres de variables faltantes
+        """
+        required_vars = {
+            "BOT_TOKEN": cls.BOT_TOKEN,
+            "DATABASE_URL": cls.DATABASE_URL,
+        }
+
+        # Validar que Admin IDs estén configurados
+        cls.load_admin_ids()
+        if not cls.ADMIN_USER_IDS:
+            required_vars["ADMIN_USER_IDS"] = None
+
+        missing = [name for name, value in required_vars.items() if not value]
+
+        if missing:
+            logger.error(f"❌ Variables requeridas faltantes: {', '.join(missing)}")
+            return False, missing
+
+        logger.info("✅ Todas las variables requeridas están configuradas")
+        return True, []
+
+    @classmethod
     def validate_database_url(cls) -> bool:
         """
         Valida que DATABASE_URL tiene un formato soportado.
@@ -147,32 +200,42 @@ class Config:
         Requerido:
         - BOT_TOKEN
         - Al menos 1 ADMIN_USER_ID
+        - DATABASE_URL con formato válido
 
         Returns:
             True si configuración es válida, False en caso contrario
         """
         errors = []
 
-        # Validar BOT_TOKEN
-        if not cls.BOT_TOKEN:
-            errors.append("BOT_TOKEN no configurado en .env")
-        elif len(cls.BOT_TOKEN) < 20:
+        # Validar variables requeridas
+        is_valid, missing = cls.validate_required_vars()
+        if not is_valid:
+            errors.append(f"Faltan variables requeridas: {', '.join(missing)}")
+
+        # Validar formato de BOT_TOKEN
+        if cls.BOT_TOKEN and len(cls.BOT_TOKEN) < 20:
             errors.append("BOT_TOKEN parece inválido (muy corto)")
 
-        # Validar ADMIN_USER_IDS
-        cls.load_admin_ids()
-        if not cls.ADMIN_USER_IDS:
-            errors.append("ADMIN_USER_IDS no configurado o inválido en .env")
-
         # Validar DATABASE_URL
-        if not cls.DATABASE_URL:
-            errors.append("DATABASE_URL no configurado")
-        elif not cls.validate_database_url():
+        if cls.DATABASE_URL and not cls.validate_database_url():
             errors.append("DATABASE_URL tiene formato inválido")
 
         # Validar DEFAULT_WAIT_TIME_MINUTES
         if cls.DEFAULT_WAIT_TIME_MINUTES < 1:
             errors.append("DEFAULT_WAIT_TIME_MINUTES debe ser >= 1")
+
+        # Validar WEBHOOK_MODE
+        if cls.WEBHOOK_MODE not in ["polling", "webhook"]:
+            errors.append(f"WEBHOOK_MODE inválido: '{cls.WEBHOOK_MODE}'. Debe ser 'polling' o 'webhook'")
+
+        # Validar PORT si está en webhook mode
+        if cls.WEBHOOK_MODE == "webhook":
+            if not (1 <= cls.PORT <= 65535):
+                errors.append(f"PORT inválido: {cls.PORT}. Debe estar entre 1 y 65535")
+
+        # Validar WEBHOOK_SECRET en webhook mode (opcional pero recomendado)
+        if cls.WEBHOOK_MODE == "webhook" and not cls.WEBHOOK_SECRET:
+            logger.warning("⚠️ WEBHOOK_SECRET no configurado en modo webhook. Se recomienda para seguridad.")
 
         # Reportar errores
         if errors:
@@ -238,11 +301,17 @@ class Config:
             else "NO CONFIGURADO"
         )
 
+        webhook_info = ""
+        if cls.WEBHOOK_MODE == "webhook":
+            webhook_url = f"{cls.WEBHOOK_BASE_URL}{cls.WEBHOOK_PATH}" if cls.WEBHOOK_BASE_URL else f"port {cls.PORT}"
+            webhook_info = f"\n🔗 Webhook: {webhook_url}"
+
         return f"""
 ╔════════════════════════════════════════╗
 ║     CONFIGURACIÓN DEL BOT              ║
 ╚════════════════════════════════════════╝
 🌍 Ambiente: {cls.ENV.upper()}
+🔄 Modo: {cls.WEBHOOK_MODE.upper()}{webhook_info}
 🤖 Bot Token: {token_preview}
 👤 Admins: {len(cls.ADMIN_USER_IDS)} configurado(s)
 💾 Database: {cls.DATABASE_URL}

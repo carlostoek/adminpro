@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Environment files (will be set in Railway)
+.env
+.env.local
+
+# Database files (local development)
+bot.db
+bot.db-shm
+bot.db-wal
+*.db
+*.db-shm
+*.db-wal
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+docs/
+*.md
+.planning/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+bot.db.backup
+
+# Claude/AI files
+.claude/
