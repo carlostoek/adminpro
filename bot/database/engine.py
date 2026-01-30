@@ -95,7 +95,60 @@ def get_session() -> SessionContextManager:
     return SessionContextManager(session)
 
 
-async def init_db() -> None:
+def create_async_engine_with_logging(
+    db_url: str,
+    dialect: DatabaseDialect,
+    debug_mode: bool = False
+) -> AsyncEngine:
+    """
+    Crea un AsyncEngine con configuración de logging opcional.
+
+    Args:
+        db_url: URL de conexión a la base de datos
+        dialect: Dialecto de base de datos (SQLite o PostgreSQL)
+        debug_mode: Si True, habilita logging de queries SQL
+
+    Returns:
+        AsyncEngine configurado
+    """
+    # Configurar logging de SQLAlchemy si está en debug mode
+    if debug_mode:
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
+        echo = True
+        logger.info("🐛 SQL query logging enabled (debug mode)")
+    else:
+        echo = False
+
+    # Crear engine según dialecto
+    if dialect == DatabaseDialect.POSTGRESQL:
+        return create_async_engine(
+            db_url,
+            echo=echo,
+            poolclass=QueuePool,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,
+            connect_args={
+                "timeout": 30,
+                "command_timeout": 30
+            }
+        )
+    elif dialect == DatabaseDialect.SQLITE:
+        engine = create_async_engine(
+            db_url,
+            echo=echo,
+            poolclass=NullPool,
+            connect_args={
+                "check_same_thread": False,
+                "timeout": 30
+            }
+        )
+        return engine
+    else:
+        raise ValueError(f"Dialecto no soportado: {dialect.value}")
+
+
+async def init_db(debug_mode: bool = False) -> None:
     """
     Inicializa el engine con detección automática de dialecto.
 
@@ -104,6 +157,9 @@ async def init_db() -> None:
     - PostgreSQL: QueuePool, pool_pre_ping, timeouts
 
     Detecta el dialecto desde Config.DATABASE_URL automáticamente.
+
+    Args:
+        debug_mode: Si True, habilita logging detallado de queries SQL
     """
     global _engine, _session_factory
 
@@ -119,9 +175,9 @@ async def init_db() -> None:
 
     # Crear engine según dialecto
     if dialect == DatabaseDialect.POSTGRESQL:
-        _engine = await _create_postgresql_engine(db_url)
+        _engine = await _create_postgresql_engine(db_url, debug_mode=debug_mode)
     elif dialect == DatabaseDialect.SQLITE:
-        _engine = await _create_sqlite_engine(db_url)
+        _engine = await _create_sqlite_engine(db_url, debug_mode=debug_mode)
     else:
         raise ValueError(
             f"Dialecto no soportado: {dialect.value}. "
@@ -146,7 +202,7 @@ async def init_db() -> None:
     logger.info("✅ Base de datos inicializada correctamente")
 
 
-async def _create_postgresql_engine(url: str) -> AsyncEngine:
+async def _create_postgresql_engine(url: str, debug_mode: bool = False) -> AsyncEngine:
     """
     Crea un AsyncEngine optimizado para PostgreSQL.
 
@@ -157,6 +213,7 @@ async def _create_postgresql_engine(url: str) -> AsyncEngine:
 
     Args:
         url: URL de conexión PostgreSQL con asyncpg driver
+        debug_mode: Si True, habilita logging de queries SQL
 
     Returns:
         AsyncEngine configurado para PostgreSQL
@@ -165,7 +222,7 @@ async def _create_postgresql_engine(url: str) -> AsyncEngine:
 
     engine = create_async_engine(
         url,
-        echo=False,  # No loguear queries SQL (cambiar a True para debug)
+        echo=debug_mode,  # Logging de queries si debug_mode=True
         poolclass=QueuePool,
         pool_size=5,
         max_overflow=10,
@@ -178,13 +235,13 @@ async def _create_postgresql_engine(url: str) -> AsyncEngine:
 
     logger.info(
         "✅ PostgreSQL engine configurado "
-        f"(pool_size=5, max_overflow=10, pool_pre_ping=True)"
+        f"(pool_size=5, max_overflow=10, pool_pre_ping=True, debug={debug_mode})"
     )
 
     return engine
 
 
-async def _create_sqlite_engine(url: str) -> AsyncEngine:
+async def _create_sqlite_engine(url: str, debug_mode: bool = False) -> AsyncEngine:
     """
     Crea un AsyncEngine optimizado para SQLite.
 
@@ -196,6 +253,7 @@ async def _create_sqlite_engine(url: str) -> AsyncEngine:
 
     Args:
         url: URL de conexión SQLite con aiosqlite driver
+        debug_mode: Si True, habilita logging de queries SQL
 
     Returns:
         AsyncEngine configurado para SQLite
@@ -204,7 +262,7 @@ async def _create_sqlite_engine(url: str) -> AsyncEngine:
 
     engine = create_async_engine(
         url,
-        echo=False,  # No loguear queries SQL (cambiar a True para debug)
+        echo=debug_mode,  # Logging de queries si debug_mode=True
         poolclass=NullPool,  # SQLite no necesita pool
         connect_args={
             "check_same_thread": False,  # Necesario para async
@@ -226,7 +284,7 @@ async def _create_sqlite_engine(url: str) -> AsyncEngine:
         # Foreign keys habilitadas
         await conn.execute(text("PRAGMA foreign_keys=ON"))
 
-        logger.info("✅ SQLite configurado (WAL mode, cache 64MB)")
+        logger.info(f"✅ SQLite configurado (WAL mode, cache 64MB, debug={debug_mode})")
 
     return engine
 
