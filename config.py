@@ -92,6 +92,10 @@ class Config:
     # Default: 8000 (no debe colisionar con otros servicios)
     HEALTH_PORT: int = int(os.getenv("HEALTH_PORT", "8000"))
 
+    # Host para el health check API
+    # Default: "0.0.0.0" (acepta conexiones externas, necesario para Railway)
+    HEALTH_HOST: str = os.getenv("HEALTH_HOST", "0.0.0.0")
+
     @classmethod
     def validate_database_url(cls) -> bool:
         """
@@ -245,7 +249,7 @@ class Config:
 📺 Canal VIP: {cls.VIP_CHANNEL_ID or 'No configurado'}
 📺 Canal Free: {cls.FREE_CHANNEL_ID or 'No configurado'}
 ⏱️  Tiempo espera: {cls.DEFAULT_WAIT_TIME_MINUTES} min
-🏥 Health Port: {cls.HEALTH_PORT}
+🏥 Health API: http://{cls.HEALTH_HOST}:{cls.HEALTH_PORT}/health
 📝 Log level: {cls.LOG_LEVEL}
         """.strip()
 

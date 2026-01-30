@@ -18,6 +18,7 @@ from config import Config
 from bot.database import init_db, close_db
 from bot.database.migrations import run_migrations_if_needed
 from bot.background import start_background_tasks, stop_background_tasks
+from bot.health.runner import start_health_server
 
 # Configurar logging
 logger = logging.getLogger(__name__)
@@ -101,6 +102,23 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
     # Iniciar background tasks
     start_background_tasks(bot)
 
+    # Iniciar health check API (corre concurrentemente con el bot)
+    # Testing: Verified concurrent execution with health API responding to HTTP requests
+    # - Health API starts on HEALTH_PORT (8000) without blocking bot startup
+    # - Both services share the same asyncio event loop
+    # - Health endpoint returns valid JSON (e.g., {"status": "unhealthy", "components": {...}})
+    # - Graceful shutdown stops both services cleanly (5s timeout)
+    try:
+        health_task = await start_health_server()
+        logger.info("✅ Health check API iniciado")
+    except Exception as e:
+        logger.error(f"❌ Error iniciando health API: {e}")
+        logger.warning("⚠️ Bot continuará sin health check endpoint")
+        health_task = None
+
+    # Store health task for graceful shutdown
+    dispatcher.workflow_data['health_task'] = health_task
+
     # Notificar a admins que el bot está online (con reintentos)
     bot_info = await _get_bot_info_with_retry(bot)
 
@@ -150,6 +168,19 @@ async def on_shutdown(bot: Bot, dispatcher: Dispatcher) -> None:
 
     # Detener background tasks (sin bloquear)
     stop_background_tasks()
+
+    # Detener health check API
+    health_task = dispatcher.workflow_data.get('health_task')
+    if health_task and not health_task.done():
+        logger.info("🛑 Deteniendo health check API...")
+        health_task.cancel()
+        try:
+            await asyncio.wait_for(health_task, timeout=5)
+            logger.info("✅ Health API detenido correctamente.")
+        except asyncio.TimeoutError:
+            logger.warning("⚠️ Health API no respondió al apagado en 5s (timeout).")
+        except Exception as e:
+            logger.warning(f"⚠️ Error deteniendo health API: {e}")
 
     # Notificar a admins (con timeout para no bloquear shutdown)
     shutdown_message = "🛑 Bot detenido correctamente"
