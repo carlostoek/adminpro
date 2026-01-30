@@ -332,7 +332,7 @@ class TestReportFormatter:
                 if delta > 0:
                     coverage_str += f" (<code>+{delta:.1f}%</code> 🟢)"
                 elif delta < 0:
-                    coverage_str += f" (<code>{delta:.1f}%</code> 🔴)")
+                    coverage_str += f" (<code>{delta:.1f}%</code> 🔴)"
             lines.append(coverage_str)
 
         # Trend indicator
