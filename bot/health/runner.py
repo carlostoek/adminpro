@@ -61,7 +61,7 @@ def wait_for_port_release(host: str, port: int, timeout: int = 30) -> bool:
     return False
 
 
-def _run_server_in_thread(host: str, port: int):
+def _run_server_in_thread(host: str, port: int, shutdown_event: threading.Event):
     """
     Run uvicorn server in a separate thread with its own event loop.
 
@@ -92,8 +92,22 @@ def _run_server_in_thread(host: str, port: int):
         # Signal that we're about to start
         _started_event.set()
 
-        # Run the server (blocking until shutdown)
-        loop.run_until_complete(server.serve())
+        # Run server with graceful shutdown handling
+        async def serve_with_shutdown():
+            # Start server in a task
+            server_task = asyncio.create_task(server.serve())
+
+            # Wait for shutdown signal or server to complete
+            while not shutdown_event.is_set() and server_task and not server_task.done():
+                await asyncio.sleep(0.1)
+
+            # Trigger graceful shutdown
+            if server_task and not server_task.done():
+                logger.debug("Iniciando shutdown graceful del servidor...")
+                server.should_exit = True
+                await asyncio.wait_for(server_task, timeout=4.0)
+
+        loop.run_until_complete(serve_with_shutdown())
 
         logger.info("🔌 Health API thread finalizado")
 
@@ -106,7 +120,6 @@ def _run_server_in_thread(host: str, port: int):
             loop.close()
         except Exception:
             pass
-        _shutdown_event.set()
 
 
 async def start_health_server() -> Optional[threading.Thread]:
@@ -137,10 +150,10 @@ async def start_health_server() -> Optional[threading.Thread]:
     _started_event.clear()
     _startup_success = True
 
-    # Start server in background thread
+    # Start server in background thread (pass shutdown_event so thread can monitor it)
     _health_server_thread = threading.Thread(
         target=_run_server_in_thread,
-        args=(host, port),
+        args=(host, port, _shutdown_event),
         daemon=True,  # Daemon thread won't prevent process exit
         name="HealthAPIServer"
     )
@@ -184,7 +197,7 @@ async def stop_health_server():
     _shutdown_event.set()
 
     # Wait for thread to finish (with timeout)
-    _health_server_thread.join(timeout=5)
+    _health_server_thread.join(timeout=8)
 
     if _health_server_thread.is_alive():
         logger.warning("⚠️ Health API thread no respondió, forzando...")
