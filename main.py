@@ -8,6 +8,7 @@ import sys
 import signal
 import threading
 import os
+from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.exceptions import TelegramNetworkError
@@ -18,6 +19,7 @@ from config import Config
 from bot.database import init_db, close_db
 from bot.database.migrations import run_migrations_if_needed
 from bot.background import start_background_tasks, stop_background_tasks
+from bot.health.check import get_health_summary
 from bot.health.runner import start_health_server
 
 # Configurar logging
@@ -32,6 +34,40 @@ def should_use_webhook() -> bool:
         True si WEBHOOK_MODE=webhook, False para polling
     """
     return Config.WEBHOOK_MODE == "webhook"
+
+
+async def health_handler(request: web.Request) -> web.Response:
+    """
+    Handler para el endpoint de health check.
+
+    Reutiliza la lógica de get_health_summary() para verificar
+    el estado del bot y la base de datos.
+    """
+    summary = await get_health_summary()
+
+    # Determinar status HTTP basado en el estado general
+    if summary["status"] == "unhealthy":
+        status = 503
+    else:
+        status = 200
+
+    return web.json_response(summary, status=status)
+
+
+def create_webhook_app() -> web.Application:
+    """
+    Crear aplicación aiohttp con endpoint de health check.
+
+    Returns:
+        web.Application configurada con ruta /health
+    """
+    app = web.Application()
+    app.router.add_get("/health", health_handler)
+    app.router.add_get("/", lambda r: web.json_response({
+        "service": "lucien-bot",
+        "status": "operational"
+    }))
+    return app
 
 
 async def _get_bot_info_with_retry(bot: Bot, max_retries: int = 2, timeout: int = 5) -> dict | None:
@@ -113,14 +149,7 @@ async def on_startup_webhook(bot: Bot, dispatcher: Dispatcher) -> None:
         logger.error(f"❌ Error configurando webhook: {e}")
         sys.exit(1)
 
-    # Iniciar health check API
-    try:
-        health_task = await start_health_server()
-        dispatcher.workflow_data['health_task'] = health_task
-        logger.info("✅ Health check API iniciado")
-    except Exception as e:
-        logger.error(f"❌ Error iniciando health API: {e}")
-        logger.warning("⚠️ Bot continuará sin health check endpoint")
+    # Nota: El health check se integra en el mismo servidor aiohttp via web_app
 
 
 async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
@@ -313,6 +342,11 @@ async def main() -> None:
         dp.startup.register(on_startup_webhook)
         dp.shutdown.register(on_shutdown)
 
+        # Crear aplicación aiohttp con endpoint de health check
+        # Esto integra el health check en el mismo servidor que maneja los webhooks
+        webhook_app = create_webhook_app()
+        logger.info("✅ Health check endpoint integrado en servidor webhook")
+
         # Iniciar webhook server
         try:
             await dp.start_webhook(
@@ -320,7 +354,8 @@ async def main() -> None:
                 webhook_path=Config.WEBHOOK_PATH,
                 host=Config.WEBHOOK_HOST,
                 port=Config.PORT,
-                secret_token=Config.WEBHOOK_SECRET
+                secret_token=Config.WEBHOOK_SECRET,
+                web_app=webhook_app
             )
         except KeyboardInterrupt:
             logger.info("⌨️ Interrupción por teclado (Ctrl+C)")
