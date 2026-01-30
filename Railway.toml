@@ -10,7 +10,7 @@ dockerfile = "Dockerfile"
 # healthcheckCmd runs in the container to verify health
 healthcheckPath = "/health"
 healthcheckPort = 8000
-healthcheckTimeout = 300
+healthcheckTimeout = 30
 # Number of seconds to wait for health check before restart
 healthcheckInterval = 30
 
