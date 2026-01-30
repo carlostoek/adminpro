@@ -23,6 +23,18 @@ from tests.fixtures import (
     mock_bot,
     container,
     container_with_preload,
+    admin_user,
+    vip_user,
+    free_user,
+    regular_user,
+    admin_message,
+    vip_message,
+    free_message,
+    user_message,
+    admin_callback,
+    vip_callback,
+    free_callback,
+    generic_callback,
 )
 
 

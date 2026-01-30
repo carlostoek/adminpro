@@ -347,13 +347,6 @@ async def main() -> None:
         except Exception as e:
             logger.error(f"❌ Error crítico en webhook: {e}", exc_info=True)
         finally:
-            # Llamar explícitamente al shutdown para cleanup limpio
-            logger.info("🧹 Ejecutando shutdown del dispatcher...")
-            try:
-                await dp.emit_shutdown()
-            except Exception as e:
-                logger.warning(f"⚠️ Error en shutdown del dispatcher: {e}")
-
             # Cerrar sesión del bot
             logger.info("🧹 Cerrando sesión del bot...")
             try:
@@ -389,13 +382,6 @@ async def main() -> None:
         except Exception as e:
             logger.error(f"❌ Error crítico en polling: {e}", exc_info=True)
         finally:
-            # Llamar explícitamente al shutdown para cleanup limpio
-            logger.info("🧹 Ejecutando shutdown del dispatcher...")
-            try:
-                await dp.emit_shutdown()
-            except Exception as e:
-                logger.warning(f"⚠️ Error en shutdown del dispatcher: {e}")
-
             # Cerrar sesión del bot
             logger.info("🧹 Cerrando sesión del bot...")
             try:
