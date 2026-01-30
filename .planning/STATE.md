@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 18 of 18 (Admin Test Runner & Performance Profiling)
-Plan: 1 of 4 in current phase
-Status: In progress - Plan 18-01 complete
-Last activity: 2026-01-30 — Completed Plan 18-01 (Admin Test Runner Script and Telegram Command)
+Plan: 2 of 4 in current phase
+Status: In progress - Plan 18-02 complete
+Last activity: 2026-01-30 — Completed Plan 18-02 (Test Reporting with Coverage and Detailed Results)
 
-Progress: [███████████████████░] 98%
+Progress: [████████████████████] 99%
 
 ## Performance Metrics
 
@@ -102,6 +102,7 @@ See PROJECT.md Key Decisions table for full decision log.
 - Phase 17-04: VIP/Free flow tests and message provider tests with 57 tests covering token lifecycle, queue processing, all 13 message providers, Lucien voice consistency
 - Phase 17: Comprehensive test coverage for all critical flows (complete)
 - Phase 18-01: Admin test runner with CLI script and Telegram /run_tests command (complete)
+- Phase 18-02: Test reporting with coverage, trends, and multi-format output (complete)
 - **v1.2: Redis caching DEFERRED to v1.3 (out of scope)**
 
 **v1.1 Key Decisions:**
@@ -140,13 +141,20 @@ None.
 - HTML formatting for Telegram with automatic truncation at 4000 chars
 - Three admin commands: /run_tests, /test_status, /smoke_test
 
+**Phase 18-02 Key Decisions:**
+- Use async file operations for history to avoid blocking bot (asyncio.create_task)
+- Cache last test result in memory for failure detail retrieval
+- Generate HTML reports on-demand only (not by default)
+- Sanitize file paths to hide sensitive project structure
+- Store lightweight TestRunRecord in history (no full stdout)
+
 ## Session Continuity
 
-Last session: 2026-01-30 (Phase 18-01 execution)
-Stopped at: Completed Plan 18-01 (Admin Test Runner Script and Telegram Command)
+Last session: 2026-01-30 (Phase 18-02 execution)
+Stopped at: Completed Plan 18-02 (Test Reporting with Coverage and Detailed Results)
 Resume file: None
-Next: Continue Phase 18 (Plan 18-02: Performance Profiling)
+Next: Continue Phase 18 (Plan 18-03: Performance Profiling)
 
 ---
 
-*State updated: 2026-01-30 after Plan 18-01 completion*
+*State updated: 2026-01-30 after Plan 18-02 completion*
