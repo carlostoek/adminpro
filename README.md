@@ -56,6 +56,68 @@ python main.py
 nohup python main.py > bot.log 2>&1 &
 ```
 
+## Database Migrations
+
+This project uses [Alembic](https://alembic.sqlalchemy.org/) for database migrations.
+
+### Local Development
+
+In development mode (`ENV=development`), migrations are NOT automatic. Run them manually:
+
+```bash
+# Apply all pending migrations
+alembic upgrade head
+
+# Check current version
+alembic current
+
+# View migration history
+alembic history
+
+# Rollback last migration
+alembic downgrade -1
+```
+
+### Production Deployment
+
+In production mode (`ENV=production`), migrations run **automatically** on bot startup.
+
+The bot will:
+1. Detect production mode from `ENV=production`
+2. Run `alembic upgrade head` automatically
+3. Fail-fast if migrations fail (bot will not start)
+4. Log all migration activity
+
+To deploy to production:
+
+```bash
+# Set environment variables
+export ENV=production
+export DATABASE_URL="postgresql://user:pass@host:5432/db"
+
+# Start bot (migrations run automatically)
+python main.py
+```
+
+### Creating Migrations
+
+When modifying models, create a new migration:
+
+```bash
+# Generate migration from model changes
+alembic revision --autogenerate -m "Description of changes"
+
+# Review the generated file
+alembic/versions/YYYYMMDD_HHMMSS_description.py
+
+# Apply migration (local testing)
+alembic upgrade head
+```
+
+### Rollback
+
+See [docs/ROLLBACK.md](docs/ROLLBACK.md) for detailed rollback instructions.
+
 ## 📁 Estructura del Proyecto
 
 ```

@@ -29,6 +29,10 @@ class Config:
     # Formato en .env: "123456,789012,345678"
     ADMIN_USER_IDS: List[int] = []
 
+    # ===== ENVIRONMENT =====
+    # Entorno: "production" o "development" (default: development)
+    ENV: str = os.getenv("ENV", "development")
+
     # ===== DATABASE =====
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
@@ -84,6 +88,23 @@ class Config:
     )
 
     @classmethod
+    def validate_database_url(cls) -> bool:
+        """
+        Valida que DATABASE_URL tiene un formato soportado.
+
+        Returns:
+            True si el formato es válido, False en caso contrario
+        """
+        try:
+            from bot.database.dialect import parse_database_url
+            dialect, _ = parse_database_url(cls.DATABASE_URL)
+            logger.info(f"✅ DATABASE_URL dialect detectado: {dialect.value}")
+            return True
+        except ValueError as e:
+            logger.error(f"❌ DATABASE_URL inválido: {e}")
+            return False
+
+    @classmethod
     def load_admin_ids(cls):
         """
         Carga y parsea los IDs de administradores desde ADMIN_USER_IDS.
@@ -137,6 +158,8 @@ class Config:
         # Validar DATABASE_URL
         if not cls.DATABASE_URL:
             errors.append("DATABASE_URL no configurado")
+        elif not cls.validate_database_url():
+            errors.append("DATABASE_URL tiene formato inválido")
 
         # Validar DEFAULT_WAIT_TIME_MINUTES
         if cls.DEFAULT_WAIT_TIME_MINUTES < 1:
@@ -210,6 +233,7 @@ class Config:
 ╔════════════════════════════════════════╗
 ║     CONFIGURACIÓN DEL BOT              ║
 ╚════════════════════════════════════════╝
+🌍 Ambiente: {cls.ENV.upper()}
 🤖 Bot Token: {token_preview}
 👤 Admins: {len(cls.ADMIN_USER_IDS)} configurado(s)
 💾 Database: {cls.DATABASE_URL}

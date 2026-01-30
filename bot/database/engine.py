@@ -1,6 +1,6 @@
 """
 Engine SQLAlchemy Async y factory de sesiones.
-Configuración optimizada para SQLite en Termux.
+Soporte multi-dialecto: SQLite y PostgreSQL con detección automática.
 """
 import logging
 from typing import AsyncGenerator
@@ -11,12 +11,13 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker
 )
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import NullPool, QueuePool
 from sqlalchemy import text
 
 from config import Config
 from bot.database.base import Base
 from bot.database.models import BotConfig
+from bot.database.dialect import parse_database_url, DatabaseDialect
 
 logger = logging.getLogger(__name__)
 
@@ -96,46 +97,36 @@ def get_session() -> SessionContextManager:
 
 async def init_db() -> None:
     """
-    Inicializa el engine, configura SQLite y crea todas las tablas.
+    Inicializa el engine con detección automática de dialecto.
 
-    Configuración para Termux:
-    - WAL mode (Write-Ahead Logging) para mejor concurrencia
-    - NORMAL synchronous (balance performance/seguridad)
-    - Cache de 64MB
-    - NullPool (SQLite no necesita connection pooling)
+    Soporta SQLite y PostgreSQL con configuraciones optimizadas:
+    - SQLite: WAL mode, NullPool, optimizaciones Termux
+    - PostgreSQL: QueuePool, pool_pre_ping, timeouts
 
-    También crea el registro inicial de BotConfig si no existe.
+    Detecta el dialecto desde Config.DATABASE_URL automáticamente.
     """
     global _engine, _session_factory
 
     logger.info("🔧 Inicializando base de datos...")
 
-    # Crear engine async con aiosqlite
-    _engine = create_async_engine(
-        Config.DATABASE_URL,
-        echo=False,  # No loguear queries SQL (cambiar a True para debug)
-        poolclass=NullPool,  # SQLite no necesita pool
-        connect_args={
-            "check_same_thread": False,  # Necesario para async
-            "timeout": 30  # Timeout generoso para Termux
-        }
-    )
+    # Detectar dialecto desde DATABASE_URL
+    try:
+        dialect, db_url = parse_database_url(Config.DATABASE_URL)
+        logger.info(f"🔍 Dialecto detectado desde DATABASE_URL: {dialect.value}")
+    except ValueError as e:
+        logger.error(f"❌ Error detectando dialecto: {e}")
+        raise
 
-    # Configurar SQLite para mejor performance en Termux
-    async with _engine.begin() as conn:
-        # WAL mode: permite lecturas concurrentes mientras se escribe
-        await conn.execute(text("PRAGMA journal_mode=WAL"))
-
-        # NORMAL: fsync solo en checkpoints críticos (más rápido)
-        await conn.execute(text("PRAGMA synchronous=NORMAL"))
-
-        # Cache de 64MB (mejora performance de queries)
-        await conn.execute(text("PRAGMA cache_size=-64000"))
-
-        # Foreign keys habilitadas
-        await conn.execute(text("PRAGMA foreign_keys=ON"))
-
-        logger.info("✅ SQLite configurado (WAL mode, cache 64MB)")
+    # Crear engine según dialecto
+    if dialect == DatabaseDialect.POSTGRESQL:
+        _engine = await _create_postgresql_engine(db_url)
+    elif dialect == DatabaseDialect.SQLITE:
+        _engine = await _create_sqlite_engine(db_url)
+    else:
+        raise ValueError(
+            f"Dialecto no soportado: {dialect.value}. "
+            "Use 'sqlite://' o 'postgresql://'"
+        )
 
     # Crear todas las tablas
     async with _engine.begin() as conn:
@@ -153,6 +144,91 @@ async def init_db() -> None:
     await _ensure_bot_config_exists()
 
     logger.info("✅ Base de datos inicializada correctamente")
+
+
+async def _create_postgresql_engine(url: str) -> AsyncEngine:
+    """
+    Crea un AsyncEngine optimizado para PostgreSQL.
+
+    Configuración:
+    - QueuePool con pool_size=5, max_overflow=10
+    - pool_pre_ping=True para validar conexiones
+    - timeout=30, command_timeout=30
+
+    Args:
+        url: URL de conexión PostgreSQL con asyncpg driver
+
+    Returns:
+        AsyncEngine configurado para PostgreSQL
+    """
+    logger.info("🐘 Configurando PostgreSQL engine...")
+
+    engine = create_async_engine(
+        url,
+        echo=False,  # No loguear queries SQL (cambiar a True para debug)
+        poolclass=QueuePool,
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,  # Validar conexiones antes de usar
+        connect_args={
+            "timeout": 30,
+            "command_timeout": 30
+        }
+    )
+
+    logger.info(
+        "✅ PostgreSQL engine configurado "
+        f"(pool_size=5, max_overflow=10, pool_pre_ping=True)"
+    )
+
+    return engine
+
+
+async def _create_sqlite_engine(url: str) -> AsyncEngine:
+    """
+    Crea un AsyncEngine optimizado para SQLite.
+
+    Configuración para Termux:
+    - WAL mode (Write-Ahead Logging) para mejor concurrencia
+    - NORMAL synchronous (balance performance/seguridad)
+    - Cache de 64MB
+    - NullPool (SQLite no necesita connection pooling)
+
+    Args:
+        url: URL de conexión SQLite con aiosqlite driver
+
+    Returns:
+        AsyncEngine configurado para SQLite
+    """
+    logger.info("🗄️ Configurando SQLite engine...")
+
+    engine = create_async_engine(
+        url,
+        echo=False,  # No loguear queries SQL (cambiar a True para debug)
+        poolclass=NullPool,  # SQLite no necesita pool
+        connect_args={
+            "check_same_thread": False,  # Necesario para async
+            "timeout": 30  # Timeout generoso para Termux
+        }
+    )
+
+    # Configurar SQLite para mejor performance en Termux
+    async with engine.begin() as conn:
+        # WAL mode: permite lecturas concurrentes mientras se escribe
+        await conn.execute(text("PRAGMA journal_mode=WAL"))
+
+        # NORMAL: fsync solo en checkpoints críticos (más rápido)
+        await conn.execute(text("PRAGMA synchronous=NORMAL"))
+
+        # Cache de 64MB (mejora performance de queries)
+        await conn.execute(text("PRAGMA cache_size=-64000"))
+
+        # Foreign keys habilitadas
+        await conn.execute(text("PRAGMA foreign_keys=ON"))
+
+        logger.info("✅ SQLite configurado (WAL mode, cache 64MB)")
+
+    return engine
 
 
 async def _ensure_bot_config_exists() -> None:

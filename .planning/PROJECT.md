@@ -4,6 +4,36 @@
 
 Un servicio centralizado que gestiona todos los mensajes del bot con la voz caracteristica de Lucien (mayordomo sofisticado de Diana). El servicio provee templates organizados por flujo de navegacion, soporta dinamismo completo (variables, condicionales, listas dinamicas, variaciones aleatorias), y retorna mensajes formateados en HTML junto con sus keyboards inline correspondientes. Diseado para reemplazar todos los mensajes hardcodeados dispersos en los handlers actuales.
 
+## Current Milestone: v1.2 Primer Despliegue
+
+**Goal:** Deploy the bot to Railway with PostgreSQL, comprehensive test coverage for critical flows, and performance optimizations including caching.
+
+**Target features:**
+
+### Deployment
+- PostgreSQL migration (SQLite → PostgreSQL)
+- Railway deployment configuration (Dockerfile, environment variables)
+- Automatic database schema migration on deploy
+- Health check endpoint for monitoring
+- Database seed scripts for initial data
+
+### Testing & Quality
+- Comprehensive test suite covering:
+  - System startup
+  - Menu system (Admin/VIP/Free)
+  - Free channel entry flow
+  - VIP token generation
+  - VIP entry ritual
+  - Role detection
+  - Configuration management
+- Centralized test runner script for admin
+
+### Performance
+- Performance profiling and optimization
+- Caching system (Redis) for frequently accessed data
+
+---
+
 ## Current State
 
 **v1.1 SHIPPED** (2026-01-28)
@@ -198,7 +228,30 @@ Documentation (DOCS):
 
 ### Active
 
-*No active requirements - Ready for next milestone planning*
+**v1.2 Active Requirements:**
+
+Deployment (DEPLOY):
+- [ ] DEPLOY-01: PostgreSQL migration from SQLite
+- [ ] DEPLOY-02: Railway deployment configuration
+- [ ] DEPLOY-03: Auto-migration scripts
+- [ ] DEPLOY-04: Health check endpoint
+- [ ] DEPLOY-05: Database seed scripts
+
+Testing (TEST):
+- [ ] TEST-01: System startup test coverage
+- [ ] TEST-02: Menu system test coverage
+- [ ] TEST-03: Free channel entry flow test coverage
+- [ ] TEST-04: VIP token generation test coverage
+- [ ] TEST-05: VIP entry ritual test coverage
+- [ ] TEST-06: Role detection test coverage
+- [ ] TEST-07: Configuration management test coverage
+- [ ] TEST-08: Centralized admin test runner
+
+Performance (PERF):
+- [ ] PERF-01: Performance profiling infrastructure
+- [ ] PERF-02: Redis caching integration
+- [ ] PERF-03: Cache invalidation strategy
+- [ ] PERF-04: Cache warming on startup
 
 ### Out of Scope
 
@@ -274,4 +327,4 @@ Existe `docs/guia-estilo.md` con 410 lineas que definen:
 
 ---
 
-*Last updated: 2026-01-28 after v1.1 milestone completion*
+*Last updated: 2026-01-28 after v1.2 milestone initiation*
