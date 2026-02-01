@@ -144,11 +144,19 @@ class TestRunnerService:
                 stdout_str = stdout.decode("utf-8", errors="replace")
                 stderr_str = stderr.decode("utf-8", errors="replace")
 
+                # Get git info en executor (non-blocking)
+                loop = asyncio.get_event_loop()
+                git_commit, git_branch = await loop.run_in_executor(
+                    None, self._get_git_info
+                )
+
                 # Parse results
                 result = self._parse_results(
                     proc.returncode or 0,
                     stdout_str,
-                    stderr_str
+                    stderr_str,
+                    git_commit,
+                    git_branch
                 )
 
                 logger.info(f"Tests completados: {result.summary}")
@@ -169,7 +177,9 @@ class TestRunnerService:
         self,
         returncode: int,
         stdout: str,
-        stderr: str
+        stderr: str,
+        git_commit: Optional[str] = None,
+        git_branch: Optional[str] = None
     ) -> TestResult:
         """Parsea output de pytest para extraer metricas."""
         output = stdout + "\n" + stderr
@@ -221,9 +231,6 @@ class TestRunnerService:
             warn_match = re.search(warning_pattern, line, re.IGNORECASE)
             if warn_match:
                 warnings.append(warn_match.group(0))
-
-        # Get git info
-        git_commit, git_branch = self._get_git_info()
 
         return TestResult(
             returncode=returncode,

@@ -191,8 +191,9 @@ class DatabaseMigrator:
         try:
             await self.setup()
 
-            # Verificar conexiones
-            if not await self._verify_connections():
+            # Verificar conexiones (ejecutar en executor)
+            loop = asyncio.get_event_loop()
+            if not await loop.run_in_executor(None, self._verify_connections_sync):
                 self.report.errors.append("Failed to verify database connections")
                 return self.report
 
@@ -213,7 +214,7 @@ class DatabaseMigrator:
 
         return self.report
 
-    async def _verify_connections(self) -> bool:
+    def _verify_connections_sync(self) -> bool:
         """Verifica que ambas bases de datos son accesibles."""
         try:
             # Verificar source
@@ -243,8 +244,11 @@ class DatabaseMigrator:
         logger.info(f"📦 Migrating table: {table_name}")
 
         try:
-            # Obtener datos de source
-            source_data = await self._fetch_table_data(table_name)
+            # Obtener datos de source (ejecutar en executor para no bloquear)
+            loop = asyncio.get_event_loop()
+            source_data = await loop.run_in_executor(
+                None, self._fetch_table_data_sync, table_name
+            )
             source_count = len(source_data)
 
             logger.info(f"   Source rows: {source_count}")
@@ -255,15 +259,21 @@ class DatabaseMigrator:
                 self.report.row_counts[table_name] = (source_count, 0)
                 return
 
-            # Limpiar tabla target
-            await self._clear_target_table(table_name)
+            # Limpiar tabla target (ejecutar en executor)
+            await loop.run_in_executor(
+                None, self._clear_target_table_sync, table_name
+            )
 
-            # Insertar datos
+            # Insertar datos (ejecutar en executor)
             if source_data:
-                await self._insert_data(table_name, source_data)
+                await loop.run_in_executor(
+                    None, self._insert_data_sync, table_name, source_data
+                )
 
-            # Verificar conteo
-            target_count = await self._count_target_rows(table_name)
+            # Verificar conteo (ejecutar en executor)
+            target_count = await loop.run_in_executor(
+                None, self._count_target_rows_sync, table_name
+            )
             self.report.row_counts[table_name] = (source_count, target_count)
 
             if source_count == target_count:
@@ -280,21 +290,26 @@ class DatabaseMigrator:
             self.report.tables_failed.append(table_name)
             self.report.errors.append(f"{table_name}: {str(e)}")
 
-    async def _fetch_table_data(self, table_name: str) -> List[Dict[str, Any]]:
-        """Obtiene todos los datos de una tabla SQLite."""
+    def _fetch_table_data_sync(self, table_name: str) -> List[Dict[str, Any]]:
+        """Obtiene todos los datos de una tabla SQLite en batches."""
         with self.source_engine.connect() as conn:
-            result = conn.execute(text(f"SELECT * FROM {table_name}"))
-            rows = result.mappings().all()
-            return [dict(row) for row in rows]
+            result = conn.execution_options(stream_results=True).execute(text(f"SELECT * FROM {table_name}"))
+            all_data = []
+            while True:
+                batch = result.mappings().fetchmany(1000)
+                if not batch:
+                    break
+                all_data.extend([dict(row) for row in batch])
+            return all_data
 
-    async def _clear_target_table(self, table_name: str):
+    def _clear_target_table_sync(self, table_name: str):
         """Limpia la tabla en PostgreSQL."""
         with self.target_engine.connect() as conn:
             # Deshabilitar FK checks temporalmente
             conn.execute(text(f"TRUNCATE TABLE {table_name} CASCADE"))
             conn.commit()
 
-    async def _insert_data(self, table_name: str, data: List[Dict[str, Any]]):
+    def _insert_data_sync(self, table_name: str, data: List[Dict[str, Any]]):
         """Inserta datos en PostgreSQL."""
         if not data:
             return
@@ -315,7 +330,7 @@ class DatabaseMigrator:
 
             conn.commit()
 
-    async def _count_target_rows(self, table_name: str) -> int:
+    def _count_target_rows_sync(self, table_name: str) -> int:
         """Cuenta filas en tabla target."""
         with self.target_engine.connect() as conn:
             result = conn.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
@@ -331,13 +346,18 @@ class DatabaseMigrator:
         logger.info("🔍 Validating migration...")
 
         all_valid = True
+        loop = asyncio.get_event_loop()
 
         for table_name in self.MIGRATION_ORDER:
             if table_name in self.report.tables_failed:
                 continue
 
-            source_count = await self._count_source_rows(table_name)
-            target_count = await self._count_target_rows(table_name)
+            source_count = await loop.run_in_executor(
+                None, self._count_source_rows_sync, table_name
+            )
+            target_count = await loop.run_in_executor(
+                None, self._count_target_rows_sync, table_name
+            )
 
             if source_count != target_count:
                 logger.error(
@@ -349,7 +369,7 @@ class DatabaseMigrator:
 
         return all_valid
 
-    async def _count_source_rows(self, table_name: str) -> int:
+    def _count_source_rows_sync(self, table_name: str) -> int:
         """Cuenta filas en tabla source."""
         with self.source_engine.connect() as conn:
             result = conn.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
