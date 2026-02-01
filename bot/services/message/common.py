@@ -159,7 +159,7 @@ class CommonMessages(BaseMessageProvider):
         """
         header = "🎩 <b>Lucien:</b>"
         body = "<i>Una perturbación inesperada ha interrumpido el flujo natural de las cosas...</i>\n\n<i>Permítame un momento para restablecer el orden. Diana prefiere que estos asuntos se manejen con discreción.</i>"
-        footer = "<i>¿Le gustaría que lo intente nuevamente? Estoy a su disposición para asistirle.</i>"
+        footer = "<i>¿Desea que lo intente nuevamente?</i>"
 
         return self._compose(header, body, footer)
 
