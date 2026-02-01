@@ -13,7 +13,9 @@ from typing import Optional, Tuple
 from aiogram import Bot
 from aiogram.types import Message, Chat
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from bot.database.models import BotConfig
 
@@ -58,6 +60,31 @@ class ChannelService:
 
         if config is None:
             # Esto no debería pasar (init_db crea el registro)
+            raise RuntimeError("BotConfig no encontrado en base de datos")
+
+        return config
+
+    async def get_bot_config_with_channels(self) -> BotConfig:
+        """
+        Obtiene la configuración del bot con canales precargados.
+
+        Use este método cuando necesite acceder frecuentemente a:
+        - config.vip_channel_id
+        - config.free_channel_id
+        - config.free_channel_invite_link
+
+        Returns:
+            BotConfig: Configuración global
+
+        Raises:
+            RuntimeError: Si BotConfig no existe en BD
+        """
+        result = await self.session.execute(
+            select(BotConfig).where(BotConfig.id == 1)
+        )
+        config = result.scalar_one_or_none()
+
+        if config is None:
             raise RuntimeError("BotConfig no encontrado en base de datos")
 
         return config

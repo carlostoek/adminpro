@@ -8,7 +8,7 @@ Transformación desde un bot Telegram local con SQLite hacia una solución produ
 
 - ✅ **v1.0 LucienVoiceService** - Phases 1-4 (shipped 2026-01-24)
 - ✅ **v1.1 Sistema de Menús** - Phases 5-13 (shipped 2026-01-28)
-- 🚧 **v1.2 Primer Despliegue** - Phases 14-18 (in progress)
+- ✅ **v1.2 Primer Despliegue** - Phases 14-18 (shipped 2026-01-30)
 
 ## Phases
 
@@ -170,10 +170,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 18-01: Admin test runner script and Telegram command
-- [ ] 18-02: Test reporting with coverage and detailed results
-- [ ] 18-03: Performance profiling with pyinstrument integration
-- [ ] 18-04: SQLite → PostgreSQL data migration script and N+1 query detection
+- [x] 18-01: Admin test runner script and Telegram command
+- [x] 18-02: Test reporting with coverage and detailed results
+- [x] 18-03: Performance profiling with pyinstrument integration
+- [x] 18-04: SQLite → PostgreSQL data migration script and N+1 query detection
 
 ### 📋 v1.3 Redis Caching (Planned)
 
@@ -205,6 +205,6 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 15. Health Check & Railway Preparation | v1.2 | 5/5 | Complete | 2026-01-29 |
 | 16. Testing Infrastructure | v1.2 | 5/5 | Complete | 2026-01-29 |
 | 17. System Tests | v1.2 | 4/4 | Complete | 2026-01-30 |
-| 18. Admin Test Runner & Performance Profiling | v1.2 | 0/4 | Not started | - |
+| 18. Admin Test Runner & Performance Profiling | v1.2 | 4/4 | Complete | 2026-01-30 |
 
-**Overall Progress:** 67/68 plans complete (99%)
+**Overall Progress:** 68/68 plans complete (100%)

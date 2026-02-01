@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 
 ## Current Position
 
-Phase: 17 of 18 (System Tests)
+Phase: 18 of 18 (Admin Test Runner & Performance Profiling)
 Plan: 4 of 4 in current phase
-Status: Phase complete, all goals verified
-Last activity: 2026-01-30 — Phase 17 completed (System Tests)
+Status: Complete - Phase 18 finished
+Last activity: 2026-01-30 — Completed Plan 18-04 (SQLite to PostgreSQL Migration and N+1 Query Detection)
 
-Progress: [██████████████████░░] 97%
+Progress: [████████████████████] 100%
 
 ## Performance Metrics
 
@@ -100,9 +100,11 @@ See PROJECT.md Key Decisions table for full decision log.
 - Phase 17-02: Menu system tests with 54 tests covering Admin/VIP/Free menus, role-based routing, FSM state management, callback navigation
 - Phase 17-03: Role detection and user management tests with 57 tests covering role priority (Admin > VIP > Free), stateless behavior, user operations, audit logging
 - Phase 17-04: VIP/Free flow tests and message provider tests with 57 tests covering token lifecycle, queue processing, all 13 message providers, Lucien voice consistency
-- Phase 17: Comprehensive test coverage for all critical flows (in progress)
-- Phase 18: Admin test runner for non-technical users
-- Phase 18: Performance profiling with pyinstrument for bottleneck identification
+- Phase 17: Comprehensive test coverage for all critical flows (complete)
+- Phase 18-01: Admin test runner with CLI script and Telegram /run_tests command (complete)
+- Phase 18-02: Test reporting with coverage, trends, and multi-format output (complete)
+- Phase 18-03: Performance profiling with pyinstrument integration (complete)
+- Phase 18-04: SQLite to PostgreSQL migration script with validation and N+1 query detection (complete)
 - **v1.2: Redis caching DEFERRED to v1.3 (out of scope)**
 
 **v1.1 Key Decisions:**
@@ -126,7 +128,7 @@ None.
 
 - **Phase 14:** Alembic auto-migration on startup patterns implemented. Best practice for running migrations in Railway deployment environment implemented with ENV=production detection.
 - **Phase 16:** aiogram FSM testing patterns with pytest-asyncio for aiogram 3.4.1 needs verification. Manual mocking approaches need validation.
-- **Phase 18:** pyinstrument vs cProfile for async code needs validation. Async profiling tools are evolving.
+- **Phase 18:** pyinstrument validated for async code profiling. Statistical profiling with low overhead confirmed working.
 
 **Resolved in v1.1:**
 - Phase 5 gap: RoleDetectionMiddleware properly registered in main.py
@@ -135,13 +137,48 @@ None.
 - MissingGreenlet error: Applied eager loading with selectinload()
 - Role change confirmation callback parsing: Fixed index checking
 
+**Phase 18-01 Key Decisions:**
+- Subprocess execution prevents test crashes from affecting the bot (asyncio.create_subprocess_exec)
+- Lock-based concurrency prevents multiple simultaneous test runs (asyncio.Lock)
+- HTML formatting for Telegram with automatic truncation at 4000 chars
+- Three admin commands: /run_tests, /test_status, /smoke_test
+
+**Phase 18-02 Key Decisions:**
+- Use async file operations for history to avoid blocking bot (asyncio.create_task)
+- Cache last test result in memory for failure detail retrieval
+- Generate HTML reports on-demand only (not by default)
+- Sanitize file paths to hide sensitive project structure
+- Store lightweight TestRunRecord in history (no full stdout)
+
+**Phase 18-03 Key Decisions:**
+- Use pyinstrument for statistical profiling (low overhead ~5-10%)
+- Gate profiling with PROFILE_HANDLERS env var for production safety
+- Support text, HTML (flame graphs), and JSON output formats
+- CLI script uses real database session for accurate profiling
+- SQLAlchemy event monitoring via before_cursor_execute/after_cursor_execute
+- MagicMock detection to avoid attaching events to mock sessions
+
+**Phase 18-04 Key Decisions:**
+- N+1 detection threshold: 5 similar queries (configurable via class constant)
+- Slow query threshold: 100ms (configurable via SLOW_QUERY_THRESHOLD)
+- Migration batch size: 100 rows per INSERT for memory efficiency
+- Debug mode: Opt-in parameter (not env var) for flexibility
+- Eager loading: Explicit methods (backward compatible, doesn't change defaults)
+- Migration validation: Row count verification for all tables
+- Query analysis: Context manager pattern for scoped monitoring
+
 ## Session Continuity
 
-Last session: 2026-01-30 (Phase 17-04 execution)
-Stopped at: Completed Plan 17-04 (VIP/Free Flow Tests and Message Provider Tests)
+Last session: 2026-01-30 (Phase 18-04 execution)
+Stopped at: Completed Plan 18-04 (SQLite to PostgreSQL Migration and N+1 Query Detection)
 Resume file: None
-Next: Continue Phase 17 (System Tests)
+Next: Phase 18 COMPLETE - All 4 plans finished
 
 ---
 
-*State updated: 2026-01-30 after Plan 17-04 completion*
+*State updated: 2026-01-30 after Plan 18-04 completion*
+*Phase 18 (Admin Test Runner & Performance Profiling) is now COMPLETE*
+
+---
+
+*State updated: 2026-01-30 after Plan 18-03 completion*

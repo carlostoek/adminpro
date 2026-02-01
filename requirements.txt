@@ -24,3 +24,6 @@ pytest-cov==4.1.0
 
 # Database Migrations
 alembic==1.13.1
+
+# Performance Profiling
+pyinstrument==4.6.2
