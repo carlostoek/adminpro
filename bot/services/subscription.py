@@ -17,6 +17,7 @@ from aiogram import Bot
 from aiogram.types import ChatInviteLink
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from config import Config
 from bot.database.models import (
@@ -295,6 +296,46 @@ class SubscriptionService:
                 VIPSubscriber.user_id == user_id
             )
         )
+        return result.scalar_one_or_none()
+
+    async def get_vip_subscriber_with_relations(
+        self,
+        user_id: int,
+        load_user: bool = True,
+        load_token: bool = True
+    ) -> Optional[VIPSubscriber]:
+        """
+        Obtiene el suscriptor VIP con relaciones eager loaded.
+
+        Use este método cuando necesite acceder a:
+        - subscriber.user (User model)
+        - subscriber.token (InvitationToken)
+        - subscriber.token.plan (SubscriptionPlan)
+
+        Args:
+            user_id: ID del usuario
+            load_user: Cargar relación user (default: True)
+            load_token: Cargar relación token y plan (default: True)
+
+        Returns:
+            VIPSubscriber con relaciones cargadas, None si no existe
+
+        Example:
+            subscriber = await service.get_vip_subscriber_with_relations(123)
+            print(subscriber.user.full_name)  # No N+1 query
+            print(subscriber.token.plan.name)  # No N+1 query
+        """
+        query = select(VIPSubscriber).where(VIPSubscriber.user_id == user_id)
+
+        # Aplicar eager loading según parámetros
+        if load_user:
+            query = query.options(selectinload(VIPSubscriber.user))
+        if load_token:
+            query = query.options(
+                selectinload(VIPSubscriber.token).selectinload(InvitationToken.plan)
+            )
+
+        result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
     async def is_vip_active(self, user_id: int) -> bool:
@@ -576,6 +617,53 @@ class SubscriptionService:
         query = select(VIPSubscriber).order_by(
             VIPSubscriber.expiry_date.desc()
         )
+
+        if status:
+            query = query.where(VIPSubscriber.status == status)
+
+        query = query.limit(limit).offset(offset)
+
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def get_all_vip_subscribers_with_users(
+        self,
+        status: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+        load_tokens: bool = False
+    ) -> List[VIPSubscriber]:
+        """
+        Obtiene lista de suscriptores VIP con eager loading de usuarios.
+
+        Use este método cuando necesite acceder a subscriber.user
+        para evitar N+1 queries en loops.
+
+        Args:
+            status: Filtrar por status ("active", "expired", None=todos)
+            limit: Máximo de resultados (default: 100)
+            offset: Offset para paginación (default: 0)
+            load_tokens: También cargar tokens y planes (default: False)
+
+        Returns:
+            Lista de suscriptores con usuarios cargados
+
+        Example:
+            subscribers = await service.get_all_vip_subscribers_with_users()
+            for sub in subscribers:
+                print(sub.user.full_name)  # No N+1 query
+        """
+        query = select(VIPSubscriber).order_by(
+            VIPSubscriber.expiry_date.desc()
+        )
+
+        # Aplicar eager loading
+        query = query.options(selectinload(VIPSubscriber.user))
+
+        if load_tokens:
+            query = query.options(
+                selectinload(VIPSubscriber.token).selectinload(InvitationToken.plan)
+            )
 
         if status:
             query = query.where(VIPSubscriber.status == status)

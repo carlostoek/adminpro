@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy import text
 
 from bot.database.base import Base
-from bot.database.models import BotConfig, InvitationToken
+from bot.database.models import BotConfig, InvitationToken, User, SubscriptionPlan
+from bot.database.enums import UserRole
 
 
 @pytest_asyncio.fixture
@@ -101,3 +102,122 @@ async def test_invitation_token(test_session):
     await test_session.commit()
     await test_session.refresh(token)
     return token
+
+
+@pytest_asyncio.fixture
+async def test_user(test_session):
+    """
+    Fixture: Creates a test user in the database.
+
+    Creates a basic user with FREE role that can be used
+    for tests requiring user_id foreign key.
+    """
+    user = User(
+        user_id=12345,
+        username="testuser",
+        first_name="Test",
+        last_name="User",
+        role=UserRole.FREE
+    )
+    test_session.add(user)
+    await test_session.commit()
+    await test_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def test_vip_user(test_session):
+    """
+    Fixture: Creates a test VIP user in the database.
+    """
+    user = User(
+        user_id=12346,
+        username="vipuser",
+        first_name="VIP",
+        last_name="User",
+        role=UserRole.VIP
+    )
+    test_session.add(user)
+    await test_session.commit()
+    await test_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def test_free_user(test_session):
+    """
+    Fixture: Creates a test Free user in the database.
+    """
+    user = User(
+        user_id=12347,
+        username="freeuser",
+        first_name="Free",
+        last_name="User",
+        role=UserRole.FREE
+    )
+    test_session.add(user)
+    await test_session.commit()
+    await test_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def test_admin_user(test_session):
+    """
+    Fixture: Creates a test admin user in the database.
+    """
+    user = User(
+        user_id=1280444712,
+        username="adminuser",
+        first_name="Admin",
+        last_name="User",
+        role=UserRole.ADMIN
+    )
+    test_session.add(user)
+    await test_session.commit()
+    await test_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def test_subscription_plan(test_session, test_admin_user):
+    """
+    Fixture: Creates an active subscription plan.
+
+    Creates a standard monthly plan that can be used
+    for tests requiring plan_id foreign key.
+    """
+    plan = SubscriptionPlan(
+        name="Plan Mensual Test",
+        duration_days=30,
+        price=9.99,
+        currency="USD",
+        active=True,
+        created_by=test_admin_user.user_id
+    )
+    test_session.add(plan)
+    await test_session.commit()
+    await test_session.refresh(plan)
+    return plan
+
+
+@pytest_asyncio.fixture
+async def test_inactive_plan(test_session, test_admin_user):
+    """
+    Fixture: Creates an inactive subscription plan.
+
+    Used for testing validation of inactive plans.
+    """
+    import random
+    plan = SubscriptionPlan(
+        name=f"Plan Inactivo Test {random.randint(1000, 9999)}",
+        duration_days=30,
+        price=9.99,
+        currency="USD",
+        active=False,
+        created_by=test_admin_user.user_id
+    )
+    test_session.add(plan)
+    await test_session.commit()
+    await test_session.refresh(plan)
+    return plan

@@ -11,7 +11,6 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 
-from bot.database import get_session
 from bot.database.models import VIPSubscriber, InvitationToken, FreeChannelRequest
 from bot.services.stats import StatsService, OverallStats, VIPStats, FreeStats, TokenStats
 from bot.utils.pagination import Paginator
@@ -30,101 +29,96 @@ from bot.utils.formatters import (
 
 
 @pytest.mark.asyncio
-async def test_stats_overall():
+async def test_stats_overall(test_session):
     """Test de estadísticas generales."""
     print("\n🧪 Test 1: Estadísticas Generales")
 
-    async with get_session() as session:
-        stats_service = StatsService(session)
-        overall = await stats_service.get_overall_stats()
+    stats_service = StatsService(test_session)
+    overall = await stats_service.get_overall_stats()
 
-        # Validar tipo y atributos
-        assert isinstance(overall, OverallStats)
-        assert isinstance(overall.total_vip_active, int)
-        assert isinstance(overall.calculated_at, datetime)
+    # Validar tipo y atributos
+    assert isinstance(overall, OverallStats)
+    assert isinstance(overall.total_vip_active, int)
+    assert isinstance(overall.calculated_at, datetime)
 
-        print(f"✅ Overall stats: {overall.total_vip_active} VIP, {overall.total_free_pending} Free")
+    print(f"✅ Overall stats: {overall.total_vip_active} VIP, {overall.total_free_pending} Free")
 
 
 @pytest.mark.asyncio
-async def test_stats_vip():
+async def test_stats_vip(test_session):
     """Test de estadísticas VIP."""
     print("\n🧪 Test 2: Estadísticas VIP")
 
-    async with get_session() as session:
-        stats_service = StatsService(session)
-        vip_stats = await stats_service.get_vip_stats()
+    stats_service = StatsService(test_session)
+    vip_stats = await stats_service.get_vip_stats()
 
-        assert isinstance(vip_stats, VIPStats)
-        assert vip_stats.total_active >= 0
-        assert vip_stats.total_all_time >= vip_stats.total_active
+    assert isinstance(vip_stats, VIPStats)
+    assert vip_stats.total_active >= 0
+    assert vip_stats.total_all_time >= vip_stats.total_active
 
-        print(f"✅ VIP stats: {vip_stats.total_active} activos")
+    print(f"✅ VIP stats: {vip_stats.total_active} activos")
 
 
 @pytest.mark.asyncio
-async def test_stats_free():
+async def test_stats_free(test_session):
     """Test de estadísticas Free."""
     print("\n🧪 Test 3: Estadísticas Free")
 
-    async with get_session() as session:
-        stats_service = StatsService(session)
-        free_stats = await stats_service.get_free_stats()
+    stats_service = StatsService(test_session)
+    free_stats = await stats_service.get_free_stats()
 
-        assert isinstance(free_stats, FreeStats)
-        assert free_stats.total_pending >= 0
-        assert free_stats.total_processed >= 0
+    assert isinstance(free_stats, FreeStats)
+    assert free_stats.total_pending >= 0
+    assert free_stats.total_processed >= 0
 
-        print(f"✅ Free stats: {free_stats.total_pending} pendientes")
+    print(f"✅ Free stats: {free_stats.total_pending} pendientes")
 
 
 @pytest.mark.asyncio
-async def test_stats_tokens():
+async def test_stats_tokens(test_session):
     """Test de estadísticas de Tokens."""
     print("\n🧪 Test 4: Estadísticas Tokens")
 
-    async with get_session() as session:
-        stats_service = StatsService(session)
-        token_stats = await stats_service.get_token_stats()
+    stats_service = StatsService(test_session)
+    token_stats = await stats_service.get_token_stats()
 
-        assert isinstance(token_stats, TokenStats)
-        assert token_stats.total_generated >= 0
-        assert token_stats.total_used >= 0
-        assert token_stats.conversion_rate >= 0
+    assert isinstance(token_stats, TokenStats)
+    assert token_stats.total_generated >= 0
+    assert token_stats.total_used >= 0
+    assert token_stats.conversion_rate >= 0
 
-        print(f"✅ Token stats: {token_stats.conversion_rate:.1f}% conversión")
+    print(f"✅ Token stats: {token_stats.conversion_rate:.1f}% conversión")
 
 
 @pytest.mark.asyncio
-async def test_stats_cache():
+async def test_stats_cache(test_session):
     """Test de cache de estadísticas."""
     print("\n🧪 Test 5: Cache de Estadísticas")
 
-    async with get_session() as session:
-        stats_service = StatsService(session)
+    stats_service = StatsService(test_session)
 
-        # Primera llamada
-        stats1 = await stats_service.get_overall_stats()
-        timestamp1 = stats1.calculated_at
+    # Primera llamada
+    stats1 = await stats_service.get_overall_stats()
+    timestamp1 = stats1.calculated_at
 
-        # Segunda llamada (con cache)
-        import asyncio
-        await asyncio.sleep(0.1)
-        stats2 = await stats_service.get_overall_stats()
-        timestamp2 = stats2.calculated_at
+    # Segunda llamada (con cache)
+    import asyncio
+    await asyncio.sleep(0.1)
+    stats2 = await stats_service.get_overall_stats()
+    timestamp2 = stats2.calculated_at
 
-        # Los timestamps deben ser iguales (cache hit)
-        assert timestamp1 == timestamp2
-        print("✅ Cache funciona (mismo timestamp)")
+    # Los timestamps deben ser iguales (cache hit)
+    assert timestamp1 == timestamp2
+    print("✅ Cache funciona (mismo timestamp)")
 
-        # Force refresh
-        await asyncio.sleep(0.1)
-        stats3 = await stats_service.get_overall_stats(force_refresh=True)
-        timestamp3 = stats3.calculated_at
+    # Force refresh
+    await asyncio.sleep(0.1)
+    stats3 = await stats_service.get_overall_stats(force_refresh=True)
+    timestamp3 = stats3.calculated_at
 
-        # El nuevo timestamp debe ser diferente
-        assert timestamp3 > timestamp1
-        print("✅ Force refresh funciona (nuevo timestamp)")
+    # El nuevo timestamp debe ser diferente
+    assert timestamp3 > timestamp1
+    print("✅ Force refresh funciona (nuevo timestamp)")
 
 
 # ===== TESTS DE PAGINACIÓN =====
@@ -229,43 +223,41 @@ def test_formatters_numbers():
 
 
 @pytest.mark.asyncio
-async def test_vip_management_paginated():
+async def test_vip_management_paginated(test_session):
     """Test de gestión VIP con paginación."""
     print("\n🧪 Test 11: Gestión VIP Paginada")
 
-    async with get_session() as session:
-        result = await session.execute(
-            select(VIPSubscriber)
-            .where(VIPSubscriber.status == "active")
-            .order_by(VIPSubscriber.expiry_date.desc())
-        )
-        subscribers = result.scalars().all()
+    result = await test_session.execute(
+        select(VIPSubscriber)
+        .where(VIPSubscriber.status == "active")
+        .order_by(VIPSubscriber.expiry_date.desc())
+    )
+    subscribers = result.scalars().all()
 
-        paginator = Paginator(items=list(subscribers), page_size=10)
-        page1 = paginator.get_page(1)
+    paginator = Paginator(items=list(subscribers), page_size=10)
+    page1 = paginator.get_page(1)
 
-        assert isinstance(page1.items, list)
-        print(f"✅ Gestión VIP: {len(page1.items)} activos en página 1")
+    assert isinstance(page1.items, list)
+    print(f"✅ Gestión VIP: {len(page1.items)} activos en página 1")
 
 
 @pytest.mark.asyncio
-async def test_free_queue_paginated():
+async def test_free_queue_paginated(test_session):
     """Test de cola Free con paginación."""
     print("\n🧪 Test 12: Cola Free Paginada")
 
-    async with get_session() as session:
-        result = await session.execute(
-            select(FreeChannelRequest)
-            .where(FreeChannelRequest.processed == False)
-            .order_by(FreeChannelRequest.request_date.asc())
-        )
-        requests = result.scalars().all()
+    result = await test_session.execute(
+        select(FreeChannelRequest)
+        .where(FreeChannelRequest.processed == False)
+        .order_by(FreeChannelRequest.request_date.asc())
+    )
+    requests = result.scalars().all()
 
-        paginator = Paginator(items=list(requests), page_size=10)
-        page1 = paginator.get_page(1)
+    paginator = Paginator(items=list(requests), page_size=10)
+    page1 = paginator.get_page(1)
 
-        assert isinstance(page1.items, list)
-        print(f"✅ Cola Free: {len(page1.items)} pendientes en página 1")
+    assert isinstance(page1.items, list)
+    print(f"✅ Cola Free: {len(page1.items)} pendientes en página 1")
 
 
 # ===== MAIN =====
