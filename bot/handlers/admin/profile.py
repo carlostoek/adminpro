@@ -122,7 +122,7 @@ async def cmd_profile(message: Message, session: AsyncSession):
         result = await profiler.profile_async(
             handler,
             mock_message,
-            session
+            session=session
         )
 
         # Format results

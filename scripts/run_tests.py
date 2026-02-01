@@ -75,7 +75,8 @@ class TestRunner:
                 timeout=timeout,
                 cwd=self.project_root,
                 encoding="utf-8",
-                errors="replace"
+                errors="replace",
+                stdin=subprocess.DEVNULL
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired as e:

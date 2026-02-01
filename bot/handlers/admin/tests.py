@@ -94,7 +94,7 @@ async def cmd_run_tests(message: Message, session: AsyncSession):
 
         # Format report con tendencias
         formatter = TestReportFormatter()
-        report = formatter.format_telegram_report(
+        report = formatter.format_telegram(
             result,
             trend=report_meta.get("trend")
         )
@@ -236,7 +236,7 @@ async def callback_show_failures(callback: CallbackQuery, session: AsyncSession)
 
     # Mostrar detalles formateados
     formatter = TestReportFormatter()
-    details = formatter.format_telegram_report(
+    details = formatter.format_telegram(
         _last_test_result,
         max_length=3500  # Dejar margen para el header
     )
@@ -280,20 +280,31 @@ async def cmd_test_status(message: Message, session: AsyncSession):
     try:
         project_root = Path(__file__).parent.parent.parent.parent
 
-        # Check pytest availability
-        result = subprocess.run(
-            ["python", "-m", "pytest", "--collect-only", "-q"],
-            capture_output=True,
-            text=True,
-            cwd=project_root,
-            timeout=30
+        # Check pytest availability using async subprocess to avoid blocking
+        proc = await asyncio.create_subprocess_exec(
+            "python", "-m", "pytest", "--collect-only", "-q",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=project_root
         )
+
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(),
+                timeout=30
+            )
+            stdout_str = stdout.decode("utf-8", errors="replace")
+            returncode = proc.returncode
+        except asyncio.TimeoutError:
+            proc.kill()
+            stdout_str = ""
+            returncode = -1
 
         # Count tests
         test_count = 0
-        if result.returncode == 0:
+        if returncode == 0:
             # Count lines that look like test files
-            for line in result.stdout.split("\n"):
+            for line in stdout_str.split("\n"):
                 if "::" in line and not line.startswith("="):
                     test_count += 1
 
@@ -301,12 +312,13 @@ async def cmd_test_status(message: Message, session: AsyncSession):
         lines.append("📊 <b>Estado del Sistema de Tests</b>")
         lines.append("")
 
-        if result.returncode == 0:
+        if returncode == 0:
             lines.append("✅ <b>pytest:</b> Disponible")
             lines.append(f"🧪 <b>Tests disponibles:</b> ~{test_count}")
         else:
             lines.append("❌ <b>pytest:</b> No disponible")
-            lines.append(f"<code>{result.stderr[:200]}</code>")
+            stderr_str = stderr.decode("utf-8", errors="replace") if 'stderr' in locals() else ""
+            lines.append(f"<code>{stderr_str[:200]}</code>")
 
         lines.append("")
         lines.append("<b>Comandos disponibles:</b>")
@@ -357,7 +369,7 @@ async def cmd_smoke_test(message: Message, session: AsyncSession):
 
         # Formatear con tendencias
         formatter = TestReportFormatter()
-        report = formatter.format_telegram_report(
+        report = formatter.format_telegram(
             result,
             trend=report_meta.get("trend")
         )

@@ -291,7 +291,8 @@ class DatabaseMigrator:
         """Limpia la tabla en PostgreSQL."""
         with self.target_engine.connect() as conn:
             # Deshabilitar FK checks temporalmente
-            conn.execute(text(f"TRUNCATE TABLE {table_name} CASCADE"))
+            # Nota: Sin CASCADE para evitar borrado accidental de datos relacionados
+            conn.execute(text(f"TRUNCATE TABLE {table_name}"))
             conn.commit()
 
     async def _insert_data(self, table_name: str, data: List[Dict[str, Any]]):

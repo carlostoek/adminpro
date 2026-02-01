@@ -151,6 +151,9 @@ class TestRunnerService:
                     stderr_str
                 )
 
+                if result.total == 0:
+                    logger.warning(f"No se detectaron tests en el output. Return code: {returncode}")
+                    logger.debug(f"Output completo:\n{stdout_str[:3000]}")
                 logger.info(f"Tests completados: {result.summary}")
                 return result
 
@@ -174,6 +177,10 @@ class TestRunnerService:
         """Parsea output de pytest para extraer metricas."""
         output = stdout + "\n" + stderr
 
+        # Debug: log output para ver que formato produce pytest
+        logger.debug(f"Pytest stdout:\n{stdout[:2000]}")
+        logger.debug(f"Pytest stderr:\n{stderr[:500]}")
+
         # Initialize defaults
         passed = failed = errors = skipped = 0
         duration = 0.0
@@ -182,10 +189,26 @@ class TestRunnerService:
         failed_tests: List[FailedTestInfo] = []
         warnings: List[str] = []
 
-        # Parse summary line like: "50 passed, 2 failed, 1 error in 12.34s"
-        # or: "50 passed, 2 failed, 1 error, 3 skipped in 12.34s"
-        summary_pattern = r"(\d+) passed(?:, (\d+) failed)?(?:, (\d+) error)?(?:, (\d+) skipped)? in ([\d.]+)s"
-        match = re.search(summary_pattern, output)
+        # Parse summary line - multiples formatos soportados:
+        # "50 passed, 2 failed, 1 error in 12.34s"
+        # "50 passed, 2 failed, 1 error, 3 skipped in 12.34s"
+        # "50 passed in 0.12s" (solo passed)
+        # "12.34s" puede ser "12.34 seconds" en algunos locales
+        summary_patterns = [
+            # Formato completo con todo
+            r"(\d+) passed(?:,\s*(\d+) failed)?(?:,\s*(\d+) error)?(?:,\s*(\d+) skipped)?\s+in\s+([\d.]+)",
+            # Formato con todo en plural
+            r"(\d+) passed(?:,\s*(\d+) failed)?(?:,\s*(\d+) errors)?(?:,\s*(\d+) skipped)?\s+in\s+([\d.]+)",
+            # Formato con warnings al final
+            r"(\d+) passed(?:,\s*(\d+) failed)?(?:,\s*(\d+) error)?(?:,\s*(\d+) skipped)?(?:,\s*\d+ warnings?)?\s+in\s+([\d.]+)",
+        ]
+
+        match = None
+        for pattern in summary_patterns:
+            match = re.search(pattern, output, re.IGNORECASE)
+            if match:
+                logger.debug(f"Matched pattern: {pattern}")
+                break
 
         if match:
             passed = int(match.group(1)) if match.group(1) else 0
@@ -193,6 +216,9 @@ class TestRunnerService:
             errors = int(match.group(3)) if match.group(3) else 0
             skipped = int(match.group(4)) if match.group(4) else 0
             duration = float(match.group(5)) if match.group(5) else 0.0
+            logger.debug(f"Parsed: passed={passed}, failed={failed}, errors={errors}, skipped={skipped}, duration={duration}")
+        else:
+            logger.warning(f"No summary pattern matched. Output excerpt: {output[-500:]}")
 
         total = passed + failed + errors + skipped
 

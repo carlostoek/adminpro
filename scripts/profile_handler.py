@@ -132,7 +132,7 @@ async def profile_handler(
             result = await profiler.profile_async(
                 handler,
                 mock_message,
-                session
+                session=session
             )
             results.append(result)
 
