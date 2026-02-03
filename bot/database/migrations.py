@@ -10,8 +10,10 @@ Usage:
     # In main.py startup handler:
     await run_migrations_if_needed()
 """
+import asyncio
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 
 from alembic.config import Config
@@ -53,9 +55,9 @@ def get_alembic_config() -> Config:
     return alembic_cfg
 
 
-def get_current_revision() -> str | None:
+def _get_current_revision_sync() -> str | None:
     """
-    Get current database migration revision.
+    Synchronous version: Get current database migration revision.
 
     Returns:
         Current revision hash or None if database is not migrated
@@ -70,11 +72,64 @@ def get_current_revision() -> str | None:
         return None
 
 
-def show_migration_history() -> None:
-    """Show full migration history (for debugging)."""
+async def get_current_revision() -> str | None:
+    """
+    Get current database migration revision.
+
+    Runs in thread pool to avoid blocking the event loop.
+
+    Returns:
+        Current revision hash or None if database is not migrated
+    """
+    loop = asyncio.get_event_loop()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        return await loop.run_in_executor(executor, _get_current_revision_sync)
+
+
+def _show_migration_history_sync() -> None:
+    """Synchronous version: Show full migration history (for debugging)."""
     cfg = get_alembic_config()
     logger.info("Migration history:")
     command.history(cfg, verbose=True)
+
+
+async def show_migration_history() -> None:
+    """Show full migration history (for debugging)."""
+    loop = asyncio.get_event_loop()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        await loop.run_in_executor(executor, _show_migration_history_sync)
+
+
+def _run_migrations_sync(
+    direction: Literal["upgrade", "downgrade"] = "upgrade",
+    revision: str = "head"
+) -> bool:
+    """
+    Run Alembic migrations synchronously (to be called in thread executor).
+
+    Args:
+        direction: Either "upgrade" or "downgrade"
+        revision: Target revision (default: "head" for upgrade, "-1" for downgrade)
+
+    Returns:
+        True if migrations succeeded, False if failed
+
+    Raises:
+        Exception: If migration fails
+    """
+    cfg = get_alembic_config()
+
+    logger.info(f"Running migrations: {direction} to {revision}")
+
+    if direction == "upgrade":
+        command.upgrade(cfg, revision)
+    elif direction == "downgrade":
+        command.downgrade(cfg, revision)
+    else:
+        raise ValueError(f"Invalid direction: {direction}")
+
+    logger.info(f"Migrations applied successfully ({direction} -> {revision})")
+    return True
 
 
 async def run_migrations(
@@ -84,6 +139,7 @@ async def run_migrations(
     """
     Run Alembic migrations in specified direction.
 
+    Runs migrations in a thread pool to avoid conflicts with the async event loop.
     Logs all migration activity with verbose output.
     Fails immediately on error.
 
@@ -97,20 +153,18 @@ async def run_migrations(
     Raises:
         Exception: If migration fails (fail-fast)
     """
-    cfg = get_alembic_config()
-
-    logger.info(f"Running migrations: {direction} to {revision}")
+    loop = asyncio.get_event_loop()
 
     try:
-        if direction == "upgrade":
-            command.upgrade(cfg, revision)
-        elif direction == "downgrade":
-            command.downgrade(cfg, revision)
-        else:
-            raise ValueError(f"Invalid direction: {direction}")
-
-        logger.info(f"Migrations applied successfully ({direction} -> {revision})")
-        return True
+        # Run migrations in thread pool to avoid asyncio.run() conflicts
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            result = await loop.run_in_executor(
+                executor,
+                _run_migrations_sync,
+                direction,
+                revision
+            )
+        return result
 
     except Exception as e:
         logger.error(f"Migration failed: {e}", exc_info=True)
@@ -146,13 +200,13 @@ async def run_migrations_if_needed() -> bool:
     try:
         # Show current state
         logger.info("Current migration state:")
-        get_current_revision()
+        await get_current_revision()
 
         # Run migrations to head
         await run_migrations("upgrade", "head")
 
         # Show history for debugging
-        show_migration_history()
+        await show_migration_history()
 
         return True
 
