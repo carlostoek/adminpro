@@ -155,6 +155,13 @@ def upgrade() -> None:
     op.create_index(op.f('ix_vip_subscribers_status'), 'vip_subscribers', ['status'], unique=False)
     op.create_index(op.f('ix_vip_subscribers_user_id'), 'vip_subscribers', ['user_id'], unique=True)
     op.create_index(op.f('ix_vip_subscribers_vip_entry_stage'), 'vip_subscribers', ['vip_entry_stage'], unique=False)
+
+    # Insert default configuration with social media links
+    op.execute("""
+        INSERT INTO bot_config (id, wait_time_minutes, vip_reactions, free_reactions, subscription_fees, created_at, updated_at, social_instagram, social_tiktok, social_x)
+        VALUES (1, 60, '["❤️", "🔥", "😍"]', '["❤️", "👍"]', '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ella.es.diana', 'srtakinky', 'SrtaKinky')
+    """)
+
     # ### end Alembic commands ###
 
 

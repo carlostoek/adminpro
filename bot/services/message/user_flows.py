@@ -96,21 +96,16 @@ class UserFlowMessages(BaseMessageProvider):
 
         body = (
             "<i>Ah… alguien ha llamado a la puerta.</i>\n\n"
-            "<i>Su solicitud para entrar a Los Kinkys ha sido registrada.</i>\n\n"
-            "<i>Diana siempre nota cuando alguien decide cruzar hacia su mundo… "
-            "aunque no todos entienden lo que eso implica.</i>\n\n"
-            "<i>Mientras su acceso se prepara, hay algo que puede hacer.</i>\n\n"
-            "<i>Las redes de Diana no son simples perfiles.</i>\n"
-            "<i>Son fragmentos de su presencia… señales de lo que se insinúa antes de mostrarse.</i>\n\n"
-            "<i>Obsérvela.</i>\n"
-            "<i>Escuche el tono.</i>\n"
-            "<i>Empiece a entender el juego.</i>"
+            "Su solicitud para entrar a <b>Los Kinkys</b> ha sido recibida.\n\n"
+            "Ahora mismo hay varias solicitudes en revisión, y cada una se evalúa con atención.\n"
+            "Si desea que su solicitud pueda tener un impulso en la revisión siga a Diana en sus diferentes redes.\n"
+            "Eso suele acelerar las cosas.\n"
+            "No necesita quedarse esperando en este chat.\n"
+            "Cuando Diana tome una decisión, yo vendré a buscarle."
         )
 
         footer = (
-            "💡 <i>No necesita quedarse aquí esperando.</i>\n"
-            "<i>Cuando todo esté listo, yo mismo vendré a buscarle.</i>\n\n"
-            "<i>Mientras tanto… aquí puede seguir su rastro 👇</i>"
+            "Mientras tanto… este es su rastro 👇"
         )
 
         text = self._compose(header, body, footer)
