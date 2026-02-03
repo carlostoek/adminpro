@@ -13,11 +13,10 @@ Usage:
 import asyncio
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor
+import subprocess
+import sys
+from pathlib import Path
 from typing import Literal
-
-from alembic.config import Config
-from alembic import command
 
 from config import Config as AppConfig
 
@@ -40,96 +39,83 @@ def is_production() -> bool:
     return os.getenv("ENV", "").lower() == "production"
 
 
-def get_alembic_config() -> Config:
+def run_alembic_command(command_args: list[str]) -> tuple[int, str, str]:
     """
-    Create Alembic config object from project configuration.
+    Run alembic command using subprocess (completely isolated from async event loop).
 
-    Uses the same DATABASE_URL as the application.
+    Args:
+        command_args: List of arguments for alembic command
 
     Returns:
-        Alembic Config object
+        Tuple of (returncode, stdout, stderr)
     """
-    alembic_cfg = Config("alembic.ini")
-    # Ensure DATABASE_URL is set from environment
-    alembic_cfg.set_main_option("sqlalchemy.url", AppConfig.DATABASE_URL)
-    return alembic_cfg
+    # Find alembic.ini in project root
+    project_root = Path(__file__).parent.parent.parent.parent
+    alembic_ini = project_root / "alembic.ini"
 
+    if not alembic_ini.exists():
+        logger.error(f"❌ alembic.ini not found at {alembic_ini}")
+        return 1, "", f"alembic.ini not found at {alembic_ini}"
 
-def _get_current_revision_sync() -> str | None:
-    """
-    Synchronous version: Get current database migration revision.
+    # Build command
+    cmd = [sys.executable, "-m", "alembic", "-c", str(alembic_ini)] + command_args
 
-    Returns:
-        Current revision hash or None if database is not migrated
-    """
+    logger.info(f"Running: {' '.join(cmd)}")
+
+    # Set environment with DATABASE_URL
+    env = os.environ.copy()
+    env["DATABASE_URL"] = AppConfig.DATABASE_URL
+
     try:
-        cfg = get_alembic_config()
-        command.current(cfg, verbose=True)
-        # Note: command.current() prints to stdout, doesn't return value
-        return None  # Placeholder - would need DB query for actual value
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=str(project_root),
+            env=env,
+            timeout=120  # 2 minute timeout for migrations
+        )
+        return result.returncode, result.stdout, result.stderr
+    except subprocess.TimeoutExpired:
+        logger.error("⏱️ Migration command timed out after 120 seconds")
+        return 1, "", "Timeout after 120 seconds"
     except Exception as e:
-        logger.warning(f"Could not get current revision: {e}")
-        return None
+        logger.error(f"❌ Failed to run alembic command: {e}")
+        return 1, "", str(e)
 
 
 async def get_current_revision() -> str | None:
     """
     Get current database migration revision.
 
-    Runs in thread pool to avoid blocking the event loop.
-
     Returns:
         Current revision hash or None if database is not migrated
     """
     loop = asyncio.get_event_loop()
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        return await loop.run_in_executor(executor, _get_current_revision_sync)
 
+    def _get_current():
+        returncode, stdout, stderr = run_alembic_command(["current", "--verbose"])
+        if returncode != 0:
+            logger.warning(f"Could not get current revision: {stderr}")
+            return None
+        # Output is printed to stdout by alembic
+        return stdout.strip() if stdout else None
 
-def _show_migration_history_sync() -> None:
-    """Synchronous version: Show full migration history (for debugging)."""
-    cfg = get_alembic_config()
-    logger.info("Migration history:")
-    command.history(cfg, verbose=True)
+    return await loop.run_in_executor(None, _get_current)
 
 
 async def show_migration_history() -> None:
     """Show full migration history (for debugging)."""
     loop = asyncio.get_event_loop()
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        await loop.run_in_executor(executor, _show_migration_history_sync)
 
+    def _show_history():
+        returncode, stdout, stderr = run_alembic_command(["history", "--verbose"])
+        if stdout:
+            logger.info(f"Migration history:\n{stdout}")
+        if stderr:
+            logger.warning(f"Migration history stderr: {stderr}")
 
-def _run_migrations_sync(
-    direction: Literal["upgrade", "downgrade"] = "upgrade",
-    revision: str = "head"
-) -> bool:
-    """
-    Run Alembic migrations synchronously (to be called in thread executor).
-
-    Args:
-        direction: Either "upgrade" or "downgrade"
-        revision: Target revision (default: "head" for upgrade, "-1" for downgrade)
-
-    Returns:
-        True if migrations succeeded, False if failed
-
-    Raises:
-        Exception: If migration fails
-    """
-    cfg = get_alembic_config()
-
-    logger.info(f"Running migrations: {direction} to {revision}")
-
-    if direction == "upgrade":
-        command.upgrade(cfg, revision)
-    elif direction == "downgrade":
-        command.downgrade(cfg, revision)
-    else:
-        raise ValueError(f"Invalid direction: {direction}")
-
-    logger.info(f"Migrations applied successfully ({direction} -> {revision})")
-    return True
+    await loop.run_in_executor(None, _show_history)
 
 
 async def run_migrations(
@@ -139,7 +125,7 @@ async def run_migrations(
     """
     Run Alembic migrations in specified direction.
 
-    Runs migrations in a thread pool to avoid conflicts with the async event loop.
+    Uses subprocess to completely isolate from the async event loop.
     Logs all migration activity with verbose output.
     Fails immediately on error.
 
@@ -153,18 +139,41 @@ async def run_migrations(
     Raises:
         Exception: If migration fails (fail-fast)
     """
+    logger.info(f"Running migrations: {direction} to {revision}")
+
+    # Build command
+    if direction == "upgrade":
+        cmd = ["upgrade", revision]
+    elif direction == "downgrade":
+        cmd = ["downgrade", revision]
+    else:
+        raise ValueError(f"Invalid direction: {direction}")
+
     loop = asyncio.get_event_loop()
 
+    def _run_migration():
+        returncode, stdout, stderr = run_alembic_command(cmd)
+
+        # Log output
+        if stdout:
+            logger.info(f"Migration output:\n{stdout}")
+        if stderr:
+            # Alembic logs to stderr sometimes, check if it's an error
+            if returncode != 0:
+                logger.error(f"Migration error:\n{stderr}")
+            else:
+                logger.info(f"Migration info:\n{stderr}")
+
+        return returncode
+
     try:
-        # Run migrations in thread pool to avoid asyncio.run() conflicts
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            result = await loop.run_in_executor(
-                executor,
-                _run_migrations_sync,
-                direction,
-                revision
-            )
-        return result
+        returncode = await loop.run_in_executor(None, _run_migration)
+
+        if returncode != 0:
+            raise RuntimeError(f"Migration failed with return code {returncode}")
+
+        logger.info(f"Migrations applied successfully ({direction} -> {revision})")
+        return True
 
     except Exception as e:
         logger.error(f"Migration failed: {e}", exc_info=True)
