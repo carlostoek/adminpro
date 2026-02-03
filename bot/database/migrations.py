@@ -50,26 +50,8 @@ def run_alembic_command(command_args: list[str]) -> tuple[int, str, str]:
         Tuple of (returncode, stdout, stderr)
     """
     # Find alembic.ini in project root
-    # migrations.py is at: bot/database/migrations.py
-    # alembic.ini is at: alembic.ini (project root)
-    # So we need to go up 3 levels: database -> bot -> project_root
-    project_root = Path(__file__).parent.parent.parent
+    project_root = Path(__file__).parent.parent.parent.parent
     alembic_ini = project_root / "alembic.ini"
-
-    # Also check common locations (for Railway/Docker)
-    if not alembic_ini.exists():
-        # Try current working directory
-        cwd_ini = Path.cwd() / "alembic.ini"
-        if cwd_ini.exists():
-            alembic_ini = cwd_ini
-            project_root = Path.cwd()
-
-    # Try /app (Railway default)
-    if not alembic_ini.exists():
-        app_ini = Path("/app") / "alembic.ini"
-        if app_ini.exists():
-            alembic_ini = app_ini
-            project_root = Path("/app")
 
     if not alembic_ini.exists():
         logger.error(f"❌ alembic.ini not found at {alembic_ini}")
