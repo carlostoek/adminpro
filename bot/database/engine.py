@@ -319,6 +319,18 @@ async def _ensure_bot_config_exists() -> None:
         else:
             logger.info("✅ BotConfig ya existe")
 
+            # Sincronizar invite link desde variable de entorno si está definida
+            if Config.FREE_CHANNEL_INVITE_LINK:
+                if result.free_channel_invite_link != Config.FREE_CHANNEL_INVITE_LINK:
+                    result.free_channel_invite_link = Config.FREE_CHANNEL_INVITE_LINK
+                    await session.commit()
+                    logger.info(
+                        f"🔗 Invite link Free actualizado desde env: "
+                        f"{Config.FREE_CHANNEL_INVITE_LINK}"
+                    )
+                else:
+                    logger.debug("🔗 Invite link Free ya está sincronizado")
+
 
 async def close_db() -> None:
     """
