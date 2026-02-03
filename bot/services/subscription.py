@@ -24,7 +24,8 @@ from bot.database.models import (
     InvitationToken,
     VIPSubscriber,
     FreeChannelRequest,
-    BotConfig
+    BotConfig,
+    User
 )
 from bot.services.container import ServiceContainer
 from bot.database.enums import UserRole, RoleChangeReason
@@ -739,7 +740,10 @@ class SubscriptionService:
     async def create_free_request_from_join_request(
         self,
         user_id: int,
-        from_chat_id: str
+        from_chat_id: str,
+        username: Optional[str] = None,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None
     ) -> Tuple[bool, str, Optional[FreeChannelRequest]]:
         """
         Crea solicitud Free desde ChatJoinRequest de Telegram.
@@ -750,6 +754,9 @@ class SubscriptionService:
         Args:
             user_id: ID del usuario que solicita
             from_chat_id: ID del canal desde donde se solicita
+            username: Username de Telegram (opcional)
+            first_name: Nombre del usuario (opcional)
+            last_name: Apellido del usuario (opcional)
 
         Returns:
             Tuple[bool, str, Optional[FreeChannelRequest]]:
@@ -757,6 +764,42 @@ class SubscriptionService:
                 - str: Mensaje descriptivo
                 - Optional[FreeChannelRequest]: Solicitud creada o existente
         """
+        # ===== CREAR/VERIFICAR USUARIO PRIMERO =====
+        # El usuario debe existir antes de crear la solicitud (FK constraint)
+        result = await self.session.execute(
+            select(User).where(User.user_id == user_id)
+        )
+        user = result.scalar_one_or_none()
+
+        if not user:
+            # Crear usuario nuevo con datos disponibles
+            user = User(
+                user_id=user_id,
+                username=username,
+                first_name=first_name or "Usuario",
+                last_name=last_name,
+                role=UserRole.FREE
+            )
+            self.session.add(user)
+            await self.session.flush()  # Flush para crear el usuario sin commit aún
+            logger.info(f"✅ Usuario creado desde ChatJoinRequest: {user_id}")
+        else:
+            # Actualizar datos del usuario si han cambiado
+            updated = False
+            if username is not None and user.username != username:
+                user.username = username
+                updated = True
+            if first_name is not None and user.first_name != first_name:
+                user.first_name = first_name
+                updated = True
+            if last_name is not None and user.last_name != last_name:
+                user.last_name = last_name
+                updated = True
+            if updated:
+                await self.session.flush()
+                logger.debug(f"📝 Datos de usuario actualizados: {user_id}")
+
+        # ===== CONTINUAR CON LÓGICA EXISTENTE =====
         # Verificar si ya tiene solicitud pendiente RECIENTE (últimos 5 minutos)
         # Esto previene spam pero permite reintentos después de salir del canal
         recent_cutoff = datetime.utcnow() - timedelta(minutes=Config.FREE_REQUEST_SPAM_WINDOW_MINUTES)

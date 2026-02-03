@@ -75,9 +75,14 @@ async def handle_free_join_request(
         return
 
     # ===== CREAR/VERIFICAR SOLICITUD =====
+    # Pasar datos del usuario para crearlo si no existe
+    tg_user = join_request.from_user
     success, message, request = await container.subscription.create_free_request_from_join_request(
         user_id=user_id,
-        from_chat_id=from_chat_id
+        from_chat_id=from_chat_id,
+        username=tg_user.username,
+        first_name=tg_user.first_name,
+        last_name=tg_user.last_name
     )
 
     # ===== OBTENER LINKS DE REDES SOCIALES =====
