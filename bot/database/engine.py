@@ -308,11 +308,14 @@ async def _ensure_bot_config_exists() -> None:
                 wait_time_minutes=Config.DEFAULT_WAIT_TIME_MINUTES,
                 vip_reactions=[],
                 free_reactions=[],
-                subscription_fees={"monthly": 10, "yearly": 100}
+                subscription_fees={"monthly": 10, "yearly": 100},
+                free_channel_invite_link=Config.FREE_CHANNEL_INVITE_LINK
             )
             session.add(config)
             await session.commit()
             logger.info("✅ BotConfig inicial creado")
+            if Config.FREE_CHANNEL_INVITE_LINK:
+                logger.info(f"🔗 Invite link Free configurado: {Config.FREE_CHANNEL_INVITE_LINK}")
         else:
             logger.info("✅ BotConfig ya existe")
 

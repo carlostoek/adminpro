@@ -68,6 +68,12 @@ class Config:
     VIP_CHANNEL_ID: Optional[str] = os.getenv("VIP_CHANNEL_ID", None)
     FREE_CHANNEL_ID: Optional[str] = os.getenv("FREE_CHANNEL_ID", None)
 
+    # Invite link permanente para canal Free (para mensajes de notificación)
+    # Ejemplo: https://t.me/+DhA9Xtjt4o80OGEx
+    FREE_CHANNEL_INVITE_LINK: Optional[str] = os.getenv(
+        "FREE_CHANNEL_INVITE_LINK", None
+    )
+
     # ===== CREATOR =====
     # Telegram username de Diana para botón de contacto directo (ej: "diana_artista")
     # Usado en enlaces tg://resolve?username= para chat directo
