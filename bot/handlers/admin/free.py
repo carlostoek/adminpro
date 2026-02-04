@@ -309,3 +309,248 @@ async def callback_free_config(callback: CallbackQuery, session: AsyncSession):
             logger.error(f"Error editando mensaje config Free: {e}")
 
     await callback.answer()
+
+
+# ===== QUEUE MANAGEMENT HANDLERS =====
+
+@admin_router.callback_query(F.data == "admin:free_queue")
+async def callback_view_free_queue(callback: CallbackQuery, session: AsyncSession):
+    """
+    Muestra la cola de solicitudes Free pendientes.
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+    """
+    logger.debug(f"📋 Usuario {callback.from_user.id} viendo cola Free")
+
+    container = ServiceContainer(session, callback.bot)
+
+    try:
+        # Get pending requests
+        pending_requests = await container.subscription.get_pending_free_requests()
+        wait_time = await container.config.get_wait_time()
+
+        # Get message from provider
+        text, keyboard = container.message.admin.free.free_queue_view(
+            pending_requests=pending_requests,
+            wait_time_minutes=wait_time
+        )
+
+        await callback.message.edit_text(
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
+    except Exception as e:
+        logger.error(f"Error mostrando cola Free: {e}")
+        await callback.answer(
+            "❌ Error al cargar la cola de solicitudes.",
+            show_alert=True
+        )
+        return
+
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data == "free:approve_all")
+async def callback_approve_all_free(callback: CallbackQuery, session: AsyncSession):
+    """
+    Muestra confirmación antes de aprobar todas las solicitudes.
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+    """
+    logger.info(f"✅ Usuario {callback.from_user.id} solicitando aprobar todas Free")
+
+    container = ServiceContainer(session, callback.bot)
+
+    try:
+        # Get pending count
+        pending_requests = await container.subscription.get_pending_free_requests()
+        count = len(pending_requests)
+
+        if count == 0:
+            await callback.answer(
+                "No hay solicitudes pendientes para aprobar.",
+                show_alert=True
+            )
+            return
+
+        # Get confirmation message from provider
+        text, keyboard = container.message.admin.free.free_bulk_approve_confirm(count)
+
+        await callback.message.edit_text(
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
+    except Exception as e:
+        logger.error(f"Error en confirmación de aprobación masiva: {e}")
+        await callback.answer(
+            "❌ Error al preparar la confirmación.",
+            show_alert=True
+        )
+        return
+
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data == "free:confirm_approve_all")
+async def callback_confirm_approve_all(callback: CallbackQuery, session: AsyncSession):
+    """
+    Ejecuta la aprobación masiva de todas las solicitudes pendientes.
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+    """
+    logger.info(f"✅ Usuario {callback.from_user.id} confirmando aprobación masiva")
+
+    container = ServiceContainer(session, callback.bot)
+
+    try:
+        # Get free channel ID
+        free_channel_id = await container.channel.get_free_channel_id()
+
+        if not free_channel_id:
+            await callback.answer(
+                "❌ Canal Free no configurado.",
+                show_alert=True
+            )
+            return
+
+        # Execute bulk approval
+        success, errors = await container.subscription.approve_all_free_requests(
+            free_channel_id
+        )
+
+        # Get result message from provider
+        text, keyboard = container.message.admin.free.free_bulk_result(
+            action="approved",
+            success=success,
+            errors=errors
+        )
+
+        await callback.message.edit_text(
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
+        await callback.answer(
+            f"✅ {success} solicitudes aprobadas",
+            show_alert=False
+        )
+
+    except Exception as e:
+        logger.error(f"Error en aprobación masiva: {e}")
+        await callback.answer(
+            "❌ Error al aprobar solicitudes.",
+            show_alert=True
+        )
+        return
+
+
+@admin_router.callback_query(F.data == "free:reject_all")
+async def callback_reject_all_free(callback: CallbackQuery, session: AsyncSession):
+    """
+    Muestra confirmación antes de rechazar todas las solicitudes.
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+    """
+    logger.info(f"🚫 Usuario {callback.from_user.id} solicitando rechazar todas Free")
+
+    container = ServiceContainer(session, callback.bot)
+
+    try:
+        # Get pending count
+        pending_requests = await container.subscription.get_pending_free_requests()
+        count = len(pending_requests)
+
+        if count == 0:
+            await callback.answer(
+                "No hay solicitudes pendientes para rechazar.",
+                show_alert=True
+            )
+            return
+
+        # Get confirmation message from provider
+        text, keyboard = container.message.admin.free.free_bulk_reject_confirm(count)
+
+        await callback.message.edit_text(
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
+    except Exception as e:
+        logger.error(f"Error en confirmación de rechazo masivo: {e}")
+        await callback.answer(
+            "❌ Error al preparar la confirmación.",
+            show_alert=True
+        )
+        return
+
+    await callback.answer()
+
+
+@admin_router.callback_query(F.data == "free:confirm_reject_all")
+async def callback_confirm_reject_all(callback: CallbackQuery, session: AsyncSession):
+    """
+    Ejecuta el rechazo masivo de todas las solicitudes pendientes.
+
+    Args:
+        callback: Callback query
+        session: Sesión de BD
+    """
+    logger.info(f"🚫 Usuario {callback.from_user.id} confirmando rechazo masivo")
+
+    container = ServiceContainer(session, callback.bot)
+
+    try:
+        # Get free channel ID
+        free_channel_id = await container.channel.get_free_channel_id()
+
+        if not free_channel_id:
+            await callback.answer(
+                "❌ Canal Free no configurado.",
+                show_alert=True
+            )
+            return
+
+        # Execute bulk rejection
+        success, errors = await container.subscription.reject_all_free_requests(
+            free_channel_id
+        )
+
+        # Get result message from provider
+        text, keyboard = container.message.admin.free.free_bulk_result(
+            action="rejected",
+            success=success,
+            errors=errors
+        )
+
+        await callback.message.edit_text(
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
+        await callback.answer(
+            f"🚫 {success} solicitudes rechazadas",
+            show_alert=False
+        )
+
+    except Exception as e:
+        logger.error(f"Error en rechazo masivo: {e}")
+        await callback.answer(
+            "❌ Error al rechazar solicitudes.",
+            show_alert=True
+        )
+        return
