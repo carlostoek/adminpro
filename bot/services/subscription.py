@@ -25,7 +25,9 @@ from bot.database.models import (
     VIPSubscriber,
     FreeChannelRequest,
     BotConfig,
-    User
+    User,
+    UserInterest,
+    UserRoleChangeLog
 )
 from bot.services.container import ServiceContainer
 from bot.database.enums import UserRole, RoleChangeReason
@@ -1128,3 +1130,103 @@ class SubscriptionService:
         )
 
         return invite_link
+
+    # ===== USER DELETION =====
+
+    async def delete_user_completely(
+        self,
+        user_id: int,
+        deleted_by: int
+    ) -> Tuple[bool, str, Optional[User]]:
+        """
+        Elimina completamente un usuario y todas sus entidades relacionadas.
+
+        Esta operación es irreversible y elimina:
+        - UserInterest (intereses en paquetes)
+        - UserRoleChangeLog (historial de cambios de rol)
+        - FreeChannelRequest (solicitudes al canal Free)
+        - VIPSubscriber (suscripción VIP y tokens relacionados)
+        - InvitationToken (tokens generados o usados por el usuario)
+        - User (el usuario mismo)
+
+        Args:
+            user_id: ID del usuario a eliminar
+            deleted_by: ID del admin que realiza la eliminación
+
+        Returns:
+            Tuple[bool, str, Optional[User]]:
+                - bool: True si éxito, False si error
+                - str: Mensaje descriptivo
+                - Optional[User]: Info del usuario eliminado (para notificación)
+        """
+        # Obtener info del usuario antes de eliminar
+        result = await self.session.execute(
+            select(User).where(User.user_id == user_id)
+        )
+        user = result.scalar_one_or_none()
+
+        if not user:
+            return False, "❌ Usuario no encontrado", None
+
+        # Guardar info para retornar
+        deleted_user_info = user
+
+        try:
+            # Eliminar en orden correcto para evitar FK constraint errors
+            # 1. UserInterest (user_id FK)
+            await self.session.execute(
+                delete(UserInterest).where(UserInterest.user_id == user_id)
+            )
+            logger.debug(f"🗑️ Eliminados intereses de usuario {user_id}")
+
+            # 2. UserRoleChangeLog (user_id FK)
+            await self.session.execute(
+                delete(UserRoleChangeLog).where(UserRoleChangeLog.user_id == user_id)
+            )
+            logger.debug(f"🗑️ Eliminado historial de cambios de rol de usuario {user_id}")
+
+            # 3. FreeChannelRequest (user_id FK)
+            await self.session.execute(
+                delete(FreeChannelRequest).where(FreeChannelRequest.user_id == user_id)
+            )
+            logger.debug(f"🗑️ Eliminadas solicitudes Free de usuario {user_id}")
+
+            # 4. VIPSubscriber (user_id FK) - cascada a través de relación subscribers
+            # Primero obtener los token_ids asociados para limpiar después
+            result = await self.session.execute(
+                select(VIPSubscriber.token_id).where(VIPSubscriber.user_id == user_id)
+            )
+            token_ids = result.scalars().all()
+
+            await self.session.execute(
+                delete(VIPSubscriber).where(VIPSubscriber.user_id == user_id)
+            )
+            logger.debug(f"🗑️ Eliminada suscripción VIP de usuario {user_id}")
+
+            # 5. InvitationToken donde generated_by=user_id OR used_by=user_id
+            await self.session.execute(
+                delete(InvitationToken).where(
+                    (InvitationToken.generated_by == user_id) |
+                    (InvitationToken.used_by == user_id)
+                )
+            )
+            logger.debug(f"🗑️ Eliminados tokens asociados a usuario {user_id}")
+
+            # 6. Finalmente, eliminar el usuario
+            await self.session.execute(
+                delete(User).where(User.user_id == user_id)
+            )
+
+            # Commit de la transacción
+            await self.session.commit()
+
+            logger.info(
+                f"✅ Usuario {user_id} eliminado completamente por admin {deleted_by}"
+            )
+
+            return True, "✅ Usuario eliminado completamente", deleted_user_info
+
+        except Exception as e:
+            await self.session.rollback()
+            logger.error(f"❌ Error eliminando usuario {user_id}: {e}")
+            return False, f"❌ Error al eliminar usuario: {str(e)}", None
