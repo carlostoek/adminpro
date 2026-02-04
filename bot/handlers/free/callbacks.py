@@ -2,6 +2,7 @@
 Free Callback Handlers - Gestión de interacciones del menú Free.
 
 Responsabilidades:
+- Manejar callback "free:approved:enter" - enviar menú tras aprobación
 - Manejar callback "menu:free:content" - mostrar sección "Mi Contenido"
 - Manejar callback "menu:free:vip" - mostrar información del canal VIP
 - Manejar callback "menu:free:social" - mostrar redes sociales/contenido gratuito
@@ -28,6 +29,47 @@ free_callbacks_router = Router()
 
 # Apply middleware to this router (required for container injection)
 free_callbacks_router.callback_query.middleware(DatabaseMiddleware())
+
+
+@free_callbacks_router.callback_query(lambda c: c.data == "free:approved:enter")
+async def handle_free_approved_enter(callback: CallbackQuery, container):
+    """
+    Maneja el clic en "Ingresar al canal" desde el mensaje de aprobación.
+
+    Envía el menú Free al usuario cuando hace clic en el botón
+    después de ser aceptado en el canal.
+
+    Args:
+        callback: CallbackQuery de Telegram
+        container: ServiceContainer inyectado por middleware
+    """
+    user = callback.from_user
+
+    if not container:
+        await callback.answer("⚠️ Error: servicio no disponible", show_alert=True)
+        return
+
+    try:
+        # Confirmar recepción del callback
+        await callback.answer("✅ Bienvenido a Los Kinkys")
+
+        # Preparar data para el menú
+        data = {"container": container}
+
+        # Enviar el menú Free
+        from .menu import show_free_menu
+        await show_free_menu(
+            callback.message,
+            data,
+            user_id=user.id,
+            user_first_name=user.first_name
+        )
+
+        logger.info(f"🆓 Menú Free enviado a usuario aprobado {user.id}")
+
+    except Exception as e:
+        logger.error(f"Error enviando menú Free a usuario aprobado {user.id}: {e}", exc_info=True)
+        await callback.answer("⚠️ Error cargando el menú", show_alert=True)
 
 
 # Register SPECIFIC handlers BEFORE GENERIC ones to avoid pattern matching conflicts
