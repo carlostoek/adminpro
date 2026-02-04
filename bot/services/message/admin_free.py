@@ -3,13 +3,15 @@ Admin Free Messages Provider - Free channel management messages.
 
 Provides messages for Free channel setup, wait time configuration, and queue management.
 """
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
+from datetime import datetime
 import random
 from aiogram.types import InlineKeyboardMarkup
 
 from bot.services.message.base import BaseMessageProvider
 from bot.utils.keyboards import create_inline_keyboard
-from bot.utils.formatters import format_duration_minutes
+from bot.utils.formatters import format_duration_minutes, format_relative_time
+from bot.database.models import FreeChannelRequest
 
 
 class AdminFreeMessages(BaseMessageProvider):
@@ -294,7 +296,7 @@ class AdminFreeMessages(BaseMessageProvider):
         """Keyboard for configured Free menu."""
         return create_inline_keyboard([
             [{"text": "📤 Enviar Publicación", "callback_data": "free:broadcast"}],
-            [{"text": "📋 Cola de Solicitudes", "callback_data": "free:view_queue"}],
+            [{"text": "📋 Cola de Solicitudes", "callback_data": "admin:free_queue"}],
             [{"text": "⚙️ Configuración", "callback_data": "free:config"}],
             [{"text": "🔙 Volver", "callback_data": "admin:main"}]
         ])
@@ -313,3 +315,193 @@ class AdminFreeMessages(BaseMessageProvider):
             [{"text": "🔧 Reconfigurar Canal", "callback_data": "free:setup"}],
             [{"text": "🔙 Volver", "callback_data": "admin:free"}]
         ])
+
+    # ===== QUEUE MANAGEMENT MESSAGES =====
+
+    def free_queue_view(
+        self,
+        pending_requests: List[FreeChannelRequest],
+        wait_time_minutes: int
+    ) -> Tuple[str, InlineKeyboardMarkup]:
+        """
+        Generate queue view message showing pending requests.
+
+        Args:
+            pending_requests: List of pending FreeChannelRequest objects
+            wait_time_minutes: Current wait time configuration
+
+        Returns:
+            Tuple of (message_text, inline_keyboard)
+
+        Voice Rationale:
+            "Lista de espera" and "visitantes aguardando" maintain Lucien's
+            elegant tone. The vestibule metaphor is extended to the queue.
+        """
+        count = len(pending_requests)
+        wait_time_str = format_duration_minutes(wait_time_minutes)
+
+        if count == 0:
+            body = (
+                "El vestíbulo está tranquilo, custodio...\n\n"
+                "No hay visitantes aguardando en la lista de espera.\n\n"
+                f"⏱️ Tiempo de contemplación configurado: <b>{wait_time_str}</b>"
+            )
+        else:
+            # List first 10 requests with user_id and waiting time
+            request_lines = []
+            for i, req in enumerate(pending_requests[:10], 1):
+                minutes_waiting = req.minutes_since_request()
+                time_waiting = format_relative_time(
+                    req.request_date,
+                    reference=datetime.utcnow()
+                )
+                request_lines.append(
+                    f"{i}. User <code>{req.user_id}</code> - {time_waiting}"
+                )
+
+            remaining = count - 10 if count > 10 else 0
+            if remaining > 0:
+                request_lines.append(f"\n...y {remaining} visitantes más aguardando.")
+
+            requests_text = "\n".join(request_lines)
+
+            body = (
+                f"Hay <b>{count}</b> visitante{'s' if count != 1 else ''} "
+                f"en la lista de espera del vestíbulo...\n\n"
+                f"{requests_text}\n\n"
+                f"⏱️ Tiempo de contemplación: <b>{wait_time_str}</b>"
+            )
+
+        text = self._compose("🎩 <b>Lista de Espera del Vestíbulo</b>", body)
+        keyboard = self._free_queue_keyboard(count > 0)
+
+        return (text, keyboard)
+
+    def free_bulk_approve_confirm(self, count: int) -> Tuple[str, InlineKeyboardMarkup]:
+        """
+        Confirmation dialog before approving all pending requests.
+
+        Args:
+            count: Number of users to be approved
+
+        Returns:
+            Tuple of (message_text, inline_keyboard)
+
+        Voice Rationale:
+            "Está a punto de conceder acceso" adds dramatic weight to the
+            bulk action, ensuring admin understands the significance.
+        """
+        text = self._compose(
+            "🎩 <b>Confirmar Aprobación Masiva</b>",
+            (
+                f"Custodio, está a punto de conceder acceso al vestíbulo "
+                f"a <b>{count}</b> visitante{'s' if count != 1 else ''}...\n\n"
+                f"Esta acción aprobará todas las solicitudes pendientes "
+                f"y los usuarios recibirán acceso inmediato al canal Free.\n\n"
+                f"⚠️ <b>¿Desea proceder?</b>"
+            )
+        )
+
+        keyboard = create_inline_keyboard([
+            [{"text": "✅ Confirmar Aprobación", "callback_data": "free:confirm_approve_all"}],
+            [{"text": "❌ Cancelar", "callback_data": "admin:free_queue"}]
+        ])
+
+        return (text, keyboard)
+
+    def free_bulk_reject_confirm(self, count: int) -> Tuple[str, InlineKeyboardMarkup]:
+        """
+        Confirmation dialog before rejecting all pending requests.
+
+        Args:
+            count: Number of users to be rejected
+
+        Returns:
+            Tuple of (message_text, inline_keyboard)
+
+        Voice Rationale:
+            "Está a punto de denegar acceso" emphasizes the finality of
+            rejection, requiring explicit admin confirmation.
+        """
+        text = self._compose(
+            "🎩 <b>Confirmar Rechazo Masivo</b>",
+            (
+                f"Custodio, está a punto de denegar acceso al vestíbulo "
+                f"a <b>{count}</b> visitante{'s' if count != 1 else ''}...\n\n"
+                f"Esta acción rechazará todas las solicitudes pendientes. "
+                f"Los usuarios serán notificados de que su solicitud fue denegada.\n\n"
+                f"⚠️ <b>¿Desea proceder?</b>"
+            )
+        )
+
+        keyboard = create_inline_keyboard([
+            [{"text": "🚫 Confirmar Rechazo", "callback_data": "free:confirm_reject_all"}],
+            [{"text": "❌ Cancelar", "callback_data": "admin:free_queue"}]
+        ])
+
+        return (text, keyboard)
+
+    def free_bulk_result(
+        self,
+        action: str,
+        success: int,
+        errors: int
+    ) -> Tuple[str, InlineKeyboardMarkup]:
+        """
+        Show results after bulk action.
+
+        Args:
+            action: "approved" or "rejected"
+            success: Number of successful operations
+            errors: Number of failed operations
+
+        Returns:
+            Tuple of (message_text, inline_keyboard)
+
+        Voice Rationale:
+            Results presented with appropriate gravitas - success celebrated,
+            errors noted for admin awareness without alarm.
+        """
+        action_text = "aprobada" if action == "approved" else "rechazada"
+        action_emoji = "✅" if action == "approved" else "🚫"
+
+        if errors == 0:
+            body = (
+                f"La operación se completó exitosamente.\n\n"
+                f"{action_emoji} <b>{success}</b> solicitud"
+                f"{'es' if success != 1 else ''} {action_text}{'s' if success != 1 else ''}\n\n"
+                f"Diana observa que el vestíbulo ha sido actualizado."
+            )
+        else:
+            body = (
+                f"La operación se completó con algunos inconvenientes.\n\n"
+                f"{action_emoji} <b>{success}</b> solicitud"
+                f"{'es' if success != 1 else ''} {action_text}{'s' if success != 1 else ''}\n"
+                f"⚠️ <b>{errors}</b> error{'es' if errors != 1 else ''}\n\n"
+                f"Algunos usuarios pueden haber bloqueado al bot o "
+                f"abandonado la conversación."
+            )
+
+        text = self._compose(f"🎩 <b>Resultado de la Operación</b>", body)
+
+        keyboard = create_inline_keyboard([
+            [{"text": "📋 Ver Cola Actualizada", "callback_data": "admin:free_queue"}],
+            [{"text": "🔙 Volver al Menú", "callback_data": "admin:free"}]
+        ])
+
+        return (text, keyboard)
+
+    def _free_queue_keyboard(self, has_pending: bool) -> InlineKeyboardMarkup:
+        """Keyboard for queue view with conditional bulk actions."""
+        if has_pending:
+            return create_inline_keyboard([
+                [{"text": "✅ Aprobar Todas", "callback_data": "free:approve_all"}],
+                [{"text": "🚫 Rechazar Todas", "callback_data": "free:reject_all"}],
+                [{"text": "🔄 Actualizar", "callback_data": "admin:free_queue"}],
+                [{"text": "🔙 Volver", "callback_data": "admin:free"}]
+            ])
+        else:
+            return create_inline_keyboard([
+                [{"text": "🔄 Actualizar", "callback_data": "admin:free_queue"}],
+                [{"text": "🔙 Volver", "callback_data": "admin:free"}]
+            ])
