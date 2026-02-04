@@ -4,37 +4,40 @@
 
 Un servicio centralizado que gestiona todos los mensajes del bot con la voz caracteristica de Lucien (mayordomo sofisticado de Diana). El servicio provee templates organizados por flujo de navegacion, soporta dinamismo completo (variables, condicionales, listas dinamicas, variaciones aleatorias), y retorna mensajes formateados en HTML junto con sus keyboards inline correspondientes. Diseado para reemplazar todos los mensajes hardcodeados dispersos en los handlers actuales.
 
-## Current Milestone: v1.2 Primer Despliegue
+## Current Milestone: v1.3 Redis Caching (Planned)
 
-**Goal:** Deploy the bot to Railway with PostgreSQL, comprehensive test coverage for critical flows, and performance optimizations including caching.
+**Goal:** Add Redis caching layer for FSM state persistence and application-level caching (BotConfig, roles, channels).
 
 **Target features:**
 
-### Deployment
-- PostgreSQL migration (SQLite → PostgreSQL)
-- Railway deployment configuration (Dockerfile, environment variables)
-- Automatic database schema migration on deploy
-- Health check endpoint for monitoring
-- Database seed scripts for initial data
+### Redis Infrastructure
+- Redis connection with async redis-py
+- FSM state storage using aiogram RedisStorage
+- CacheService for application-level caching
+- Multi-layer caching strategy
 
-### Testing & Quality
-- Comprehensive test suite covering:
-  - System startup
-  - Menu system (Admin/VIP/Free)
-  - Free channel entry flow
-  - VIP token generation
-  - VIP entry ritual
-  - Role detection
-  - Configuration management
-- Centralized test runner script for admin
-
-### Performance
-- Performance profiling and optimization
-- Caching system (Redis) for frequently accessed data
+### Cache Management
+- Cache invalidation on write operations
+- Graceful degradation when Redis unavailable
+- Cache warming on startup for critical data
+- TTL configuration per cache type
 
 ---
 
 ## Current State
+
+**v1.2 SHIPPED** (2026-01-30)
+
+Production-ready deployment infrastructure with PostgreSQL migration support, comprehensive test coverage, health monitoring, and performance profiling:
+- PostgreSQL and SQLite dual-dialect support with automatic dialect detection
+- Alembic migration system with auto-migration on startup
+- FastAPI health check endpoint with database connectivity verification
+- Railway deployment configuration (Railway.toml, Dockerfile)
+- 212 system tests covering all critical flows
+- CLI test runner and Telegram /run_tests command
+- Performance profiling with pyinstrument (/profile command)
+- N+1 query detection and eager loading optimization
+- 37/37 v1.2 requirements satisfied (100%)
 
 **v1.1 SHIPPED** (2026-01-28)
 
@@ -226,43 +229,90 @@ Documentation (DOCS):
 - ✓ DOCS-03: Guía integración nuevas opciones — v1.1
 - ✓ DOCS-04: Ejemplos de uso del sistema — v1.1
 
-### Active
+**v1.2 Deployment Requirements (ALL SATISFIED):**
 
-**v1.2 Active Requirements:**
+Database Migration (DBMIG):
+- ✓ DBMIG-01: Sistema soporta PostgreSQL y SQLite — v1.2
+- ✓ DBMIG-02: Motor detecta automáticamente el dialecto — v1.2
+- ✓ DBMIG-03: Alembic configurado con migración inicial — v1.2
+- ✓ DBMIG-04: Migraciones automáticas al iniciar — v1.2
+- ✓ DBMIG-05: Script de migración de datos SQLite → PostgreSQL — v1.2
+- ✓ DBMIG-06: Validación de tipos en modelos — v1.2
+- ✓ DBMIG-07: Rolling back de migraciones soportado — v1.2
 
-Deployment (DEPLOY):
-- [ ] DEPLOY-01: PostgreSQL migration from SQLite
-- [ ] DEPLOY-02: Railway deployment configuration
-- [ ] DEPLOY-03: Auto-migration scripts
-- [ ] DEPLOY-04: Health check endpoint
-- [ ] DEPLOY-05: Database seed scripts
+Health Monitoring (HEALTH):
+- ✓ HEALTH-01: Endpoint HTTP /health — v1.2
+- ✓ HEALTH-02: Health check verifica conexión a base de datos — v1.2
+- ✓ HEALTH-03: Retorna 200 OK o 503 según estado — v1.2
+- ✓ HEALTH-04: Health check en puerto separado — v1.2
+- ✓ HEALTH-05: Bot y API de salud corren concurrentemente — v1.2
 
-Testing (TEST):
-- [ ] TEST-01: System startup test coverage
-- [ ] TEST-02: Menu system test coverage
-- [ ] TEST-03: Free channel entry flow test coverage
-- [ ] TEST-04: VIP token generation test coverage
-- [ ] TEST-05: VIP entry ritual test coverage
-- [ ] TEST-06: Role detection test coverage
-- [ ] TEST-07: Configuration management test coverage
-- [ ] TEST-08: Centralized admin test runner
+Railway Preparation (RAIL):
+- ✓ RAIL-01: Railway.toml configurado — v1.2
+- ✓ RAIL-02: Dockerfile creado — v1.2
+- ✓ RAIL-03: Variables de entorno documentadas — v1.2
+- ✓ RAIL-04: Validación de variables al inicio — v1.2
+- ✓ RAIL-05: Soporte polling/webhook — v1.2
+
+Testing Infrastructure (TESTINF):
+- ✓ TESTINF-01: pytest-asyncio con async_mode=auto — v1.2
+- ✓ TESTINF-02: Fixtures creados — v1.2
+- ✓ TESTINF-03: Base de datos en memoria — v1.2
+- ✓ TESTINF-04: Aislamiento de tests — v1.2
+- ✓ TESTINF-05: Coverage reporting — v1.2
+
+System Tests (TESTSYS):
+- ✓ TESTSYS-01: Test de arranque del sistema — v1.2
+- ✓ TESTSYS-02: Tests de menú principal Admin — v1.2
+- ✓ TESTSYS-03: Tests de menú VIP y Free — v1.2
+- ✓ TESTSYS-04: Test de detección de roles — v1.2
+- ✓ TESTSYS-05: Tests de flujos VIP/Free — v1.2
+- ✓ TESTSYS-06: Tests de flujo de entrada al canal Free — v1.2
+- ✓ TESTSYS-07: Tests de generación de tokens VIP — v1.2
+- ✓ TESTSYS-08: Tests de flujo ritualizado de entrada VIP — v1.2
+- ✓ TESTSYS-09: Tests de gestión de configuración — v1.2
+- ✓ TESTSYS-10: Tests de proveedores de mensajes — v1.2
+
+Admin Test Runner (ADMINTEST):
+- ✓ ADMINTEST-01: Script /run_tests — v1.2
+- ✓ ADMINTEST-02: Comando /run_tests en Telegram — v1.2
+- ✓ ADMINTEST-03: Test runner con coverage — v1.2
+- ✓ ADMINTEST-04: Reporte al admin via mensaje — v1.2
 
 Performance (PERF):
-- [ ] PERF-01: Performance profiling infrastructure
-- [ ] PERF-02: Redis caching integration
-- [ ] PERF-03: Cache invalidation strategy
-- [ ] PERF-04: Cache warming on startup
+- ✓ PERF-01: Integración con pyinstrument — v1.2
+- ✓ PERF-02: Script para profiling de handlers — v1.2
+- ✓ PERF-03: Detección de N+1 queries — v1.2
+- ✓ PERF-04: Optimización de eager loading — v1.2
+
+### Active
+
+**v1.3 Planned Requirements:**
+
+Redis Caching (CACHE):
+- [ ] CACHE-01: Redis FSM state storage
+- [ ] CACHE-02: CacheService para aplicación
+- [ ] CACHE-03: Invalidación de caché en escrituras
+- [ ] CACHE-04: Multi-layer caching
+- [ ] CACHE-05: Graceful degradation cuando Redis no disponible
 
 ### Out of Scope
 
-Caracteristicas explcitamente excluidas de v1:
+Caracteristicas explcitamente excluidas:
 
+**v1.x (current):**
 - **Internacionalizacion (i18n)** — Solo espanol por ahora; estructura puede prepararse pero sin implementacion
 - **Sistema de gamificacion** — Servicio debe ser extensible pero no incluir mensajes de misiones/logros aun
 - **Sistema de narrativa** — Servicio debe ser extensible pero no incluir contenido narrativo aun
 - **Persistencia de variaciones** — No rastrear que variante se mostro a cada usuario (puede agregarse despues)
 - **A/B testing** — No metricas de efectividad de diferentes variantes
 - **Voice profiles alternos** — Solo voz de Lucien, sin variaciones de personalidad
+
+**v1.2 (shipped) - Intentionally deferred to v1.3:**
+- Railway deployment execution — Preparation only; actual deployment in v1.3+
+- Monitoring dashboard — Requires stable system first
+- Load testing — Requires production environment
+- Automated backups — Railway feature to configure in v1.3+
 
 ## Context
 
@@ -279,18 +329,21 @@ El bot tiene una arquitectura solida en produccion con v1.0 message service inte
 - **Background tasks**: APScheduler para mantenimiento autonomo
 - **Message service**: LucienVoiceService with session-aware variation selection
 
-### Metrics (v1.1)
+### Metrics (v1.2)
 
-- Total lines of code: ~166,000 Python (entira base de código)
+- Total lines of code: ~177,811 Python
 - Bot directory: ~24,328 lines of Python
 - Message providers: 13 (Common, AdminMain, AdminVIP, AdminFree, UserStart, UserFlow, SessionHistory, UserMenu, AdminContent, AdminInterest, AdminUser, VIPEntryFlow)
-- Services: 12 (incl. RoleDetection, Content, Interest, VIPEntry, UserManagement, RoleChange)
-- Documentation: 5,777 lines (4 main .md files + 1,070+ docstrings)
+- Services: 14 (incl. RoleDetection, Content, Interest, VIPEntry, UserManagement, RoleChange, TestRunner)
+- Documentation: 5,777+ lines (4 main .md files + 1,070+ docstrings)
 - Handlers organized: 23 files (admin/user split)
 - Hardcoded strings eliminated: ~330 lines
 - Memory overhead: ~80 bytes/user for session history
 - Voice linter performance: 5.09ms average
-- Test files: 7 (140 tests passing)
+- Test files: 13 (212 tests passing)
+- Test coverage: pytest with asyncio_mode=auto, in-memory SQLite
+- Health endpoint: FastAPI on port 8000
+- Deployment: Railway-ready with Dockerfile and Railway.toml
 
 ### Guia de Estilo
 
@@ -324,7 +377,14 @@ Existe `docs/guia-estilo.md` con 410 lineas que definen:
 | AST-based voice linting | Pure stdlib ast module for voice violation detection; no external dependencies; 5.09ms performance (20x better than 100ms target) | ✓ Good |
 | Session-aware variation selection | Exclusion window of 2 prevents repetition while maintaining small variant set usability; ~80 bytes/user memory overhead | ✓ Good |
 | Manual token redemption deprecated | Deep link activation provides better UX (one-click vs manual typing); removed vip_flow.py (188 lines) | ✓ Good |
+| Dual-dialect database support | PostgreSQL for production, SQLite for development; automatic dialect detection from URL | ✓ Good |
+| Fail-fast migration strategy | Bot does not start if migrations fail in production; prevents running with stale schema | ✓ Good |
+| Separate health API | FastAPI health check independent from aiogram bot; allows monitoring even if bot has issues | ✓ Good |
+| pytest-asyncio auto mode | No @pytest.mark.asyncio decorator needed; cleaner test code | ✓ Good |
+| In-memory SQLite for tests | Fast test execution with proper isolation; no database cleanup needed | ✓ Good |
+| Statistical profiling | pyinstrument provides low-overhead profiling suitable for production use | ✓ Good |
+| N+1 query detection | SQLAlchemy event monitoring catches performance issues early | ✓ Good |
 
 ---
 
-*Last updated: 2026-01-28 after v1.2 milestone initiation*
+*Last updated: 2026-02-01 after v1.2 milestone completion*

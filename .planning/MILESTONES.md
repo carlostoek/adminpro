@@ -1,5 +1,40 @@
 # Project Milestones: LucienVoiceService
 
+## v1.2 Primer Despliegue (Shipped: 2026-01-30)
+
+**Delivered:** Production-ready deployment infrastructure with PostgreSQL migration support, comprehensive test coverage (212 tests), health monitoring endpoint, Railway deployment configuration, and performance profiling tools.
+
+**Phases completed:** 14-18 (21 plans total)
+
+**Key accomplishments:**
+
+- PostgreSQL and SQLite dual-dialect support with automatic dialect detection
+- Alembic migration system with auto-migration on startup in production
+- FastAPI health check endpoint (/health) with database connectivity verification
+- Railway deployment configuration (Railway.toml, Dockerfile, .dockerignore)
+- pytest-asyncio testing infrastructure with 7 fixtures and in-memory database
+- 212 system tests covering startup, configuration, menus, roles, VIP/Free flows
+- CLI test runner script with coverage reporting and historical tracking
+- Telegram /run_tests command for admin test execution
+- Performance profiling with pyinstrument integration (/profile command)
+- N+1 query detection with SQLAlchemy event monitoring
+- SQLite to PostgreSQL data migration script with row validation
+- Graceful shutdown fix (10s timeout, down from 150s)
+- 37/37 v1.2 requirements satisfied (100%)
+
+**Stats:**
+
+- ~177,811 lines of Python code
+- 5 phases, 21 plans, ~100+ tasks
+- 212 tests passing
+- 3 days from start to ship (2026-01-28 to 2026-01-30)
+
+**Git range:** `feat(14-01)` to `feat(18-04)`
+
+**What's next:** Run `/gsd:new-milestone` to define v1.3 goals (Redis caching layer, FSM state persistence, monitoring dashboard, production deployment)
+
+---
+
 ## v1.1 Sistema de Menús (Shipped: 2026-01-28)
 
 **Delivered:** Role-based menu system (Admin/VIP/Free) with automatic role detection, content package management, interest notifications, user management, social media integration, VIP ritualized entry flow, and comprehensive documentation.

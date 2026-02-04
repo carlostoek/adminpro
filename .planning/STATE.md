@@ -2,19 +2,26 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-28)
+See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Consistencia absoluta en la voz de Lucien: cada mensaje del bot debe sonar elegante, misterioso y natural viniendo del mayordomo, sin importar que handler o flujo lo invoque.
-**Current focus:** Phase 16 complete - Moving to Phase 17 (System Tests)
+**Current focus:** Planning v1.3 (Redis Caching) - Run `/gsd:new-milestone` to start
 
 ## Current Position
+
 
 Phase: 18 of 18 (Admin Test Runner & Performance Profiling)
 Plan: 4 of 4 in current phase
 Status: Complete - Phase 18 finished
 Last activity: 2026-02-04 — Completed quick task 005: Eliminar usuario completamente del sistema
 
-Progress: [████████████████████] 100%
+**Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
+
+Phase: v1.2 complete (Phases 14-18 shipped 2026-01-30)
+Status: ✅ SHIPPED - Production-ready deployment infrastructure
+Last activity: 2026-02-01 — Milestone v1.2 archived
+
+Progress: [████████████████████] 100% (v1.2) | Ready for v1.3 planning
 
 ## Performance Metrics
 
