@@ -759,20 +759,6 @@ async def callback_user_delete_confirm(callback: CallbackQuery, state, session: 
 
     admin_id = callback.from_user.id
 
-    # Notify user before deletion (best effort)
-    try:
-        await callback.bot.send_message(
-            chat_id=user_id,
-            text="🎩 <b>Lucien:</b>\n\n<i>Su presencia en el jardín ha llegado a su fin...</i>\n\n"
-                 "⚠️ <b>Su cuenta ha sido eliminada del sistema por un administrador.</b>\n\n"
-                 "<i>Todos sus datos han sido borrados permanentemente.</i>",
-            parse_mode="HTML"
-        )
-        logger.info(f"📨 Notificación de eliminación enviada a usuario {user_id}")
-    except Exception as e:
-        # User may have blocked the bot
-        logger.warning(f"⚠️ No se pudo notificar al usuario {user_id} sobre eliminación: {e}")
-
     # Perform deletion
     success, message, deleted_user = await container.subscription.delete_user_completely(
         user_id=user_id,
