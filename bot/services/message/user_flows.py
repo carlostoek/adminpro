@@ -255,27 +255,27 @@ class UserFlowMessages(BaseMessageProvider):
         """
         Approval message when wait time elapses.
 
-        Sent as NEW message (not edit) with channel access button.
+        Sent as NEW message (not edit) with callback button to trigger menu.
 
         Args:
             channel_name: Name of Free channel ("Los Kinkys")
             channel_link: Invite link or public URL (t.me/loskinkys)
 
         Returns:
-            Tuple of (text, keyboard) with channel access button
+            Tuple of (text, keyboard) with callback button
 
         Voice Rationale:
             - "Listo." - dramatic pause, anticipation resolved
             - "Diana ha permitido su entrada" - admission granted, not simply added
             - "no es el lugar donde ella se entrega" - teaser of VIP
             - "Empieza a insinuarse" - mystery, gradual revelation
-            - "Entre con intención" - call to purposeful action
-            - Single button: "🚀 Acceder al canal" (action-oriented)
+            - Callback button triggers menu delivery (not direct URL)
+            - Channel link visible as text for manual entry
 
         Examples:
             >>> flows = UserFlowMessages()
             >>> text, kb = flows.free_request_approved("Los Kinkys", "t.me/loskinkys")
-            >>> '🚀' in text or 'Acceder' in text
+            >>> '🚀' in text or 'Ingresar' in text
             True
             >>> kb is not None and len(kb.inline_keyboard) > 0
             True
@@ -289,17 +289,17 @@ class UserFlowMessages(BaseMessageProvider):
             "<i>Este no es el lugar donde ella se entrega.</i>\n"
             "<i>Es el lugar donde comienza a insinuarse…</i>\n"
             "<i>y donde algunos descubren que ya no quieren quedarse solo aquí.</i>\n\n"
-            "<i>El enlace está abajo.</i>\n"
-            "<i>Tiene 24 horas para cruzar antes de que se cierre de nuevo.</i>\n\n"
-            "<i>Entre con intención.</i>\n"
+            "<i>Presione el botón para ingresar al canal y recibir su menú personalizado.</i>\n\n"
+            "<b>Enlace al canal (por si prefiere ingresar manualmente):</b>\n"
+            f"{channel_link}\n"
             "👇"
         )
 
         text = self._compose(header, body)
 
-        # Channel access button
+        # Callback button to trigger menu (not direct URL)
         keyboard = create_inline_keyboard([
-            [{"text": "🚀 Acceder al canal", "url": channel_link}]
+            [{"text": "🚀 Ingresar al canal", "callback_data": "free:approved:enter"}]
         ])
 
         return text, keyboard
