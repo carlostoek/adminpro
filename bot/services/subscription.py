@@ -1133,6 +1133,133 @@ class SubscriptionService:
 
     # ===== USER DELETION =====
 
+    # ===== BULK FREE REQUESTS MANAGEMENT =====
+
+    async def get_pending_free_requests(
+        self,
+        limit: int = 100
+    ) -> List[FreeChannelRequest]:
+        """
+        Obtiene todas las solicitudes Free pendientes.
+
+        Args:
+            limit: Máximo de solicitudes a retornar (default: 100)
+
+        Returns:
+            Lista de FreeChannelRequest pendientes, ordenadas por fecha (más antiguas primero)
+        """
+        result = await self.session.execute(
+            select(FreeChannelRequest)
+            .where(FreeChannelRequest.processed == False)
+            .order_by(FreeChannelRequest.request_date.asc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def approve_all_free_requests(
+        self,
+        free_channel_id: str
+    ) -> Tuple[int, int]:
+        """
+        Aprueba todas las solicitudes Free pendientes.
+
+        Args:
+            free_channel_id: ID del canal Free
+
+        Returns:
+            Tuple[int, int]: (success_count, error_count)
+        """
+        pending_requests = await self.get_pending_free_requests()
+
+        if not pending_requests:
+            logger.debug("No hay solicitudes Free pendientes para aprobar")
+            return 0, 0
+
+        success_count = 0
+        error_count = 0
+
+        for request in pending_requests:
+            try:
+                # Aprobar solicitud en Telegram
+                await self.bot.approve_chat_join_request(
+                    chat_id=free_channel_id,
+                    user_id=request.user_id
+                )
+
+                # Marcar como procesada
+                request.processed = True
+                request.processed_at = datetime.utcnow()
+
+                success_count += 1
+                logger.info(f"✅ Solicitud Free aprobada (bulk): user {request.user_id}")
+
+            except Exception as e:
+                error_count += 1
+                logger.warning(
+                    f"⚠️ Error aprobando solicitud de user {request.user_id}: {e}"
+                )
+
+        await self.session.commit()
+
+        logger.info(
+            f"📊 Aprobación masiva completada: {success_count} aprobadas, "
+            f"{error_count} errores"
+        )
+
+        return success_count, error_count
+
+    async def reject_all_free_requests(
+        self,
+        free_channel_id: str
+    ) -> Tuple[int, int]:
+        """
+        Rechaza todas las solicitudes Free pendientes.
+
+        Args:
+            free_channel_id: ID del canal Free
+
+        Returns:
+            Tuple[int, int]: (success_count, error_count)
+        """
+        pending_requests = await self.get_pending_free_requests()
+
+        if not pending_requests:
+            logger.debug("No hay solicitudes Free pendientes para rechazar")
+            return 0, 0
+
+        success_count = 0
+        error_count = 0
+
+        for request in pending_requests:
+            try:
+                # Rechazar solicitud en Telegram
+                await self.bot.decline_chat_join_request(
+                    chat_id=free_channel_id,
+                    user_id=request.user_id
+                )
+
+                # Marcar como procesada
+                request.processed = True
+                request.processed_at = datetime.utcnow()
+
+                success_count += 1
+                logger.info(f"🚫 Solicitud Free rechazada (bulk): user {request.user_id}")
+
+            except Exception as e:
+                error_count += 1
+                logger.warning(
+                    f"⚠️ Error rechazando solicitud de user {request.user_id}: {e}"
+                )
+
+        await self.session.commit()
+
+        logger.info(
+            f"📊 Rechazo masivo completado: {success_count} rechazadas, "
+            f"{error_count} errores"
+        )
+
+        return success_count, error_count
+
     async def delete_user_completely(
         self,
         user_id: int,
