@@ -84,26 +84,21 @@ def upgrade() -> None:
     for pkg in packages:
         if dialect == 'postgresql':
             # PostgreSQL requires explicit casting to enum types
-            op.execute(
-                sa.text("""
-                    INSERT INTO content_packages
-                    (name, description, price, category, type, media_url, is_active, created_at, updated_at)
-                    VALUES
-                    (:name, :description, :price, :category::contentcategory, :type::packagetype, NULL, :is_active, :created_at, :updated_at)
-                """),
-                pkg
-            )
+            sql = sa.text("""
+                INSERT INTO content_packages
+                (name, description, price, category, type, media_url, is_active, created_at, updated_at)
+                VALUES
+                (:name, :description, :price, :category::contentcategory, :type::packagetype, NULL, :is_active, :created_at, :updated_at)
+            """).bindparams(**pkg)
         else:
             # SQLite and other databases don't have enum types
-            op.execute(
-                sa.text("""
-                    INSERT INTO content_packages
-                    (name, description, price, category, type, media_url, is_active, created_at, updated_at)
-                    VALUES
-                    (:name, :description, :price, :category, :type, NULL, :is_active, :created_at, :updated_at)
-                """),
-                pkg
-            )
+            sql = sa.text("""
+                INSERT INTO content_packages
+                (name, description, price, category, type, media_url, is_active, created_at, updated_at)
+                VALUES
+                (:name, :description, :price, :category, :type, NULL, :is_active, :created_at, :updated_at)
+            """).bindparams(**pkg)
+        op.execute(sql)
 
 
 def downgrade() -> None:
@@ -118,6 +113,5 @@ def downgrade() -> None:
 
     for name in package_names:
         op.execute(
-            sa.text("DELETE FROM content_packages WHERE name = :name"),
-            {'name': name}
+            sa.text("DELETE FROM content_packages WHERE name = :name").bindparams(name=name)
         )
