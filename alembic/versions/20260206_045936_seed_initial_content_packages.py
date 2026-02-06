@@ -19,26 +19,11 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-# Define the table structure for bulk_insert
-content_packages_table = sa.table(
-    'content_packages',
-    sa.column('id', sa.Integer),
-    sa.column('name', sa.String(200)),
-    sa.column('description', sa.String(500)),
-    sa.column('price', sa.Numeric(10, 2)),
-    sa.column('category', sa.String(20)),
-    sa.column('type', sa.String(20)),
-    sa.column('media_url', sa.String(500)),
-    sa.column('is_active', sa.Boolean),
-    sa.column('created_at', sa.DateTime),
-    sa.column('updated_at', sa.DateTime),
-)
-
-
 def upgrade() -> None:
-    """Insert the 5 initial content packages."""
+    """Insert the 5 initial content packages using raw SQL for PostgreSQL enum compatibility."""
     now = datetime.utcnow()
 
+    # Use raw SQL with explicit casting for PostgreSQL enum types
     packages = [
         {
             'name': '♥ Encanto Inicial 💫',
@@ -46,7 +31,6 @@ def upgrade() -> None:
             'price': 10.00,
             'category': 'VIP_CONTENT',
             'type': 'BUNDLE',
-            'media_url': None,
             'is_active': True,
             'created_at': now,
             'updated_at': now,
@@ -57,7 +41,6 @@ def upgrade() -> None:
             'price': 14.00,
             'category': 'VIP_CONTENT',
             'type': 'BUNDLE',
-            'media_url': None,
             'is_active': True,
             'created_at': now,
             'updated_at': now,
@@ -68,7 +51,6 @@ def upgrade() -> None:
             'price': 17.00,
             'category': 'VIP_CONTENT',
             'type': 'BUNDLE',
-            'media_url': None,
             'is_active': True,
             'created_at': now,
             'updated_at': now,
@@ -79,7 +61,6 @@ def upgrade() -> None:
             'price': 20.00,
             'category': 'VIP_PREMIUM',
             'type': 'BUNDLE',
-            'media_url': None,
             'is_active': True,
             'created_at': now,
             'updated_at': now,
@@ -90,14 +71,39 @@ def upgrade() -> None:
             'price': 23.00,
             'category': 'VIP_PREMIUM',
             'type': 'COLLECTION',
-            'media_url': None,
             'is_active': True,
             'created_at': now,
             'updated_at': now,
         },
     ]
 
-    op.bulk_insert(content_packages_table, packages)
+    # Get database dialect to handle different databases
+    bind = op.get_bind()
+    dialect = bind.dialect.name
+
+    for pkg in packages:
+        if dialect == 'postgresql':
+            # PostgreSQL requires explicit casting to enum types
+            op.execute(
+                sa.text("""
+                    INSERT INTO content_packages
+                    (name, description, price, category, type, media_url, is_active, created_at, updated_at)
+                    VALUES
+                    (:name, :description, :price, :category::contentcategory, :type::packagetype, NULL, :is_active, :created_at, :updated_at)
+                """),
+                pkg
+            )
+        else:
+            # SQLite and other databases don't have enum types
+            op.execute(
+                sa.text("""
+                    INSERT INTO content_packages
+                    (name, description, price, category, type, media_url, is_active, created_at, updated_at)
+                    VALUES
+                    (:name, :description, :price, :category, :type, NULL, :is_active, :created_at, :updated_at)
+                """),
+                pkg
+            )
 
 
 def downgrade() -> None:
