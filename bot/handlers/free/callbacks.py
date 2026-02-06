@@ -329,7 +329,7 @@ async def handle_free_content(callback: CallbackQuery, container):
 @free_callbacks_router.callback_query(lambda c: c.data == "menu:free:vip")
 async def handle_vip_info(callback: CallbackQuery, container):
     """
-    Muestra información sobre el canal VIP y suscripción.
+    Muestra información sobre El Diván de Diana (Canal VIP).
 
     Args:
         callback: CallbackQuery de Telegram
@@ -352,38 +352,68 @@ async def handle_vip_info(callback: CallbackQuery, container):
         except Exception as e:
             logger.warning(f"No se pudo verificar configuración VIP: {e}")
 
-        # Create informative message about VIP benefits with Lucien's voice
+        # Get El Diván de Diana package info
+        from bot.database.enums import ContentCategory
+        packages = await container.content.get_active_packages(
+            category=ContentCategory.VIP_PREMIUM,
+            limit=1
+        )
+
+        divan_package = None
+        if packages:
+            divan_package = packages[0]
+
+        # Build El Diván de Diana message
         message_text = (
             f"🎩 <b>Lucien:</b>\n\n"
             f"<i>El círculo exclusivo de Diana aguarda...</i>\n\n"
-            f"<b>⭐ Canal VIP - El Círculo Exclusivo</b>\n\n"
+            f"<b>💎 El Diván de Diana 💎</b>\n\n"
+            f"<i>No es para cualquiera.</i>\n\n"
+            f"El Diván es mi espacio privado.\n"
+            f"Donde no actúo.\n"
+            f"Donde no filtro.\n"
+            f"Y donde no explico.\n\n"
+            f"Aquí no muestro \"un poco más\".\n"
+            f"<b>Aquí me muestro completa.</b>\n\n"
+            f"✨ <b>Lo que ocurre dentro:</b>\n"
+            f"• Más de 3,000 archivos (sí, tres mil) entre fotos y videos\n"
+            f"• Contenido sin censura que no vendo por separado\n"
+            f"• Acceso preferente a contenido Premium\n"
+            f"• Descuento VIP en contenido personalizado\n"
+            f"• Historias privadas que solo ve quien se atreve a quedarse\n\n"
         )
 
-        if is_vip_configured:
+        if divan_package and divan_package.price:
             message_text += (
-                f"<i>El sanctum está disponible para aquellos que posean "
-                f"el token de acceso.</i>\n\n"
-                f"<b>✨ Beneficios del Círculo:</b>\n"
-                f"• Contenido exclusivo y anticipado\n"
-                f"• Comunidad privada de miembros\n"
-                f"• Acceso directo a Diana para consultas\n"
-                f"• Contenido premium adicional\n"
-                f"• Privilegios especiales y eventos\n\n"
-                f"<i>Para unirse al círculo exclusivo, necesitará un "
-                f"token de invitación de Diana.</i>"
+                f"💰 <b>Acceso:</b> ${divan_package.price:.0f} MXN / ~$23 USD al mes\n\n"
             )
         else:
             message_text += (
-                f"<i>El sanctum aún no ha sido configurado por los custodios.</i>\n\n"
-                f"<i>Los beneficios del círculo exclusivo estarán disponibles "
-                f"una vez que Diana active el canal.</i>"
+                f"💰 <b>Acceso:</b> $350 MXN / $23 USD al mes\n\n"
             )
 
-        # Create keyboard with navigation using helper
+        message_text += (
+            f"<i>Sin pruebas.</i>\n"
+            f"<i>Sin recorridos.</i>\n"
+            f"<i>Sin curiosos.</i>\n\n"
+            f"El Diván sigue intacto.\n"
+            f"Sin máscaras.\n"
+            f"Sin inocencia.\n\n"
+            f"<i>Solo tú y yo…</i>\n"
+            f"<i>si sabes entrar sin hacer ruido.</i>"
+        )
+
+        # Create keyboard with interest button if package exists
         from bot.utils.keyboards import create_content_with_navigation
 
+        content_buttons = []
+        if divan_package:
+            content_buttons.append([
+                {"text": "⭐ Me interesa - El Diván", "callback_data": f"user:packages:{divan_package.id}"}
+            ])
+
         keyboard = create_content_with_navigation(
-            content_buttons=[],
+            content_buttons=content_buttons,
             back_text="⬅️ Volver al Menú Free",
             back_callback="menu:free:main"
         )
@@ -395,7 +425,7 @@ async def handle_vip_info(callback: CallbackQuery, container):
         )
         await callback.answer()
 
-        logger.info(f"🆓 Info VIP mostrada a {user.id}")
+        logger.info(f"🆓 Info El Diván mostrada a {user.id}")
 
     except Exception as e:
         logger.error(f"Error mostrando info VIP a {user.id}: {e}", exc_info=True)

@@ -162,6 +162,37 @@ def upgrade() -> None:
         VALUES (1, 60, '["❤️", "🔥", "😍"]', '["❤️", "👍"]', '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ella.es.diana', 'srtakinky', 'SrtaKinky')
     """)
 
+    # Insert initial content packages (4 Free content bundles + 1 VIP Premium)
+    # Prices in Mexican Pesos (MXN)
+    op.execute("""
+        INSERT INTO content_packages (name, description, price, category, type, is_active, created_at, updated_at)
+        VALUES
+        -- Paquete 1: Encanto Inicial ($150 MXN / ~10 USD)
+        ('♥ Encanto Inicial 💫',
+         '💫 Explora mi lado más coqueto\n\n📸 1 video + 10 fotos\n\nUna dulce introducción para conocernos mejor.\n\n🎥 1 video donde me toco, juego con mis labios y 🍒\n📷 10 fotos semidesnuda o con lencería',
+         150.00, 'FREE_CONTENT', 'BUNDLE', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+
+        -- Paquete 2: Sensualidad Revelada ($200 MXN / ~14 USD)
+        ('🔴 Sensualidad Revelada 🔥',
+         '🔥 Déjate seducir\n\n🎥 2 videos + 10 fotos\n\nDonde desvelo mi lado más atrevido.\n\n🎥 2 videos donde me toco, me abro bien rica me masturbo y se ve mi cara\n📷 Más 10 fotos',
+         200.00, 'FREE_CONTENT', 'BUNDLE', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+
+        -- Paquete 3: Pasión Desbordante ($250 MXN / ~17 USD)
+        ('❤‍🔥 Pasión Desbordante 💋',
+         '💋 Vive la intensidad\n\n🎬 3 videos + 15 fotos\n\nUna experiencia íntima llena de emociones.\n\n🎥 Tres videos:\n• Uno con lencería muy sensual\n• Otro vestida y jugando muy sexy\n• El último jugando con un dildo 🍒 me toco 🍑\n📷 Más 15 fotos',
+         250.00, 'FREE_CONTENT', 'BUNDLE', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+
+        -- Paquete 4: Intimidad Explosiva ($300 MXN / ~20 USD)
+        ('❤️ Intimidad Explosiva 🔞',
+         '🔞 Sumérgete en mí\n\n🎞️ 5 videos + 15 fotos\n\nContenido totalmente atrevido y explícito.\n\n🎥 Set de 5 videos totalmente explícitos:\n• Tocándome hasta terminar 💦\n• Jugando con dildo\n• Desvistiéndome hasta quedar desnuda\n• Usando juguetitos\n• Uno exclusivo cogiendo montando y moviéndome rico 😈\n📷 Más 15 fotos de obsequio',
+         300.00, 'FREE_CONTENT', 'BUNDLE', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+
+        -- Paquete VIP: El Diván de Diana ($350 MXN / ~23 USD mensual)
+        ('💎 El Diván de Diana 💎',
+         'No es para cualquiera.\n\nEl Diván es mi espacio privado.\nDonde no actúo.\nDonde no filtro.\nY donde no explico.\n\nAquí no muestro "un poco más".\nAquí me muestro completa.\n\n✨ Lo que ocurre dentro:\n• Más de 3,000 archivos entre fotos y videos\n• Contenido sin censura que no vendo por separado\n• Acceso preferente a contenido Premium\n• Descuento VIP en contenido personalizado\n• Historias privadas que solo ve quien se atreve a quedarse\n\n💰 Acceso: $350 MXN / $23 USD al mes\n\nSin pruebas.\nSin recorridos.\nSin curiosos.\n\nEl Diván sigue intacto.\nSin máscaras.\nSin inocencia.\n\nSolo tú y yo…\nsi sabes entrar sin hacer ruido.',
+         350.00, 'VIP_PREMIUM', 'COLLECTION', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    """)
+
     # ### end Alembic commands ###
 
 
