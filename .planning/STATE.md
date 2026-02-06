@@ -127,7 +127,10 @@ See PROJECT.md Key Decisions table for full decision log.
 
 ### Pending Todos
 
-None.
+| # | Title | Area | Created |
+|---|-------|------|---------|
+| 1 | Renombrar categorías de contenido (Promos, El Diván, Premium) | ui | 2026-02-06 |
+| 2 | Fix navegación "Mi contenido" VIP - botón volver | ui | 2026-02-06 |
 
 ### Quick Tasks Completed
 
