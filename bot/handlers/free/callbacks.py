@@ -609,12 +609,12 @@ async def handle_vip_subscription_interest(callback: CallbackQuery, container, s
 
         five_minutes_ago = datetime.utcnow() - timedelta(minutes=5)
 
-        # Buscar interés reciente específico de suscripción VIP (package_id=None)
+        # Buscar interés reciente específico de suscripción VIP (package_id=0)
         result = await session.execute(
             select(UserInterest).where(
                 and_(
                     UserInterest.user_id == user.id,
-                    UserInterest.package_id == None,
+                    UserInterest.package_id == 0,  # 0 = Interés en suscripción VIP
                     UserInterest.created_at >= five_minutes_ago
                 )
             )
@@ -629,10 +629,10 @@ async def handle_vip_subscription_interest(callback: CallbackQuery, container, s
             return
 
         # Crear registro de interés especial para suscripción VIP
-        # Usamos package_id=None para indicar interés en suscripción general
+        # Usamos package_id=0 para indicar interés en suscripción VIP
         interest = UserInterest(
             user_id=user.id,
-            package_id=None,  # None indica interés en suscripción VIP
+            package_id=0,  # 0 indica interés en suscripción VIP
             is_attended=False,
             attended_at=None,
             created_at=datetime.utcnow()
