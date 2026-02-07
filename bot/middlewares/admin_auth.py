@@ -68,9 +68,10 @@ class AdminAuthMiddleware(BaseMiddleware):
             user = event.from_user
 
         if user is None:
-            # No se pudo extraer usuario (edge case raro)
-            logger.warning("⚠️ No se pudo extraer usuario del evento")
-            return await handler(event, data)
+            # No se pudo extraer usuario - bloquear acceso
+            logger.warning("⚠️ Acceso denegado: no se pudo extraer usuario del evento")
+            # Bloquear acceso - no ejecutar handler
+            return None
 
         # Verificar si es admin
         if not Config.is_admin(user.id):
