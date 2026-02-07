@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.enums import ContentCategory
-from bot.middlewares import DatabaseMiddleware
+from bot.middlewares import DatabaseMiddleware, AdminAuthMiddleware
 from bot.services.container import ServiceContainer
 
 logger = logging.getLogger(__name__)
@@ -19,6 +19,8 @@ interests_router = Router(name="admin_interests")
 
 # Apply middleware (AdminAuth already on admin_router, this integrates into it)
 interests_router.callback_query.middleware(DatabaseMiddleware())
+interests_router.callback_query.middleware(AdminAuthMiddleware())
+interests_router.message.middleware(AdminAuthMiddleware())
 
 
 # ===== MENU NAVIGATION =====

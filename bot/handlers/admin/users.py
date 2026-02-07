@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.enums import UserRole
-from bot.middlewares import DatabaseMiddleware
+from bot.middlewares import DatabaseMiddleware, AdminAuthMiddleware
 from bot.services.container import ServiceContainer
 from bot.states.admin import UserManagementStates
 from bot.utils import CallbackParser, CallbackData
@@ -25,6 +25,8 @@ users_router = Router(name="admin_users")
 # Apply middleware (AdminAuth already on admin_router, this integrates into it)
 users_router.callback_query.middleware(DatabaseMiddleware())
 users_router.message.middleware(DatabaseMiddleware())
+users_router.callback_query.middleware(AdminAuthMiddleware())
+users_router.message.middleware(AdminAuthMiddleware())
 
 
 # ===== MENU NAVIGATION =====
