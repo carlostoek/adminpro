@@ -387,11 +387,15 @@ async def handle_vip_info(callback: CallbackQuery, container):
             "si sabes entrar sin hacer ruido."
         )
 
-        # Create keyboard with navigation using helper
+        # Create keyboard with "Me interesa" button and navigation
         from bot.utils.keyboards import create_content_with_navigation
 
+        content_buttons = [
+            [{"text": "⭐ Me interesa", "callback_data": "vip:subscription:interest"}]
+        ]
+
         keyboard = create_content_with_navigation(
-            content_buttons=[],
+            content_buttons=content_buttons,
             back_text="⬅️ Volver al Menú Free",
             back_callback="menu:free:main"
         )
@@ -579,6 +583,95 @@ async def handle_menu_back(callback: CallbackQuery, container):
     except Exception as e:
         logger.error(f"Error volviendo al menú Free para {user.id}: {e}", exc_info=True)
         await callback.answer("⚠️ Error volviendo al menú", show_alert=True)
+
+
+@free_callbacks_router.callback_query(lambda c: c.data == "vip:subscription:interest")
+async def handle_vip_subscription_interest(callback: CallbackQuery, container):
+    """
+    Registra interés en suscripción VIP y notifica a administradores.
+
+    Args:
+        callback: CallbackQuery de Telegram
+        container: ServiceContainer inyectado por middleware
+    """
+    user = callback.from_user
+
+    if not container:
+        await callback.answer("⚠️ Error: servicio no disponible", show_alert=True)
+        return
+
+    try:
+        # Verificar si ya existe interés reciente (ventana de 5 minutos)
+        from datetime import datetime, timedelta
+        from bot.database.models import UserInterest
+        from sqlalchemy import select, and_
+
+        five_minutes_ago = datetime.utcnow() - timedelta(minutes=5)
+
+        result = await container.session.execute(
+            select(UserInterest).where(
+                and_(
+                    UserInterest.user_id == user.id,
+                    UserInterest.created_at >= five_minutes_ago
+                )
+            )
+        )
+        existing_interest = result.scalar_one_or_none()
+
+        if existing_interest:
+            await callback.answer(
+                "✅ Tu interés ya fue registrado. Diana será notificada.",
+                show_alert=True
+            )
+            return
+
+        # Crear registro de interés especial para suscripción VIP
+        # Usamos package_id=None para indicar interés en suscripción general
+        interest_data = {
+            "user_id": user.id,
+            "package_id": None,  # None indica interés en suscripción VIP
+            "status": "pending",
+            "notes": "Interés en suscripción VIP - El Diván"
+        }
+
+        # Guardar en base de datos
+        interest = UserInterest(**interest_data)
+        container.session.add(interest)
+        await container.session.commit()
+
+        # Notificar a administradores
+        from bot.handlers.utils import send_admin_interest_notification
+
+        # Crear objeto paquete ficticio para la notificación
+        class VIPPackage:
+            def __init__(self):
+                self.name = "Suscripción VIP - El Diván"
+                self.id = 0
+
+        vip_package = VIPPackage()
+
+        await send_admin_interest_notification(
+            bot=callback.bot,
+            container=container,
+            user=user,
+            package=vip_package,
+            interest=interest,
+            user_role="Free (Interés VIP)"
+        )
+
+        await callback.answer(
+            "✅ Tu interés ha sido registrado. Diana será notificada.",
+            show_alert=True
+        )
+
+        logger.info(f"💎 Interés en suscripción VIP registrado: user {user.id}")
+
+    except Exception as e:
+        logger.error(f"Error registrando interés VIP para {user.id}: {e}", exc_info=True)
+        await callback.answer(
+            "⚠️ Error registrando interés. Intenta de nuevo más tarde.",
+            show_alert=True
+        )
 
 
 # DISABLED: Exit button removed from navigation (Quick Task 002)
