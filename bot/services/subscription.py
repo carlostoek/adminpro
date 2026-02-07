@@ -35,6 +35,35 @@ from bot.database.enums import UserRole, RoleChangeReason
 logger = logging.getLogger(__name__)
 
 
+def _mask_token(token: str) -> str:
+    """Enmascara un token mostrando solo los primeros 4 caracteres.
+
+    Args:
+        token: Token completo a enmascarar
+
+    Returns:
+        Token enmascarado (ej: "abcd****")
+    """
+    if not token or len(token) < 4:
+        return "****"
+    return f"{token[:4]}****"
+
+
+def _mask_user_id(user_id: int) -> str:
+    """Enmascara un user ID mostrando solo primeros y últimos 2 dígitos.
+
+    Args:
+        user_id: ID de usuario de Telegram
+
+    Returns:
+        ID enmascarado (ej: "12****89")
+    """
+    user_str = str(user_id)
+    if len(user_str) <= 4:
+        return "****"
+    return f"{user_str[:2]}****{user_str[-2:]}"
+
+
 class SubscriptionService:
     """
     Service para gestionar suscripciones VIP y Free.
@@ -138,8 +167,8 @@ class SubscriptionService:
         # No commit - dejar que el handler maneje la transacción
 
         logger.info(
-            f"✅ Token VIP generado: {token.token} "
-            f"(válido por {duration_hours}h, plan_id: {plan_id}, generado por {generated_by})"
+            f"✅ Token VIP generado: {_mask_token(token.token)} "
+            f"(válido por {duration_hours}h, plan_id: {plan_id}, generado por admin_id={generated_by})"
         )
 
         return token
