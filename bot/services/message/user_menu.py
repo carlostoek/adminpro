@@ -98,22 +98,8 @@ class UserMenuMessages(BaseMessageProvider):
         """
         safe_name = escape_html(user_name)
 
-        # Weighted greeting variations (common, alternate, poetic)
-        greetings = [
-            ("Ah, un miembro del círculo exclusivo...", 0.6),
-            ("Bienvenido de nuevo al sanctum...", 0.3),
-            ("Los portales del reino se abren para usted...", 0.1),
-        ]
-
-        greeting = self._choose_variant(
-            [g[0] for g in greetings],
-            weights=[g[1] for g in greetings],
-            user_id=user_id,
-            method_name="vip_menu_greeting",
-            session_history=session_history
-        )
-
-        header = f"🎩 <b>Lucien:</b>\n\n<i>{greeting}</i>"
+        # Fixed greeting for VIP users
+        header = f"🎩 <b>Lucien:</b>\n\n<i>Ya no estás afuera.\nAquí el juego cambia.</i>"
 
         # Meses en español para localización de fechas
         MESES_ES = {
@@ -188,21 +174,8 @@ class UserMenuMessages(BaseMessageProvider):
         """
         safe_name = escape_html(user_name)
 
-        # Weighted greeting variations (welcoming, informative)
-        greetings = [
-            ("Bienvenido al jardín público...", 0.7),
-            ("El vestíbulo de acceso aguarda su contemplación...", 0.3),
-        ]
-
-        greeting = self._choose_variant(
-            [g[0] for g in greetings],
-            weights=[g[1] for g in greetings],
-            user_id=user_id,
-            method_name="free_menu_greeting",
-            session_history=session_history
-        )
-
-        header = f"🎩 <b>Lucien:</b>\n\n<i>{greeting}</i>"
+        # Fixed greeting for Free users
+        header = f"🎩 <b>Lucien:</b>\n\n<i>Sí… ya eres Kinky.\nAquí empieza el juego.</i>"
 
         # Queue status section (if applicable)
         queue_status = ""
@@ -338,21 +311,8 @@ class UserMenuMessages(BaseMessageProvider):
         """
         safe_name = escape_html(user_name)
 
-        # Weighted section introductions
-        introductions = [
-            "Las muestras del jardín...",
-            "Diana permite que estos fragmentos sean contemplados...",
-            "El jardín público revela sus muestras..."
-        ]
-
-        introduction = self._choose_variant(
-            introductions,
-            user_id=user_id,
-            method_name="free_content_section",
-            session_history=session_history
-        )
-
-        header = f"🎩 <b>Lucien:</b>\n\n<i>{introduction}</i>"
+        # Fixed header for "Mi contenido" section
+        header = f"🎩 <b>Lucien:</b>\n\n<i>Lo que no publico… lo dejo aquí.</i>"
 
         # Sort packages by price (free first, then ascending)
         sorted_packages = self._sort_packages_by_price(packages)
@@ -417,21 +377,8 @@ class UserMenuMessages(BaseMessageProvider):
         """
         safe_name = escape_html(user_name)
 
-        # Weighted section introductions for VIP viewing Free content
-        introductions = [
-            "Como miembro del círculo, también puede explorar el jardín público...",
-            "El círculo exclusivo no cierra las puertas al jardín...",
-            "Diana permite que los miembros del sanctum contemplen las muestras..."
-        ]
-
-        introduction = self._choose_variant(
-            introductions,
-            user_id=user_id,
-            method_name="vip_free_content_section",
-            session_history=session_history
-        )
-
-        header = f"🎩 <b>Lucien:</b>\n\n<i>{introduction}</i>"
+        # Fixed header for "Mi contenido" section (VIP viewing Free content)
+        header = f"🎩 <b>Lucien:</b>\n\n<i>Lo que no publico… lo dejo aquí.</i>"
 
         # Sort packages by price (free first, then ascending)
         sorted_packages = self._sort_packages_by_price(packages)
