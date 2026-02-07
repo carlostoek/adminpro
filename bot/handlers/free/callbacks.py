@@ -358,32 +358,34 @@ async def handle_vip_info(callback: CallbackQuery, container):
         except Exception as e:
             logger.warning(f"No se pudo verificar configuración VIP: {e}")
 
-        # Create informative message about VIP benefits with Lucien's voice
+        # Texto fijo para El Diván según diseño
         message_text = (
-            f"🎩 <b>Lucien:</b>\n\n"
-            f"<i>El círculo exclusivo de Diana aguarda...</i>\n\n"
-            f"<b>⭐ Canal VIP - El Círculo Exclusivo</b>\n\n"
+            "🫦 <b>Diana:</b>\n\n"
+            "💎 <b>El Diván de Diana</b> 💎\n"
+            "No es para cualquiera.\n\n"
+            "El Diván es mi espacio privado.\n"
+            "Donde no actúo.\n"
+            "Donde no filtro.\n"
+            "Y donde no explico.\n\n"
+            "Aquí no muestro \"un poco más\".\n"
+            "Aquí me muestro completa.\n\n"
+            "Lo que ocurre dentro:\n"
+            "<b>Más de 3,000 archivos</b> (si, tres mil) entre fotos y videos que no existen fuera del Diván.\n"
+            "<b>Contenido sin censura</b> que no vendo por separado.\n"
+            "<b>Acceso preferente</b> a contenido Premium.\n"
+            "<b>Descuento VIP</b> en contenido personalizado.\n"
+            "<b>Historias privadas</b> que solo ve quien se atreve a quedarse.\n\n"
+            "Acceso\n"
+            "<b>$350 MXN</b> / 23 USD al mes.\n"
+            "Sin pruebas.\n"
+            "Sin recorridos.\n"
+            "Sin curiosos.\n\n"
+            "El Diván sigue intacto.\n"
+            "Sin máscaras.\n"
+            "Sin inocencia.\n\n"
+            "Solo tú y yo…\n"
+            "si sabes entrar sin hacer ruido."
         )
-
-        if is_vip_configured:
-            message_text += (
-                f"<i>El sanctum está disponible para aquellos que posean "
-                f"el token de acceso.</i>\n\n"
-                f"<b>✨ Beneficios del Círculo:</b>\n"
-                f"• Contenido exclusivo y anticipado\n"
-                f"• Comunidad privada de miembros\n"
-                f"• Acceso directo a Diana para consultas\n"
-                f"• Contenido premium adicional\n"
-                f"• Privilegios especiales y eventos\n\n"
-                f"<i>Para unirse al círculo exclusivo, necesitará un "
-                f"token de invitación de Diana.</i>"
-            )
-        else:
-            message_text += (
-                f"<i>El sanctum aún no ha sido configurado por los custodios.</i>\n\n"
-                f"<i>Los beneficios del círculo exclusivo estarán disponibles "
-                f"una vez que Diana active el canal.</i>"
-            )
 
         # Create keyboard with navigation using helper
         from bot.utils.keyboards import create_content_with_navigation
@@ -419,27 +421,21 @@ async def handle_social_media(callback: CallbackQuery):
     user = callback.from_user
 
     try:
-        # Create social media message with Lucien's voice
-        message_text = (
-            f"🎩 <b>Lucien:</b>\n\n"
-            f"<i>Diana comparte fragmentos de su arte en estos jardines públicos...</i>\n\n"
-            f"<b>🌸 Redes Sociales de Diana</b>\n\n"
-            f"• <b>Instagram:</b> @diana_artista (muestras diarias)\n"
-            f"• <b>TikTok:</b> @diana.creaciones (tutoriales rápidos)\n"
-            f"• <b>YouTube:</b> Diana Creaciones (procesos completos)\n\n"
-            f"<b>🎁 Promos Adicionales</b>\n\n"
-            f"• Blog: www.dianacreaciones.com/blog\n"
-            f"• Newsletter: Suscripción gratuita\n"
-            f"• Comunidad: Grupo público de Telegram\n\n"
-            f"<i>Seguir a Diana en redes sociales puede acelerar "
-            f"su acceso al canal Free.</i>"
-        )
+        # Solo cabecera y botones de redes sociales
+        message_text = "🫦 <b>Diana:</b>\n\nMis redes"
 
-        # Create keyboard with navigation using helper
+        # Create keyboard with social media buttons
         from bot.utils.keyboards import create_content_with_navigation
 
+        social_buttons = [
+            [{"text": "📷 Instagram @srta.kinky", "url": "https://instagram.com/srta.kinky"}],
+            [{"text": "📷 Instagram @ella.es.diana", "url": "https://instagram.com/ella.es.diana"}],
+            [{"text": "🎵 TikTok @srtakinky", "url": "https://tiktok.com/@srtakinky"}],
+            [{"text": "🐦 X @SrtaKinky", "url": "https://x.com/SrtaKinky"}],
+        ]
+
         keyboard = create_content_with_navigation(
-            content_buttons=[],
+            content_buttons=social_buttons,
             back_text="⬅️ Volver al Menú Free",
             back_callback="menu:free:main"
         )

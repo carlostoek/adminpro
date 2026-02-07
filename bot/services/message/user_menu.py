@@ -96,41 +96,9 @@ class UserMenuMessages(BaseMessageProvider):
             >>> 'círculo exclusivo' in text.lower()
             True
         """
-        safe_name = escape_html(user_name)
+        # Fixed greeting for VIP users - solo el texto solicitado
+        text = "🫦 <b>Diana:</b>\n\nYa no estás afuera.\nAquí el juego cambia."
 
-        # Fixed greeting for VIP users
-        header = f"🎩 <b>Lucien:</b>\n\n<i>Ya no estás afuera.\nAquí el juego cambia.</i>"
-
-        # Meses en español para localización de fechas
-        MESES_ES = {
-            1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
-            5: "mayo", 6: "junio", 7: "julio", 8: "agosto",
-            9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"
-        }
-
-        # Subscription status section
-        if vip_expires_at:
-            # Check if subscription is still active (not expired)
-            from datetime import datetime
-            if vip_expires_at > datetime.utcnow():
-                # Active subscription - show expiry date in Spanish
-                expiry_text = f"{vip_expires_at.day} de {MESES_ES[vip_expires_at.month]} de {vip_expires_at.year}"
-                subscription_status = f"<b>⏳ Su membresía expira el {expiry_text}</b>"
-            else:
-                # Expired subscription - show warning
-                subscription_status = f"<b>⚠️ Su membresía ha expirado</b>"
-        else:
-            subscription_status = "<b>✨ Su membresía es permanente</b>"
-
-        body = (
-            f"Bienvenido de nuevo.\n\n"
-            f"💎 <b>El Diván de Diana</b> 💎\n\n"
-            f"<b>{safe_name}</b>.\n\n"
-            f"{subscription_status}\n\n"
-            f"<i>¿Qué desea explorar hoy?</i>"
-        )
-
-        text = self._compose(header, body)
         keyboard = self._vip_main_menu_keyboard()
         return text, keyboard
 
@@ -172,27 +140,9 @@ class UserMenuMessages(BaseMessageProvider):
             >>> '5' in text  # Queue position
             True
         """
-        safe_name = escape_html(user_name)
+        # Fixed greeting for Free users - solo el texto solicitado
+        text = "🫦 <b>Diana:</b>\n\nSí… ya eres Kinky.\nAquí empieza el juego."
 
-        # Fixed greeting for Free users
-        header = f"🎩 <b>Lucien:</b>\n\n<i>Sí… ya eres Kinky.\nAquí empieza el juego.</i>"
-
-        # Queue status section (if applicable)
-        queue_status = ""
-        if free_queue_position is not None and free_queue_position > 0:
-            queue_status = (
-                f"<b>🕐 Su posición en la cola:</b> <code>{free_queue_position}</code>\n\n"
-            )
-
-        body = (
-            f"<b>📺 Menú del Vestíbulo de Acceso</b>\n\n"
-            f"Bienvenido, <b>{safe_name}</b>.\n\n"
-            f"{queue_status}"
-            f"<i>Explore las muestras del jardín que Diana ha dispuesto "
-            f"para los visitantes del vestíbulo...</i>"
-        )
-
-        text = self._compose(header, body)
         keyboard = self._free_main_menu_keyboard()
         return text, keyboard
 
@@ -309,21 +259,11 @@ class UserMenuMessages(BaseMessageProvider):
             >>> 'muestras' in text.lower()
             True
         """
-        safe_name = escape_html(user_name)
-
-        # Fixed header for "Mi contenido" section
-        header = f"🎩 <b>Lucien:</b>\n\n<i>Lo que no publico… lo dejo aquí.</i>"
+        # Solo la cabecera solicitada para "Mi contenido"
+        text = "🫦 <b>Diana:</b>\n\nLo que no publico… lo dejo aquí."
 
         # Sort packages by price (free first, then ascending)
         sorted_packages = self._sort_packages_by_price(packages)
-
-        body = (
-            f"<b>🌸 Sección de Contenido Free</b>\n\n"
-            f"<b>{safe_name}</b>, explore las muestras del jardín...\n\n"
-            f"<i>Seleccione un paquete para ver detalles completos antes de manifestar interés...</i>"
-        )
-
-        text = self._compose(header, body)
 
         # Create minimalist package buttons (one per row, name only)
         # NOTE: Using "free:packages:" prefix to avoid conflict with VIP router
@@ -375,22 +315,11 @@ class UserMenuMessages(BaseMessageProvider):
             >>> 'jardín público' in text.lower()
             True
         """
-        safe_name = escape_html(user_name)
-
-        # Fixed header for "Mi contenido" section (VIP viewing Free content)
-        header = f"🎩 <b>Lucien:</b>\n\n<i>Lo que no publico… lo dejo aquí.</i>"
+        # Solo la cabecera solicitada para "Mi contenido"
+        text = "🫦 <b>Diana:</b>\n\nLo que no publico… lo dejo aquí."
 
         # Sort packages by price (free first, then ascending)
         sorted_packages = self._sort_packages_by_price(packages)
-
-        body = (
-            f"<b>🌸 Sección de Contenido Free</b>\n\n"
-            f"<b>{safe_name}</b>, explore las muestras del jardín público...\n\n"
-            f"<i>Como miembro del círculo exclusivo, tiene acceso a todo el contenido. "
-            f"Seleccione un paquete para ver detalles...</i>"
-        )
-
-        text = self._compose(header, body)
 
         # Create minimalist package buttons with vip:free: prefix
         # This ensures callbacks go through VIP router with proper validation
