@@ -15,6 +15,21 @@ from config import Config
 logger = logging.getLogger(__name__)
 
 
+def _mask_user_id(user_id: int) -> str:
+    """Enmascara un user ID mostrando solo primeros y últimos 2 dígitos.
+
+    Args:
+        user_id: ID de usuario de Telegram
+
+    Returns:
+        ID enmascarado (ej: "12****89")
+    """
+    user_str = str(user_id)
+    if len(user_str) <= 4:
+        return "****"
+    return f"{user_str[:2]}****{user_str[-2:]}"
+
+
 def is_admin(user_id: int) -> bool:
     """Verifica si un usuario es administrador.
 
@@ -77,7 +92,7 @@ class AdminAuthMiddleware(BaseMiddleware):
         if not Config.is_admin(user.id):
             # Usuario no es admin
             logger.warning(
-                f"🚫 Acceso denegado: user {user.id} (@{user.username or 'sin username'}) "
+                f"🚫 Acceso denegado: user {_mask_user_id(user.id)} "
                 f"intentó acceder a handler admin"
             )
 
@@ -99,5 +114,5 @@ class AdminAuthMiddleware(BaseMiddleware):
             return None
 
         # Usuario es admin: ejecutar handler normalmente
-        logger.debug(f"✅ Admin verificado: user {user.id}")
+        logger.debug(f"✅ Admin verificado: user {_mask_user_id(user.id)}")
         return await handler(event, data)

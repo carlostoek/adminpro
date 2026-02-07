@@ -284,7 +284,7 @@ class SubscriptionService:
             # No commit - dejar que el handler maneje la transacción
 
             logger.info(
-                f"✅ Suscripción VIP extendida: user {user_id} "
+                f"✅ Suscripción VIP extendida: user {_mask_user_id(user_id)} "
                 f"(nueva expiración: {existing_subscriber.expiry_date}, was_expired={was_expired})"
             )
 
@@ -305,7 +305,7 @@ class SubscriptionService:
         # No commit - dejar que el handler maneje la transacción
 
         logger.info(
-            f"✅ Nuevo suscriptor VIP: user {user_id} "
+            f"✅ Nuevo suscriptor VIP: user {_mask_user_id(user_id)} "
             f"(expira: {expiry_date})"
         )
 
@@ -461,7 +461,7 @@ class SubscriptionService:
 
             subscriber = existing_subscriber
             logger.info(
-                f"🔄 Suscripción VIP renovada para user {user_id} "
+                f"🔄 Suscripción VIP renovada para user {_mask_user_id(user_id)} "
                 f"(stage={subscriber.vip_entry_stage}, was_expired={was_expired})"
             )
         else:
@@ -476,7 +476,7 @@ class SubscriptionService:
             )
             self.session.add(subscriber)
             logger.info(
-                f"✅ Nueva suscripción VIP creada para user {user_id} (stage=1)"
+                f"✅ Nueva suscripción VIP creada para user {_mask_user_id(user_id)} (stage=1)"
             )
 
         return subscriber
@@ -508,7 +508,7 @@ class SubscriptionService:
         for subscriber in expired_subscribers:
             subscriber.status = "expired"
             count += 1
-            logger.info(f"⏱️ VIP expirado: user {subscriber.user_id}")
+            logger.info(f"⏱️ VIP expirado: user {_mask_user_id(subscriber.user_id)}")
 
             # Phase 13: Cancel entry flow if incomplete (stages 1 or 2)
             if container and subscriber.vip_entry_stage in (1, 2):
@@ -517,12 +517,12 @@ class SubscriptionService:
                         user_id=subscriber.user_id
                     )
                     logger.info(
-                        f"🚫 Cancelled VIP entry flow for user {subscriber.user_id} "
+                        f"🚫 Cancelled VIP entry flow for user {_mask_user_id(subscriber.user_id)} "
                         f"(subscription expired at stage {subscriber.vip_entry_stage})"
                     )
                 except Exception as e:
                     logger.error(
-                        f"Error cancelling VIP entry flow for user {subscriber.user_id}: {e}"
+                        f"Error cancelling VIP entry flow for user {_mask_user_id(subscriber.user_id)}: {e}"
                     )
 
             # Log role change if container provided
@@ -541,9 +541,9 @@ class SubscriptionService:
                             "original_expiry": subscriber.expiry_date.isoformat() if subscriber.expiry_date else None
                         }
                     )
-                    logger.debug(f"✅ Role change logged for expired VIP user {subscriber.user_id}")
+                    logger.debug(f"✅ Role change logged for expired VIP user {_mask_user_id(subscriber.user_id)}")
                 except Exception as e:
-                    logger.error(f"Error logging role change for user {subscriber.user_id}: {e}")
+                    logger.error(f"Error logging role change for user {_mask_user_id(subscriber.user_id)}: {e}")
 
         if count > 0:
             await self.session.commit()
@@ -585,11 +585,11 @@ class SubscriptionService:
                 )
 
                 banned_count += 1
-                logger.info(f"🚫 Usuario baneado de VIP (suscripción expirada): {subscriber.user_id}")
+                logger.info(f"🚫 Usuario baneado de VIP (suscripción expirada): {_mask_user_id(subscriber.user_id)}")
 
             except Exception as e:
                 logger.warning(
-                    f"⚠️ No se pudo banear a user {subscriber.user_id}: {e}"
+                    f"⚠️ No se pudo banear a user {_mask_user_id(subscriber.user_id)}: {e}"
                 )
 
         if banned_count > 0:
@@ -621,11 +621,11 @@ class SubscriptionService:
                 user_id=user_id,
                 only_if_banned=True  # Solo desbanear si está baneado
             )
-            logger.info(f"✅ Usuario desbaneado de VIP (renovación): {user_id}")
+            logger.info(f"✅ Usuario desbaneado de VIP (renovación): {_mask_user_id(user_id)}")
             return True
         except Exception as e:
             logger.warning(
-                f"⚠️ No se pudo desbanear a user {user_id}: {e}"
+                f"⚠️ No se pudo desbanear a user {_mask_user_id(user_id)}: {e}"
             )
             return False
 
@@ -730,7 +730,7 @@ class SubscriptionService:
 
         if existing:
             logger.info(
-                f"ℹ️ Usuario {user_id} ya tiene solicitud Free pendiente "
+                f"ℹ️ Usuario {_mask_user_id(user_id)} ya tiene solicitud Free pendiente "
                 f"(hace {existing.minutes_since_request()} min)"
             )
             return existing
@@ -746,7 +746,7 @@ class SubscriptionService:
         await self.session.commit()
         await self.session.refresh(request)
 
-        logger.info(f"✅ Solicitud Free creada: user {user_id}")
+        logger.info(f"✅ Solicitud Free creada: user {_mask_user_id(user_id)}")
 
         return request
 
@@ -813,7 +813,7 @@ class SubscriptionService:
             )
             self.session.add(user)
             await self.session.flush()  # Flush para crear el usuario sin commit aún
-            logger.info(f"✅ Usuario creado desde ChatJoinRequest: {user_id}")
+            logger.info(f"✅ Usuario creado desde ChatJoinRequest: {_mask_user_id(user_id)}")
         else:
             # Actualizar datos del usuario si han cambiado
             updated = False
@@ -828,7 +828,7 @@ class SubscriptionService:
                 updated = True
             if updated:
                 await self.session.flush()
-                logger.debug(f"📝 Datos de usuario actualizados: {user_id}")
+                logger.debug(f"📝 Datos de usuario actualizados: {_mask_user_id(user_id)}")
 
         # ===== BUSCAR SOLICITUD EXISTENTE =====
         # Buscar CUALQUIER solicitud pendiente del usuario (no solo recientes)
@@ -850,7 +850,7 @@ class SubscriptionService:
                 # (probablemente la ChatJoinRequest de Telegram expiró)
                 # Eliminarla y crear una nueva para que el usuario pueda reintentar
                 logger.info(
-                    f"🔄 Solicitud Free de user {user_id} ya cumplió tiempo "
+                    f"🔄 Solicitud Free de user {_mask_user_id(user_id)} ya cumplió tiempo "
                     f"({minutes_since} min >= {wait_time} min) pero no fue aprobada. "
                     f"Creando nueva solicitud..."
                 )
@@ -864,7 +864,7 @@ class SubscriptionService:
                 if existing.request_date >= spam_cutoff:
                     # Solicitud muy reciente - rechazar duplicado
                     logger.info(
-                        f"ℹ️ Usuario {user_id} ya tiene solicitud Free reciente "
+                        f"ℹ️ Usuario {_mask_user_id(user_id)} ya tiene solicitud Free reciente "
                         f"(hace {minutes_since} min, quedan {wait_time - minutes_since} min)"
                     )
                     return False, "Ya existe solicitud pendiente", existing
@@ -876,7 +876,7 @@ class SubscriptionService:
                     await self.session.commit()
                     await self.session.refresh(existing)
                     logger.info(
-                        f"🔄 Solicitud Free reactivada para user {user_id} "
+                        f"🔄 Solicitud Free reactivada para user {_mask_user_id(user_id)} "
                         f"(tiempo reseteado, protegida de expiración)"
                     )
                     return False, "Solicitud reactivada", existing
@@ -916,7 +916,7 @@ class SubscriptionService:
 
         if deleted_count > 0:
             logger.info(
-                f"🧹 Limpiadas {deleted_count} solicitud(es) antigua(s) de user {user_id}"
+                f"🧹 Limpiadas {deleted_count} solicitud(es) antigua(s) de user {_mask_user_id(user_id)}"
             )
 
         # Crear nueva solicitud limpia
@@ -930,7 +930,7 @@ class SubscriptionService:
         await self.session.commit()
         await self.session.refresh(request)
 
-        logger.info(f"✅ Solicitud Free creada desde ChatJoinRequest: user {user_id}")
+        logger.info(f"✅ Solicitud Free creada desde ChatJoinRequest: user {_mask_user_id(user_id)}")
 
         return True, "Solicitud creada exitosamente", request
 
@@ -1109,18 +1109,18 @@ class SubscriptionService:
                         )
 
                         logger.info(
-                            f"✅ Aprobación enviada a user {request.user_id} con enlace al canal"
+                            f"✅ Aprobación enviada a user {_mask_user_id(request.user_id)} con enlace al canal"
                         )
                     except Exception as notify_error:
                         # Distinguir entre usuario que bloqueó el bot vs otros errores
                         error_type = type(notify_error).__name__
                         if "Forbidden" in error_type or "blocked" in str(notify_error).lower():
                             logger.warning(
-                                f"⚠️ Usuario {request.user_id} bloqueó el bot, no se envió confirmación"
+                                f"⚠️ Usuario {_mask_user_id(request.user_id)} bloqueó el bot, no se envió confirmación"
                             )
                         else:
                             logger.error(
-                                f"❌ Error inesperado enviando confirmación a {request.user_id}: {notify_error}"
+                                f"❌ Error inesperado enviando confirmación a {_mask_user_id(request.user_id)}: {notify_error}"
                             )
                         # No falla la aprobación si el mensaje no se envía
 
@@ -1129,7 +1129,7 @@ class SubscriptionService:
                 request.processed_at = datetime.utcnow()
 
                 success_count += 1
-                logger.info(f"✅ Solicitud Free aprobada: user {request.user_id}")
+                logger.info(f"✅ Solicitud Free aprobada: user {_mask_user_id(request.user_id)}")
 
             except Exception as e:
                 error_count += 1
@@ -1147,12 +1147,12 @@ class SubscriptionService:
                     request.processed = True
                     request.processed_at = datetime.utcnow()
                     logger.warning(
-                        f"⚠️ Solicitud de user {request.user_id} expiró o fue cancelada. "
+                        f"⚠️ Solicitud de user {_mask_user_id(request.user_id)} expiró o fue cancelada. "
                         f"Marcada como procesada para evitar reintentos."
                     )
                 else:
                     logger.error(
-                        f"❌ Error aprobando solicitud de user {request.user_id}: {e}"
+                        f"❌ Error aprobando solicitud de user {_mask_user_id(request.user_id)}: {e}"
                     )
 
         # Commit todos los cambios
@@ -1196,13 +1196,13 @@ class SubscriptionService:
 
         invite_link = await self.bot.create_chat_invite_link(
             chat_id=channel_id,
-            name=f"User {user_id}",
+            name=f"User {_mask_user_id(user_id)}",
             expire_date=expire_date,
             member_limit=1  # Solo 1 persona puede usar este link
         )
 
         logger.info(
-            f"🔗 Invite link creado para user {user_id}: "
+            f"🔗 Invite link creado para user {_mask_user_id(user_id)}: "
             f"{invite_link.invite_link[:30]}..."
         )
 
@@ -1281,12 +1281,12 @@ class SubscriptionService:
                     request.processed_at = datetime.utcnow()
 
                     success_count += 1
-                    logger.info(f"✅ Solicitud Free aprobada (bulk): user {request.user_id}")
+                    logger.info(f"✅ Solicitud Free aprobada (bulk): user {_mask_user_id(request.user_id)}")
 
                 except Exception as e:
                     error_count += 1
                     logger.warning(
-                        f"⚠️ Error aprobando solicitud de user {request.user_id}: {e}"
+                        f"⚠️ Error aprobando solicitud de user {_mask_user_id(request.user_id)}: {e}"
                     )
 
             await self.session.commit()
@@ -1333,12 +1333,12 @@ class SubscriptionService:
                     request.processed_at = datetime.utcnow()
 
                     success_count += 1
-                    logger.info(f"🚫 Solicitud Free rechazada (bulk): user {request.user_id}")
+                    logger.info(f"🚫 Solicitud Free rechazada (bulk): user {_mask_user_id(request.user_id)}")
 
                 except Exception as e:
                     error_count += 1
                     logger.warning(
-                        f"⚠️ Error rechazando solicitud de user {request.user_id}: {e}"
+                        f"⚠️ Error rechazando solicitud de user {_mask_user_id(request.user_id)}: {e}"
                     )
 
             await self.session.commit()
@@ -1394,19 +1394,19 @@ class SubscriptionService:
             await self.session.execute(
                 delete(UserInterest).where(UserInterest.user_id == user_id)
             )
-            logger.debug(f"🗑️ Eliminados intereses de usuario {user_id}")
+            logger.debug(f"🗑️ Eliminados intereses de usuario {_mask_user_id(user_id)}")
 
             # 2. UserRoleChangeLog (user_id FK)
             await self.session.execute(
                 delete(UserRoleChangeLog).where(UserRoleChangeLog.user_id == user_id)
             )
-            logger.debug(f"🗑️ Eliminado historial de cambios de rol de usuario {user_id}")
+            logger.debug(f"🗑️ Eliminado historial de cambios de rol de usuario {_mask_user_id(user_id)}")
 
             # 3. FreeChannelRequest (user_id FK)
             await self.session.execute(
                 delete(FreeChannelRequest).where(FreeChannelRequest.user_id == user_id)
             )
-            logger.debug(f"🗑️ Eliminadas solicitudes Free de usuario {user_id}")
+            logger.debug(f"🗑️ Eliminadas solicitudes Free de usuario {_mask_user_id(user_id)}")
 
             # 4. VIPSubscriber (user_id FK) - cascada a través de relación subscribers
             # Primero obtener los token_ids asociados para limpiar después
@@ -1418,7 +1418,7 @@ class SubscriptionService:
             await self.session.execute(
                 delete(VIPSubscriber).where(VIPSubscriber.user_id == user_id)
             )
-            logger.debug(f"🗑️ Eliminada suscripción VIP de usuario {user_id}")
+            logger.debug(f"🗑️ Eliminada suscripción VIP de usuario {_mask_user_id(user_id)}")
 
             # 5. InvitationToken donde generated_by=user_id OR used_by=user_id
             await self.session.execute(
@@ -1427,7 +1427,7 @@ class SubscriptionService:
                     (InvitationToken.used_by == user_id)
                 )
             )
-            logger.debug(f"🗑️ Eliminados tokens asociados a usuario {user_id}")
+            logger.debug(f"🗑️ Eliminados tokens asociados a usuario {_mask_user_id(user_id)}")
 
             # 6. Finalmente, eliminar el usuario
             await self.session.execute(
@@ -1438,12 +1438,12 @@ class SubscriptionService:
             await self.session.commit()
 
             logger.info(
-                f"✅ Usuario {user_id} eliminado completamente por admin {deleted_by}"
+                f"✅ Usuario {_mask_user_id(user_id)} eliminado completamente por admin {_mask_user_id(deleted_by)}"
             )
 
             return True, "✅ Usuario eliminado completamente", deleted_user_info
 
         except Exception as e:
             await self.session.rollback()
-            logger.error(f"❌ Error eliminando usuario {user_id}: {e}")
+            logger.error(f"❌ Error eliminando usuario {_mask_user_id(user_id)}: {e}")
             return False, f"❌ Error al eliminar usuario: {str(e)}", None
