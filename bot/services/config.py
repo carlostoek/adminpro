@@ -9,12 +9,50 @@ Responsabilidades:
 """
 import logging
 from typing import List, Dict, Optional
+from urllib.parse import urlparse, urlunparse
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models import BotConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_db_url(url: Optional[str]) -> str:
+    """Sanitiza una URL de base de datos ocultando credenciales.
+
+    Args:
+        url: URL completa de la base de datos
+
+    Returns:
+        URL con credenciales ocultas (ej: "postgresql://user:***@host/db")
+    """
+    if not url:
+        return "No configurado"
+
+    try:
+        parsed = urlparse(url)
+
+        if parsed.password:
+            # Reconstruir URL sin password
+            netloc = f"{parsed.username}:***@{parsed.hostname}"
+            if parsed.port:
+                netloc += f":{parsed.port}"
+
+            sanitized = urlunparse((
+                parsed.scheme,
+                netloc,
+                parsed.path,
+                parsed.params,
+                parsed.query,
+                parsed.fragment
+            ))
+            return sanitized
+
+        return url
+    except Exception:
+        # Si falla el parsing, mostrar versión muy truncada
+        return f"{url[:10]}..." if len(url) > 10 else url
 
 
 class ConfigService:
