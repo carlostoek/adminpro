@@ -1446,4 +1446,5 @@ class SubscriptionService:
         except Exception as e:
             await self.session.rollback()
             logger.error(f"❌ Error eliminando usuario {_mask_user_id(user_id)}: {e}")
-            return False, f"❌ Error al eliminar usuario: {str(e)}", None
+            # No exponer detalles del error interno al usuario
+            return False, "❌ Error interno al eliminar usuario. Contacte al administrador.", None
