@@ -23,7 +23,9 @@ class Config:
     """
 
     # ===== TELEGRAM =====
-    BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
+    # NOTA: Sin valor por defecto - el bot FALLO al iniciar si no está configurado
+    # Esto es una medida de seguridad (fail-secure) - ALTA-004
+    BOT_TOKEN: str = os.getenv("BOT_TOKEN")  # type: ignore[assignment]
 
     # Admin IDs: lista de user IDs con permisos de administración
     # Formato en .env: "123456,789012,345678"
@@ -61,10 +63,12 @@ class Config:
     # Auto-detect testing mode to prevent database contamination
     # If TESTING=true, force in-memory database regardless of .env
     _TESTING_MODE: bool = os.getenv("TESTING", "").lower() in ("true", "1", "yes")
+    # NOTA: En modo NO-testing, DATABASE_URL debe estar configurado explícitamente
+    # No hay valor por defecto en producción - medida de seguridad ALTA-004
     DATABASE_URL: str = (
         "sqlite+aiosqlite:///:memory:"
         if _TESTING_MODE
-        else os.getenv("DATABASE_URL", "sqlite+aiosqlite:///bot.db")
+        else os.getenv("DATABASE_URL")  # type: ignore[arg-type]
     )
 
     # ===== CHANNELS =====
@@ -152,7 +156,11 @@ class Config:
         if not cls.ADMIN_USER_IDS:
             required_vars["ADMIN_USER_IDS"] = None
 
-        missing = [name for name, value in required_vars.items() if not value]
+        # Validar que no sean None o string vacío (ALTA-004)
+        missing = [
+            name for name, value in required_vars.items()
+            if value is None or (isinstance(value, str) and not value.strip())
+        ]
 
         if missing:
             logger.error(f"❌ Variables requeridas faltantes: {', '.join(missing)}")
@@ -339,7 +347,17 @@ class Config:
 # Configurar logging al importar el módulo
 Config.setup_logging()
 
-# Validar configuración (pero no fallar el import)
+# Validación temprana de seguridad (ALTA-004)
+# Fallar explícitamente si faltan variables requeridas - fail-secure
+if Config.BOT_TOKEN is None:
+    logger.critical("💥 CRÍTICO: BOT_TOKEN no configurado. Configure BOT_TOKEN en .env")
+    sys.exit(1)
+
+if not Config._TESTING_MODE and Config.DATABASE_URL is None:
+    logger.critical("💥 CRÍTICO: DATABASE_URL no configurado. Configure DATABASE_URL en .env")
+    sys.exit(1)
+
+# Validar configuración completa
 if not Config.validate():
     logger.warning(
         "⚠️ Configuración incompleta. "
