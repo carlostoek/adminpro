@@ -586,17 +586,18 @@ async def handle_menu_back(callback: CallbackQuery, container):
 
 
 @free_callbacks_router.callback_query(lambda c: c.data == "vip:subscription:interest")
-async def handle_vip_subscription_interest(callback: CallbackQuery, container):
+async def handle_vip_subscription_interest(callback: CallbackQuery, container, session):
     """
     Registra interés en suscripción VIP y notifica a administradores.
 
     Args:
         callback: CallbackQuery de Telegram
         container: ServiceContainer inyectado por middleware
+        session: Sesión de base de datos inyectada por middleware
     """
     user = callback.from_user
 
-    if not container:
+    if not container or not session:
         await callback.answer("⚠️ Error: servicio no disponible", show_alert=True)
         return
 
@@ -608,10 +609,12 @@ async def handle_vip_subscription_interest(callback: CallbackQuery, container):
 
         five_minutes_ago = datetime.utcnow() - timedelta(minutes=5)
 
-        result = await container.session.execute(
+        # Buscar interés reciente específico de suscripción VIP (package_id=None)
+        result = await session.execute(
             select(UserInterest).where(
                 and_(
                     UserInterest.user_id == user.id,
+                    UserInterest.package_id == None,
                     UserInterest.created_at >= five_minutes_ago
                 )
             )
@@ -627,17 +630,17 @@ async def handle_vip_subscription_interest(callback: CallbackQuery, container):
 
         # Crear registro de interés especial para suscripción VIP
         # Usamos package_id=None para indicar interés en suscripción general
-        interest_data = {
-            "user_id": user.id,
-            "package_id": None,  # None indica interés en suscripción VIP
-            "status": "pending",
-            "notes": "Interés en suscripción VIP - El Diván"
-        }
+        interest = UserInterest(
+            user_id=user.id,
+            package_id=None,  # None indica interés en suscripción VIP
+            is_attended=False,
+            attended_at=None,
+            created_at=datetime.utcnow()
+        )
 
         # Guardar en base de datos
-        interest = UserInterest(**interest_data)
-        container.session.add(interest)
-        await container.session.commit()
+        session.add(interest)
+        await session.flush()  # Para obtener el ID
 
         # Notificar a administradores
         from bot.handlers.utils import send_admin_interest_notification
@@ -659,10 +662,17 @@ async def handle_vip_subscription_interest(callback: CallbackQuery, container):
             user_role="Free (Interés VIP)"
         )
 
-        await callback.answer(
-            "✅ Tu interés ha sido registrado. Diana será notificada.",
-            show_alert=True
+        # Mostrar confirmación con botón "Escribirme" y navegación
+        text, keyboard = container.message.user.flows.package_interest_confirmation(
+            user_name=user.first_name or "Usuario",
+            package_name="Suscripción VIP - El Diván",
+            user_role="Free",
+            user_id=user.id,
+            source_section="vip"
         )
+
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+        await callback.answer("✅ Interés registrado")
 
         logger.info(f"💎 Interés en suscripción VIP registrado: user {user.id}")
 
