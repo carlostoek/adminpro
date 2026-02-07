@@ -646,10 +646,16 @@ async def handle_vip_subscription_interest(callback: CallbackQuery, container, s
         from bot.handlers.utils import send_admin_interest_notification
 
         # Crear objeto paquete ficticio para la notificación
+        # con atributos requeridos por send_admin_interest_notification
+        from bot.database.enums import ContentCategory
+
         class VIPPackage:
             def __init__(self):
                 self.name = "Suscripción VIP - El Diván"
                 self.id = 0
+                self.description = "Interés en suscripción mensual al canal VIP"
+                self.price = 350.00  # $350 MXN
+                self.category = ContentCategory.VIP_PREMIUM
 
         vip_package = VIPPackage()
 
