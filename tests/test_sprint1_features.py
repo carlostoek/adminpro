@@ -151,24 +151,30 @@ async def test_spam_window_allows_request_after_timeout(mock_bot, test_session, 
 @pytest.mark.asyncio
 async def test_approve_free_request_with_invite_link(mock_bot, test_session, test_free_user):
     """
-    Test: Aprobación Free envía invite link y confirmación.
+    Test: Aprobación Free envía invite link almacenado y confirmación.
 
     Verifica que:
     - get_chat() se llama UNA vez (fuera del loop)
     - approve_chat_join_request() se llama correctamente
-    - create_invite_link() se llama con parámetros correctos
-    - send_message() envía confirmación con invite link
+    - Se usa el link almacenado en BotConfig.free_channel_invite_link (NO se crea uno nuevo)
+    - send_message() envía confirmación con el link almacenado
     - Solicitud se marca como procesada
+
+    NOTA: El sistema usa un único link almacenado en configuración para todos los usuarios Free,
+    en lugar de crear links individuales por usuario. Esto es por diseño para canales con alta
+    rotación de miembros.
     """
     container = ServiceContainer(test_session, mock_bot)
 
-    # Configurar canal Free
+    # Configurar canal Free con invite link almacenado
+    stored_invite_link = "https://t.me/+test_invite_link"
     config = await test_session.get(BotConfig, 1)
     if not config:
         config = BotConfig(id=1)
         test_session.add(config)
     config.free_channel_id = "-1001234567890"
     config.free_wait_time_minutes = 5
+    config.free_channel_invite_link = stored_invite_link  # Link almacenado en configuración
     await test_session.commit()
 
     # Crear solicitud lista para procesar (6 minutos atrás)
@@ -200,18 +206,14 @@ async def test_approve_free_request_with_invite_link(mock_bot, test_session, tes
         user_id=user_id
     )
 
-    # Verificar create_invite_link
-    mock_bot.create_chat_invite_link.assert_called_once()
-    call_kwargs = mock_bot.create_chat_invite_link.call_args.kwargs
-    assert call_kwargs["chat_id"] == config.free_channel_id
-    assert call_kwargs["member_limit"] == 1  # Un solo uso
+    # NO se debe llamar create_chat_invite_link porque usamos el link almacenado
+    mock_bot.create_chat_invite_link.assert_not_called()
 
-    # Verificar send_message con confirmación
+    # Verificar send_message con confirmación usando el link almacenado
     mock_bot.send_message.assert_called_once()
     call_kwargs = mock_bot.send_message.call_args.kwargs
     assert call_kwargs["chat_id"] == user_id
-    assert "Acceso Free Aprobado" in call_kwargs["text"]
-    assert "https://t.me/+test_invite_link" in call_kwargs["text"]
+    assert stored_invite_link in call_kwargs["text"]
 
     # Verificar que solicitud se marcó como procesada
     await test_session.refresh(request)

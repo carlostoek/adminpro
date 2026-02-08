@@ -35,8 +35,8 @@ class TestVIPMenuFeatures:
         call_args = vip_message.answer.call_args
         text = call_args.args[0] if call_args.args else call_args.kwargs.get('text', '')
 
-        # Should contain VIP indicators
-        assert '🎩' in text
+        # User menus use Diana's voice
+        assert '🫦' in text
 
     async def test_vip_menu_has_premium_option(self, vip_message, test_session, mock_bot):
         """Verify VIP menu includes premium content option."""
@@ -87,8 +87,8 @@ class TestFreeMenuFeatures:
         call_args = free_message.answer.call_args
         text = call_args.args[0] if call_args.args else call_args.kwargs.get('text', '')
 
-        # Should have Lucien's voice
-        assert '🎩' in text
+        # User menus use Diana's voice
+        assert '🫦' in text
 
     async def test_free_menu_has_vip_channel_option(self, free_message, test_session, mock_bot):
         """Verify Free menu includes VIP channel access option."""

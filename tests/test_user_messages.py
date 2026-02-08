@@ -213,62 +213,59 @@ class TestUserStartMessages:
 class TestUserFlowMessages:
     """Test suite for UserFlowMessages provider."""
 
-    def test_free_request_success_shows_wait_time(self):
-        """Test free request success shows wait time."""
+    def test_free_request_success_has_lucien_voice(self):
+        """Test free request success uses Lucien's voice and format."""
         service = LucienVoiceService()
-        text = service.user.flows.free_request_success(wait_time_minutes=30)
+        text, keyboard = service.user.flows.free_request_success(wait_time_minutes=30)
 
-        # Must show wait time
-        assert "30" in text
+        # Must have Lucien's signature
+        assert "🎩" in text
+        assert "Lucien" in text
 
-        # Should mention minutes or time unit
-        text_lower = text.lower()
-        time_units = ["minuto", "minutos", "tiempo"]
-        assert any(unit in text_lower for unit in time_units)
+        # Should mention the channel
+        assert "Los Kinkys" in text
 
-    def test_free_request_success_reassures_automatic(self):
-        """Test free request success emphasizes automatic processing."""
+        # Should have social media keyboard
+        assert keyboard is not None
+
+    def test_free_request_success_reassures_patience(self):
+        """Test free request success reassures patience and Diana's evaluation."""
         service = LucienVoiceService()
-        text = service.user.flows.free_request_success(wait_time_minutes=30)
+        text, keyboard = service.user.flows.free_request_success(wait_time_minutes=30)
 
-        # Should mention automatic process
+        # Should mention Diana's decision/evaluation
         text_lower = text.lower()
-        automatic_keywords = ["automático", "automática", "procesará", "recibirá"]
-        assert any(keyword in text_lower for keyword in automatic_keywords), \
-            "Message should reassure user process is automatic"
+        reassurance_keywords = ["diana", "revisión", "evalúa", "decisión", "vendré a buscarle"]
+        assert any(keyword in text_lower for keyword in reassurance_keywords), \
+            "Message should reassure user that request is being evaluated"
 
     def test_free_request_success_can_close_chat(self):
-        """Test free request success tells user they can close chat."""
+        """Test free request success tells user they don't need to wait."""
         service = LucienVoiceService()
-        text = service.user.flows.free_request_success(wait_time_minutes=30)
+        text, keyboard = service.user.flows.free_request_success(wait_time_minutes=30)
 
-        # Should mention user can close or leave
+        # Should mention user doesn't need to wait in chat
         text_lower = text.lower()
-        close_keywords = ["puede cerrar", "cerrar este chat", "puede salir"]
-        assert any(keyword in text_lower for keyword in close_keywords), \
-            "Message should tell user they can close the chat"
+        wait_keywords = ["no necesita quedarse", "no necesita esperar", "esperando en este chat"]
+        assert any(keyword in text_lower for keyword in wait_keywords), \
+            "Message should tell user they don't need to wait in the chat"
 
-    def test_free_request_duplicate_shows_progress(self):
-        """Test duplicate request shows elapsed and remaining time."""
+    def test_free_request_duplicate_reassures_waiting(self):
+        """Test duplicate request reassures user their request is in progress."""
         service = LucienVoiceService()
         text = service.user.flows.free_request_duplicate(
             time_elapsed_minutes=15,
             time_remaining_minutes=10
         )
 
-        # Must show elapsed time
-        assert "15" in text
-
-        # Must show remaining time
-        assert "10" in text
-
-        # Should mention progress or time context
+        # Should reassure that access is in motion
         text_lower = text.lower()
-        progress_keywords = ["transcurrido", "falta", "restante", "espera"]
-        assert any(keyword in text_lower for keyword in progress_keywords)
+        progress_keywords = ["ya está en movimiento", "acceso", "puerta se abrirá"]
+        assert any(keyword in text_lower for keyword in progress_keywords), \
+            "Message should reassure user that their request is in progress"
 
-    def test_free_request_duplicate_polite_tone(self):
-        """Test duplicate request is polite and reassuring (not scolding)."""
+    def test_free_request_duplicate_philosophical_tone(self):
+        """Test duplicate request uses philosophical tone (not scolding)."""
         service = LucienVoiceService()
         text = service.user.flows.free_request_duplicate(
             time_elapsed_minutes=15,
@@ -277,14 +274,14 @@ class TestUserFlowMessages:
 
         # Should NOT scold or be harsh
         text_lower = text.lower()
-        harsh_words = ["error", "incorrecto", "prohibido", "no puede", "ya le dije"]
+        harsh_words = ["error", "incorrecto", "prohibido", "no puede", "ya le dije", "espere"]
         assert not any(word in text_lower for word in harsh_words), \
-            "Message should be polite, not scolding"
+            "Message should be philosophical, not scolding"
 
-        # Should be reassuring
-        reassuring_keywords = ["paciencia", "proceso", "recibirá", "pronto"]
-        assert any(keyword in text_lower for keyword in reassuring_keywords), \
-            "Message should be reassuring"
+        # Should use philosophical/reflective language
+        philosophical_keywords = ["deseo", "umbral", "espera", "puerta", "entrar"]
+        assert any(keyword in text_lower for keyword in philosophical_keywords), \
+            "Message should use philosophical tone about waiting and entry"
 
     @pytest.mark.parametrize("error_type,expected_keywords", [
         ("channel_not_configured", ["canal", "configurado", "disponible"]),
@@ -319,7 +316,10 @@ class TestUserFlowMessages:
         service = LucienVoiceService()
         method = getattr(service.user.flows, method_name)
 
-        text = method(**kwargs)
+        result = method(**kwargs)
+
+        # Extract text (methods may return tuple or str)
+        text = result[0] if isinstance(result, tuple) else result
 
         # Validate voice characteristics
         assert_lucien_voice(text)

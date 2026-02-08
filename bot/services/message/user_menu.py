@@ -1,13 +1,16 @@
 """
 User Menu Messages Provider - VIP and Free user menu messages.
 
-Provides messages for VIP and Free user menus with Lucien's voice consistency.
-All messages maintain Lucien's sophisticated mayordomo voice from docs/guia-estilo.md.
+Provides messages for VIP and Free user menus with Diana's direct voice.
+User-facing menus use Diana's personal voice for direct connection.
 
-VIP users: "miembros del círculo exclusivo" (exclusive circle members)
-Free users: "visitantes del jardín público" (public garden visitors)
-VIP premium content: "tesoros del sanctum" (sanctum treasures)
-Free content: "muestras del jardín" (garden samples)
+Voice Architecture:
+- User menus (this module): Diana's voice (🫦) - direct, personal, empowering
+- Admin interfaces: Lucien's voice (🎩) - formal, mayordomo, elegant
+- System/flow messages: Lucien's voice (🎩) - service-oriented
+
+VIP users: "Ya no estás afuera. Aquí el juego cambia."
+Free users: "Sí… ya eres Kinky. Aquí empieza el juego."
 """
 import random
 from datetime import datetime
@@ -25,15 +28,19 @@ class UserMenuMessages(BaseMessageProvider):
     """
     User menu messages provider for VIP and Free user menus.
 
-    Voice Characteristics (from docs/guia-estilo.md):
-    - VIP users = "miembros del círculo exclusivo" (exclusive circle members)
-    - Free users = "visitantes del jardín público" (public garden visitors)
-    - VIP premium content = "tesoros del sanctum" (sanctum treasures)
-    - Free content = "muestras del jardín" (garden samples)
-    - Uses "usted", never "tú"
-    - Emoji 🎩 always present
-    - References Diana for authority/mystique
-    - Subscription status shown elegantly (expiration dates, queue positions)
+    Voice Characteristics (Diana's Voice 🫦):
+    - User menus use Diana's direct, personal voice (not Lucien's mayordomo voice)
+    - VIP menu: "Ya no estás afuera. Aquí el juego cambia."
+    - Free menu: "Sí… ya eres Kinky. Aquí empieza el juego."
+    - Content browsing: "Lo que no publico… lo dejo aquí."
+    - Direct, empowering, intimate tone
+    - Second person ("tú/eres/estás") for personal connection
+    - Emoji 🫦 for Diana's voice signature
+
+    Voice Architecture (System-wide):
+    - User menus (this module): Diana's voice (🫦)
+    - Admin interfaces: Lucien's voice (🎩)
+    - System/flow messages: Lucien's voice (🎩)
 
     Stateless Design:
     - No session or bot stored as instance variables
@@ -44,10 +51,10 @@ class UserMenuMessages(BaseMessageProvider):
     Examples:
         >>> provider = UserMenuMessages()
         >>> text, kb = provider.vip_menu_greeting("Juan", vip_expires_at=datetime.now())
-        >>> '🎩' in text and 'círculo exclusivo' in text.lower()
+        >>> '🫦' in text  # Diana's voice for user menus
         True
         >>> text, kb = provider.free_menu_greeting("Ana", free_queue_position=5)
-        >>> 'jardín público' in text.lower() and '5' in text
+        >>> '🫦' in text  # Diana's voice for user menus
         True
     """
 
@@ -67,7 +74,7 @@ class UserMenuMessages(BaseMessageProvider):
         session_history: Optional["SessionMessageHistory"] = None
     ) -> Tuple[str, InlineKeyboardMarkup]:
         """
-        Generate main VIP menu greeting with subscription info placeholders.
+        Generate main VIP menu greeting with Diana's direct voice.
 
         Args:
             user_name: User's first name (will be HTML-escaped)
@@ -78,22 +85,19 @@ class UserMenuMessages(BaseMessageProvider):
         Returns:
             Tuple of (text, keyboard) for VIP main menu
 
-        Voice Rationale:
-            Weighted variations prevent robotic repetition:
-            - 60% common greeting (familiar, welcoming)
-            - 30% alternate greeting (mystery)
-            - 10% poetic greeting (rare, special)
+        Voice (Diana 🫦):
+            Direct, empowering message establishing VIP status:
+            "Ya no estás afuera. Aquí el juego cambia."
 
-            VIP users are "miembros del círculo exclusivo" (exclusive circle members).
-            Subscription expiration shown elegantly: "Su membresía expira el [fecha]"
-            or "Su membresía es permanente" for permanent access.
+            Note: User menus intentionally use Diana's voice (🫦), not Lucien's (🎩),
+            for direct personal connection with users.
 
         Examples:
             >>> provider = UserMenuMessages()
             >>> text, kb = provider.vip_menu_greeting("Juan", vip_expires_at=datetime.now())
-            >>> '🎩' in text and 'Juan' in text
+            >>> '🫦' in text  # Diana's voice
             True
-            >>> 'círculo exclusivo' in text.lower()
+            >>> 'Ya no estás afuera' in text
             True
         """
         # Fixed greeting for VIP users - solo el texto solicitado
@@ -110,7 +114,7 @@ class UserMenuMessages(BaseMessageProvider):
         session_history: Optional["SessionMessageHistory"] = None
     ) -> Tuple[str, InlineKeyboardMarkup]:
         """
-        Generate main Free menu greeting with content browsing.
+        Generate main Free menu greeting with Diana's direct voice.
 
         Args:
             user_name: User's first name (will be HTML-escaped)
@@ -121,23 +125,19 @@ class UserMenuMessages(BaseMessageProvider):
         Returns:
             Tuple of (text, keyboard) for Free main menu
 
-        Voice Rationale:
-            Weighted variations:
-            - 70% welcoming (familiar, reassuring)
-            - 30% informative (educational, guiding)
+        Voice (Diana 🫦):
+            Direct, welcoming message acknowledging Kinky identity:
+            "Sí… ya eres Kinky. Aquí empieza el juego."
 
-            Free users are "visitantes del jardín público" (public garden visitors).
-            Queue status shown if applicable: "Su posición en la cola: [número]"
-            Content browsing emphasized as "muestras del jardín" (garden samples).
+            Note: User menus intentionally use Diana's voice (🫦), not Lucien's (🎩),
+            for direct personal connection with users.
 
         Examples:
             >>> provider = UserMenuMessages()
             >>> text, kb = provider.free_menu_greeting("Ana", free_queue_position=5)
-            >>> '🎩' in text and 'Ana' in text
+            >>> '🫦' in text  # Diana's voice
             True
-            >>> 'jardín público' in text.lower()
-            True
-            >>> '5' in text  # Queue position
+            >>> 'ya eres Kinky' in text
             True
         """
         # Fixed greeting for Free users - solo el texto solicitado
