@@ -9,6 +9,7 @@ Transformación desde un bot Telegram local con SQLite hacia una solución produ
 - ✅ **v1.0 LucienVoiceService** - Phases 1-4 (shipped 2026-01-24)
 - ✅ **v1.1 Sistema de Menús** - Phases 5-13 (shipped 2026-01-28)
 - ✅ **v1.2 Primer Despliegue** - Phases 14-18 (shipped 2026-01-30)
+- 🚧 **v2.0 Gamificación** - Phases 19-24 (in progress)
 
 ## Phases
 
@@ -98,16 +99,104 @@ Production-ready deployment infrastructure with PostgreSQL migration support, co
 
 </details>
 
-### 🚧 v1.3 Redis Caching (Planned)
+<details>
+<summary>🚧 v2.0 Gamificación (Phases 19-24) — IN PROGRESS</summary>
 
-**Milestone Goal:** Add Redis caching layer for FSM state persistence and application-level caching (BotConfig, roles, channels).
+Sistema completo de gamificación con moneda virtual "besitos", reacciones con botones inline, tienda de contenido, logros configurables y mecánicas de engagement (regalo diario, rachas, niveles).
 
-*Note: Redis requirements (CACHE-01 through CACHE-05) are DEFERRED to v1.3.*
+**6 phases, 43 requirements**
+
+### Phase 19: Economy Foundation
+**Goal:** Users have a virtual currency wallet with transaction history and level progression
+**Requirements:** ECON-01 through ECON-08 (8 requirements)
+**Dependencies:** None (builds on v1.2 infrastructure)
+
+**Success Criteria:**
+1. User can view current besitos balance in their personal menu
+2. User can view paginated transaction history showing earned/spent amounts
+3. System rejects any transaction that would result in negative balance
+4. Concurrent transactions complete without race conditions
+5. Every besito change is recorded with reason, amount, and timestamp
+6. Admin can credit or debit besitos to any user with reason note
+7. User level displays correctly based on total lifetime besitos earned
+8. Admin can configure level progression formula
+
+### Phase 20: Reaction System
+**Goal:** Users can react to channel content with inline buttons and earn besitos
+**Requirements:** REACT-01 through REACT-07 (7 requirements)
+**Dependencies:** Phase 19 (WalletService)
+
+**Success Criteria:**
+1. Every message in channels displays inline reaction buttons with configured emojis
+2. User can tap reaction buttons and receives immediate visual feedback
+3. User cannot react twice with same emoji to same content
+4. User sees cooldown message if reacting within 30 seconds
+5. User receives besitos immediately after valid reaction
+6. User cannot exceed daily reaction limit
+7. VIP content reactions rejected for non-VIP users
+
+### Phase 21: Daily Rewards & Streaks
+**Goal:** Users can claim daily rewards with streak bonuses
+**Requirements:** STREAK-01 through STREAK-07 (7 requirements)
+**Dependencies:** Phase 19 (WalletService)
+
+**Success Criteria:**
+1. User sees "Claim Daily Gift" button when available
+2. User receives base besitos + streak bonus upon claiming
+3. Streak counter increases for consecutive daily claims
+4. Streak resets to 0 if user misses a day
+5. Current streak visible in user menu
+6. Reaction streak tracks separately
+7. Background job runs at UTC midnight for streak expiration
+
+### Phase 22: Shop System
+**Goal:** Users can browse and purchase content with besitos
+**Requirements:** SHOP-01 through SHOP-08 (8 requirements)
+**Dependencies:** Phase 19 (WalletService), Phase 20 (content access)
+
+**Success Criteria:**
+1. User can browse shop catalog with prices
+2. Content packages available for purchase
+3. VIP membership extension available
+4. System prevents purchase with insufficient balance
+5. Purchase completes atomically (deduct + deliver)
+6. Purchased content immediately accessible
+7. User can view purchase history
+8. VIP users see discounted prices where configured
+
+### Phase 23: Rewards System
+**Goal:** Users automatically receive rewards when meeting conditions
+**Requirements:** REWARD-01 through REWARD-06 (6 requirements)
+**Dependencies:** Phase 19 (WalletService), Phase 21 (streak data)
+
+**Success Criteria:**
+1. User can view available rewards with conditions
+2. System checks reward eligibility automatically
+3. User receives reward notification when conditions met
+4. Rewards support streak, points, level, besitos spent conditions
+5. Multiple conditions use AND logic
+6. Reward value capped at maximum
+
+### Phase 24: Admin Configuration
+**Goal:** Admins can configure all gamification parameters
+**Requirements:** ADMIN-01 through ADMIN-08 (8 requirements)
+**Dependencies:** All previous phases
+
+**Success Criteria:**
+1. Admin can configure besitos values and daily limits
+2. Admin can create shop products with besitos price
+3. Admin can enable/disable shop products
+4. Admin can create rewards with cascading condition creation
+5. Admin can create conditions inline from reward flow
+6. Admin dashboard displays economy metrics
+7. Admin can view user's complete gamification profile
+
+</details>
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
+Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -129,5 +218,15 @@ Phases execute in numeric order: 14 → 15 → 16 → 17 → 18
 | 16. Testing Infrastructure | v1.2 | 5/5 | Complete | 2026-01-29 |
 | 17. System Tests | v1.2 | 4/4 | Complete | 2026-01-30 |
 | 18. Admin Test Runner & Performance Profiling | v1.2 | 4/4 | Complete | 2026-01-30 |
+| 19. Economy Foundation | v2.0 | 0/0 | Pending | — |
+| 20. Reaction System | v2.0 | 0/0 | Pending | — |
+| 21. Daily Rewards & Streaks | v2.0 | 0/0 | Pending | — |
+| 22. Shop System | v2.0 | 0/0 | Pending | — |
+| 23. Rewards System | v2.0 | 0/0 | Pending | — |
+| 24. Admin Configuration | v2.0 | 0/0 | Pending | — |
 
-**Overall Progress:** 68/68 plans complete (100%)
+**Overall Progress:** 68/68 plans complete for v1.x (100%) | 0/43 requirements for v2.0 (0%)
+
+---
+
+*Last updated: 2026-02-08 after v2.0 roadmap creation*
