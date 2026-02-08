@@ -5,13 +5,14 @@ Flujo moderno de Telegram para acceso Free:
 1. Usuario hace click en "Unirse" en el canal Free
 2. Telegram envía ChatJoinRequest al bot
 3. Bot valida canal correcto y verifica duplicados
-4. Si nueva: Registra en BD y notifica con voz de Lucien + redes sociales
+4. Si nueva: Registra en BD y notifica con voz de Lucien + redes sociales (después de 30s)
 5. Si duplicada: Notifica tiempo restante con voz de Lucien
 6. Background task aprobará automáticamente después de N minutos con mensaje de bienvenida
 
 ESTE ES EL FLUJO PRINCIPAL - Los usuarios llegan por link público al canal,
 no por el bot. Nadie sabe del bot hasta después de solicitar acceso.
 """
+import asyncio
 import logging
 from datetime import datetime, timezone
 from aiogram import Router, F
@@ -125,6 +126,11 @@ async def handle_free_join_request(
 
     # Obtener tiempo de espera
     wait_time = await container.config.get_wait_time()
+
+    # Esperar 30 segundos antes de enviar el mensaje inicial
+    # Esto evita que el mensaje sea percibido como invasivo/inmediato
+    logger.info(f"⏱️ Esperando 30 segundos antes de notificar a user {user_id}")
+    await asyncio.sleep(30)
 
     # Usar UserFlowMessages para mensaje de éxito con voz de Lucien y botones de redes sociales
     success_text, keyboard = container.message.user.flows.free_request_success(
