@@ -385,8 +385,8 @@ async def test_user_menu_provider_vip_menu(container):
 
     assert text is not None
     assert keyboard is not None
-    assert "🎩" in text
-    assert "círculo exclusivo" in text.lower()
+    assert "🫦" in text  # Diana's voice for user menus
+    assert "Diana" in text
 
 
 async def test_user_menu_provider_free_menu(container):
@@ -398,8 +398,8 @@ async def test_user_menu_provider_free_menu(container):
 
     assert text is not None
     assert keyboard is not None
-    assert "🎩" in text
-    assert "jardín" in text.lower() or "vestíbulo" in text.lower()
+    assert "🫦" in text  # Diana's voice for user menus
+    assert "Diana" in text
 
 
 # ===== VIP ENTRY FLOW PROVIDER TESTS =====
@@ -535,30 +535,30 @@ async def test_all_providers_return_valid_html(container):
     session_history = SessionMessageHistory()
 
     test_cases = [
-        # Common
+        # Common (Lucien)
         lambda: container.message.common.error("test"),
         lambda: container.message.common.success("test"),
-        # Admin main
+        # Admin main (Lucien)
         lambda: container.message.admin.main.admin_menu_greeting(True, [], 123, session_history),
-        # Admin VIP
+        # Admin VIP (Lucien)
         lambda: container.message.admin.vip.vip_menu(True, "-100123"),
-        # Admin Free
+        # Admin Free (Lucien)
         lambda: container.message.admin.free.free_menu(True, "-100456", 5),
-        # Admin content
+        # Admin content (Lucien)
         lambda: container.message.admin.content.content_menu(),
-        # Admin interest
+        # Admin interest (Lucien)
         lambda: container.message.admin.interest.interests_menu(3, 23),
-        # Admin user
+        # Admin user (Lucien)
         lambda: container.message.admin.user.users_menu(100, 25, 70, 5),
-        # User start
+        # User start (Lucien)
         lambda: container.message.user.start.greeting("User", 123, False, False, 0),
-        # User flows
+        # User flows (Lucien)
         lambda: container.message.user.flows.free_request_success(5, {}),
-        # User menu VIP
+        # User menu VIP (Diana)
         lambda: container.message.user.menu.vip_menu_greeting("User", datetime.utcnow()),
-        # User menu Free
+        # User menu Free (Diana)
         lambda: container.message.user.menu.free_menu_greeting("User", 5),
-        # VIP entry
+        # VIP entry (Lucien)
         lambda: container.message.user.vip_entry.stage_1_activation_confirmation(),
     ]
 
@@ -571,7 +571,8 @@ async def test_all_providers_return_valid_html(container):
 
         assert text is not None
         assert len(text) > 0
-        assert "🎩" in text  # All Lucien messages have the hat
+        # User menus use Diana's voice (🫦), all others use Lucien (🎩)
+        assert "🎩" in text or "🫦" in text, f"Message missing voice signature: {text[:100]}"
 
         # Basic HTML validation - no unclosed tags
         # Count opening and closing tags

@@ -1,13 +1,16 @@
 """
 User Menu Messages Provider - VIP and Free user menu messages.
 
-Provides messages for VIP and Free user menus with Lucien's voice consistency.
-All messages maintain Lucien's sophisticated mayordomo voice from docs/guia-estilo.md.
+Provides messages for VIP and Free user menus with Diana's direct voice.
+User-facing menus use Diana's personal voice for direct connection.
 
-VIP users: "miembros del círculo exclusivo" (exclusive circle members)
-Free users: "visitantes del jardín público" (public garden visitors)
-VIP premium content: "tesoros del sanctum" (sanctum treasures)
-Free content: "muestras del jardín" (garden samples)
+Voice Architecture:
+- User menus (this module): Diana's voice (🫦) - direct, personal, empowering
+- Admin interfaces: Lucien's voice (🎩) - formal, mayordomo, elegant
+- System/flow messages: Lucien's voice (🎩) - service-oriented
+
+VIP users: "Ya no estás afuera. Aquí el juego cambia."
+Free users: "Sí… ya eres Kinky. Aquí empieza el juego."
 """
 import random
 from datetime import datetime
@@ -25,15 +28,19 @@ class UserMenuMessages(BaseMessageProvider):
     """
     User menu messages provider for VIP and Free user menus.
 
-    Voice Characteristics (from docs/guia-estilo.md):
-    - VIP users = "miembros del círculo exclusivo" (exclusive circle members)
-    - Free users = "visitantes del jardín público" (public garden visitors)
-    - VIP premium content = "tesoros del sanctum" (sanctum treasures)
-    - Free content = "muestras del jardín" (garden samples)
-    - Uses "usted", never "tú"
-    - Emoji 🎩 always present
-    - References Diana for authority/mystique
-    - Subscription status shown elegantly (expiration dates, queue positions)
+    Voice Characteristics (Diana's Voice 🫦):
+    - User menus use Diana's direct, personal voice (not Lucien's mayordomo voice)
+    - VIP menu: "Ya no estás afuera. Aquí el juego cambia."
+    - Free menu: "Sí… ya eres Kinky. Aquí empieza el juego."
+    - Content browsing: "Lo que no publico… lo dejo aquí."
+    - Direct, empowering, intimate tone
+    - Second person ("tú/eres/estás") for personal connection
+    - Emoji 🫦 for Diana's voice signature
+
+    Voice Architecture (System-wide):
+    - User menus (this module): Diana's voice (🫦)
+    - Admin interfaces: Lucien's voice (🎩)
+    - System/flow messages: Lucien's voice (🎩)
 
     Stateless Design:
     - No session or bot stored as instance variables
@@ -44,10 +51,10 @@ class UserMenuMessages(BaseMessageProvider):
     Examples:
         >>> provider = UserMenuMessages()
         >>> text, kb = provider.vip_menu_greeting("Juan", vip_expires_at=datetime.now())
-        >>> '🎩' in text and 'círculo exclusivo' in text.lower()
+        >>> '🫦' in text  # Diana's voice for user menus
         True
         >>> text, kb = provider.free_menu_greeting("Ana", free_queue_position=5)
-        >>> 'jardín público' in text.lower() and '5' in text
+        >>> '🫦' in text  # Diana's voice for user menus
         True
     """
 
@@ -67,7 +74,7 @@ class UserMenuMessages(BaseMessageProvider):
         session_history: Optional["SessionMessageHistory"] = None
     ) -> Tuple[str, InlineKeyboardMarkup]:
         """
-        Generate main VIP menu greeting with subscription info placeholders.
+        Generate main VIP menu greeting with Diana's direct voice.
 
         Args:
             user_name: User's first name (will be HTML-escaped)
@@ -78,73 +85,24 @@ class UserMenuMessages(BaseMessageProvider):
         Returns:
             Tuple of (text, keyboard) for VIP main menu
 
-        Voice Rationale:
-            Weighted variations prevent robotic repetition:
-            - 60% common greeting (familiar, welcoming)
-            - 30% alternate greeting (mystery)
-            - 10% poetic greeting (rare, special)
+        Voice (Diana 🫦):
+            Direct, empowering message establishing VIP status:
+            "Ya no estás afuera. Aquí el juego cambia."
 
-            VIP users are "miembros del círculo exclusivo" (exclusive circle members).
-            Subscription expiration shown elegantly: "Su membresía expira el [fecha]"
-            or "Su membresía es permanente" for permanent access.
+            Note: User menus intentionally use Diana's voice (🫦), not Lucien's (🎩),
+            for direct personal connection with users.
 
         Examples:
             >>> provider = UserMenuMessages()
             >>> text, kb = provider.vip_menu_greeting("Juan", vip_expires_at=datetime.now())
-            >>> '🎩' in text and 'Juan' in text
+            >>> '🫦' in text  # Diana's voice
             True
-            >>> 'círculo exclusivo' in text.lower()
+            >>> 'Ya no estás afuera' in text
             True
         """
-        safe_name = escape_html(user_name)
+        # Fixed greeting for VIP users - solo el texto solicitado
+        text = "🫦 <b>Diana:</b>\n\nYa no estás afuera.\nAquí el juego cambia."
 
-        # Weighted greeting variations (common, alternate, poetic)
-        greetings = [
-            ("Ah, un miembro del círculo exclusivo...", 0.6),
-            ("Bienvenido de nuevo al sanctum...", 0.3),
-            ("Los portales del reino se abren para usted...", 0.1),
-        ]
-
-        greeting = self._choose_variant(
-            [g[0] for g in greetings],
-            weights=[g[1] for g in greetings],
-            user_id=user_id,
-            method_name="vip_menu_greeting",
-            session_history=session_history
-        )
-
-        header = f"🎩 <b>Lucien:</b>\n\n<i>{greeting}</i>"
-
-        # Meses en español para localización de fechas
-        MESES_ES = {
-            1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
-            5: "mayo", 6: "junio", 7: "julio", 8: "agosto",
-            9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"
-        }
-
-        # Subscription status section
-        if vip_expires_at:
-            # Check if subscription is still active (not expired)
-            from datetime import datetime
-            if vip_expires_at > datetime.utcnow():
-                # Active subscription - show expiry date in Spanish
-                expiry_text = f"{vip_expires_at.day} de {MESES_ES[vip_expires_at.month]} de {vip_expires_at.year}"
-                subscription_status = f"<b>⏳ Su membresía expira el {expiry_text}</b>"
-            else:
-                # Expired subscription - show warning
-                subscription_status = f"<b>⚠️ Su membresía ha expirado</b>"
-        else:
-            subscription_status = "<b>✨ Su membresía es permanente</b>"
-
-        body = (
-            f"Bienvenido de nuevo.\n\n"
-            f"💎 <b>El Diván de Diana</b> 💎\n\n"
-            f"<b>{safe_name}</b>.\n\n"
-            f"{subscription_status}\n\n"
-            f"<i>¿Qué desea explorar hoy?</i>"
-        )
-
-        text = self._compose(header, body)
         keyboard = self._vip_main_menu_keyboard()
         return text, keyboard
 
@@ -156,7 +114,7 @@ class UserMenuMessages(BaseMessageProvider):
         session_history: Optional["SessionMessageHistory"] = None
     ) -> Tuple[str, InlineKeyboardMarkup]:
         """
-        Generate main Free menu greeting with content browsing.
+        Generate main Free menu greeting with Diana's direct voice.
 
         Args:
             user_name: User's first name (will be HTML-escaped)
@@ -167,59 +125,24 @@ class UserMenuMessages(BaseMessageProvider):
         Returns:
             Tuple of (text, keyboard) for Free main menu
 
-        Voice Rationale:
-            Weighted variations:
-            - 70% welcoming (familiar, reassuring)
-            - 30% informative (educational, guiding)
+        Voice (Diana 🫦):
+            Direct, welcoming message acknowledging Kinky identity:
+            "Sí… ya eres Kinky. Aquí empieza el juego."
 
-            Free users are "visitantes del jardín público" (public garden visitors).
-            Queue status shown if applicable: "Su posición en la cola: [número]"
-            Content browsing emphasized as "muestras del jardín" (garden samples).
+            Note: User menus intentionally use Diana's voice (🫦), not Lucien's (🎩),
+            for direct personal connection with users.
 
         Examples:
             >>> provider = UserMenuMessages()
             >>> text, kb = provider.free_menu_greeting("Ana", free_queue_position=5)
-            >>> '🎩' in text and 'Ana' in text
+            >>> '🫦' in text  # Diana's voice
             True
-            >>> 'jardín público' in text.lower()
-            True
-            >>> '5' in text  # Queue position
+            >>> 'ya eres Kinky' in text
             True
         """
-        safe_name = escape_html(user_name)
+        # Fixed greeting for Free users - solo el texto solicitado
+        text = "🫦 <b>Diana:</b>\n\nSí… ya eres Kinky.\nAquí empieza el juego."
 
-        # Weighted greeting variations (welcoming, informative)
-        greetings = [
-            ("Bienvenido al jardín público...", 0.7),
-            ("El vestíbulo de acceso aguarda su contemplación...", 0.3),
-        ]
-
-        greeting = self._choose_variant(
-            [g[0] for g in greetings],
-            weights=[g[1] for g in greetings],
-            user_id=user_id,
-            method_name="free_menu_greeting",
-            session_history=session_history
-        )
-
-        header = f"🎩 <b>Lucien:</b>\n\n<i>{greeting}</i>"
-
-        # Queue status section (if applicable)
-        queue_status = ""
-        if free_queue_position is not None and free_queue_position > 0:
-            queue_status = (
-                f"<b>🕐 Su posición en la cola:</b> <code>{free_queue_position}</code>\n\n"
-            )
-
-        body = (
-            f"<b>📺 Menú del Vestíbulo de Acceso</b>\n\n"
-            f"Bienvenido, <b>{safe_name}</b>.\n\n"
-            f"{queue_status}"
-            f"<i>Explore las muestras del jardín que Diana ha dispuesto "
-            f"para los visitantes del vestíbulo...</i>"
-        )
-
-        text = self._compose(header, body)
         keyboard = self._free_main_menu_keyboard()
         return text, keyboard
 
@@ -336,34 +259,11 @@ class UserMenuMessages(BaseMessageProvider):
             >>> 'muestras' in text.lower()
             True
         """
-        safe_name = escape_html(user_name)
-
-        # Weighted section introductions
-        introductions = [
-            "Las muestras del jardín...",
-            "Diana permite que estos fragmentos sean contemplados...",
-            "El jardín público revela sus muestras..."
-        ]
-
-        introduction = self._choose_variant(
-            introductions,
-            user_id=user_id,
-            method_name="free_content_section",
-            session_history=session_history
-        )
-
-        header = f"🎩 <b>Lucien:</b>\n\n<i>{introduction}</i>"
+        # Solo la cabecera solicitada para "Mi contenido"
+        text = "🫦 <b>Diana:</b>\n\nLo que no publico… lo dejo aquí."
 
         # Sort packages by price (free first, then ascending)
         sorted_packages = self._sort_packages_by_price(packages)
-
-        body = (
-            f"<b>🌸 Sección de Contenido Free</b>\n\n"
-            f"<b>{safe_name}</b>, explore las muestras del jardín...\n\n"
-            f"<i>Seleccione un paquete para ver detalles completos antes de manifestar interés...</i>"
-        )
-
-        text = self._compose(header, body)
 
         # Create minimalist package buttons (one per row, name only)
         # NOTE: Using "free:packages:" prefix to avoid conflict with VIP router
@@ -415,35 +315,11 @@ class UserMenuMessages(BaseMessageProvider):
             >>> 'jardín público' in text.lower()
             True
         """
-        safe_name = escape_html(user_name)
-
-        # Weighted section introductions for VIP viewing Free content
-        introductions = [
-            "Como miembro del círculo, también puede explorar el jardín público...",
-            "El círculo exclusivo no cierra las puertas al jardín...",
-            "Diana permite que los miembros del sanctum contemplen las muestras..."
-        ]
-
-        introduction = self._choose_variant(
-            introductions,
-            user_id=user_id,
-            method_name="vip_free_content_section",
-            session_history=session_history
-        )
-
-        header = f"🎩 <b>Lucien:</b>\n\n<i>{introduction}</i>"
+        # Solo la cabecera solicitada para "Mi contenido"
+        text = "🫦 <b>Diana:</b>\n\nLo que no publico… lo dejo aquí."
 
         # Sort packages by price (free first, then ascending)
         sorted_packages = self._sort_packages_by_price(packages)
-
-        body = (
-            f"<b>🌸 Sección de Contenido Free</b>\n\n"
-            f"<b>{safe_name}</b>, explore las muestras del jardín público...\n\n"
-            f"<i>Como miembro del círculo exclusivo, tiene acceso a todo el contenido. "
-            f"Seleccione un paquete para ver detalles...</i>"
-        )
-
-        text = self._compose(header, body)
 
         # Create minimalist package buttons with vip:free: prefix
         # This ensures callbacks go through VIP router with proper validation

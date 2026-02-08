@@ -121,6 +121,69 @@ Librerías Clave:
 # - En todas las clases y funciones públicas
 ```
 
+## 🎭 ARQUITECTURA DE VOCES (Voice Architecture)
+
+El bot utiliza dos voces distintas según el contexto de interacción:
+
+### Voz de Diana (🫦) - Conexión Personal
+**Uso:** Interfaces de usuario (menús, contenido personal)
+- **UserMenuMessages**: Menús VIP/Free para usuarios
+- **Mensajes de contenido**: "Lo que no publico… lo dejo aquí"
+- **Interés en paquetes**: Confirmaciones personales
+
+**Características:**
+- Directa, íntima, empoderadora
+- Segunda persona ("tú/eres/estás")
+- Emoji 🫦 como firma
+- Mensajes fijos (no variaciones)
+
+**Ejemplos:**
+- VIP Menu: "Ya no estás afuera. Aquí el juego cambia."
+- Free Menu: "Sí… ya eres Kinky. Aquí empieza el juego."
+- Contenido: "Lo que no publico… lo dejo aquí."
+
+### Voz de Lucien (🎩) - Servicio Formal
+**Uso:** Interfaces de administración, flujos de sistema, mensajes de servicio
+- **AdminMainMessages**: Menús de administración
+- **UserFlowMessages**: Flujos de acceso (Free/VIP)
+- **CommonMessages**: Errores y confirmaciones
+- **VIPEntryFlowMessages**: Ritual de entrada VIP
+
+**Características:**
+- Formal, mayordomo, elegante
+- Tercera persona/usted ("su/su solicitud/le")
+- Emoji 🎩 como firma
+- Variaciones ponderadas (evita repetición robótica)
+
+**Ejemplos:**
+- Admin: "Soy Lucien, el mayordomo digital de esta casa."
+- Flujo Free: "🎩 Lucien:\n\n<i>Ah… alguien ha llamado a la puerta.</i>"
+- Error: "🎩 <b>Atención</b> - Ha ocurrido una perturbación..."
+
+### Mapeo de Voz por Provider
+
+| Provider | Voz | Emoji | Contexto |
+|----------|-----|-------|----------|
+| UserMenuMessages | Diana | 🫦 | Menús usuario VIP/Free |
+| UserStartMessages | Lucien | 🎩 | Saludos /start |
+| UserFlowMessages | Lucien | 🎩 | Flujos de acceso Free |
+| AdminMainMessages | Lucien | 🎩 | Menús administración |
+| AdminVIPMessages | Lucien | 🎩 | Gestión VIP |
+| CommonMessages | Lucien | 🎩 | Errores/éxito generales |
+| VIPEntryFlowMessages | Lucien | 🎩 | Ritual entrada VIP |
+
+### Convenciones de Testing
+
+Los tests deben verificar la voz correcta según el contexto:
+
+```python
+# Menús de usuario → Diana (🫦)
+assert "🫦" in text
+
+# Admin/flujos/sistema → Lucien (🎩)
+assert "🎩" in text
+```
+
 ═══════════════════════════════════════════════════════════════
 # FLUJO DE DESARROLLO - ONDA 1
 ═══════════════════════════════════════════════════════════════

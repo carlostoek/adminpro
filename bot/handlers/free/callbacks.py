@@ -358,38 +358,44 @@ async def handle_vip_info(callback: CallbackQuery, container):
         except Exception as e:
             logger.warning(f"No se pudo verificar configuración VIP: {e}")
 
-        # Create informative message about VIP benefits with Lucien's voice
+        # Texto fijo para El Diván según diseño
         message_text = (
-            f"🎩 <b>Lucien:</b>\n\n"
-            f"<i>El círculo exclusivo de Diana aguarda...</i>\n\n"
-            f"<b>⭐ Canal VIP - El Círculo Exclusivo</b>\n\n"
+            "🫦 <b>Diana:</b>\n\n"
+            "💎 <b>El Diván de Diana</b> 💎\n"
+            "No es para cualquiera.\n\n"
+            "El Diván es mi espacio privado.\n"
+            "Donde no actúo.\n"
+            "Donde no filtro.\n"
+            "Y donde no explico.\n\n"
+            "Aquí no muestro \"un poco más\".\n"
+            "Aquí me muestro completa.\n\n"
+            "Lo que ocurre dentro:\n"
+            "<b>Más de 3,000 archivos</b> (si, tres mil) entre fotos y videos que no existen fuera del Diván.\n"
+            "<b>Contenido sin censura</b> que no vendo por separado.\n"
+            "<b>Acceso preferente</b> a contenido Premium.\n"
+            "<b>Descuento VIP</b> en contenido personalizado.\n"
+            "<b>Historias privadas</b> que solo ve quien se atreve a quedarse.\n\n"
+            "Acceso\n"
+            "<b>$350 MXN</b> / 23 USD al mes.\n"
+            "Sin pruebas.\n"
+            "Sin recorridos.\n"
+            "Sin curiosos.\n\n"
+            "El Diván sigue intacto.\n"
+            "Sin máscaras.\n"
+            "Sin inocencia.\n\n"
+            "Solo tú y yo…\n"
+            "si sabes entrar sin hacer ruido."
         )
 
-        if is_vip_configured:
-            message_text += (
-                f"<i>El sanctum está disponible para aquellos que posean "
-                f"el token de acceso.</i>\n\n"
-                f"<b>✨ Beneficios del Círculo:</b>\n"
-                f"• Contenido exclusivo y anticipado\n"
-                f"• Comunidad privada de miembros\n"
-                f"• Acceso directo a Diana para consultas\n"
-                f"• Contenido premium adicional\n"
-                f"• Privilegios especiales y eventos\n\n"
-                f"<i>Para unirse al círculo exclusivo, necesitará un "
-                f"token de invitación de Diana.</i>"
-            )
-        else:
-            message_text += (
-                f"<i>El sanctum aún no ha sido configurado por los custodios.</i>\n\n"
-                f"<i>Los beneficios del círculo exclusivo estarán disponibles "
-                f"una vez que Diana active el canal.</i>"
-            )
-
-        # Create keyboard with navigation using helper
+        # Create keyboard with "Me interesa" button and navigation
         from bot.utils.keyboards import create_content_with_navigation
 
+        content_buttons = [
+            [{"text": "⭐ Me interesa", "callback_data": "vip:subscription:interest"}]
+        ]
+
         keyboard = create_content_with_navigation(
-            content_buttons=[],
+            content_buttons=content_buttons,
             back_text="⬅️ Volver al Menú Free",
             back_callback="menu:free:main"
         )
@@ -419,27 +425,21 @@ async def handle_social_media(callback: CallbackQuery):
     user = callback.from_user
 
     try:
-        # Create social media message with Lucien's voice
-        message_text = (
-            f"🎩 <b>Lucien:</b>\n\n"
-            f"<i>Diana comparte fragmentos de su arte en estos jardines públicos...</i>\n\n"
-            f"<b>🌸 Redes Sociales de Diana</b>\n\n"
-            f"• <b>Instagram:</b> @diana_artista (muestras diarias)\n"
-            f"• <b>TikTok:</b> @diana.creaciones (tutoriales rápidos)\n"
-            f"• <b>YouTube:</b> Diana Creaciones (procesos completos)\n\n"
-            f"<b>🎁 Promos Adicionales</b>\n\n"
-            f"• Blog: www.dianacreaciones.com/blog\n"
-            f"• Newsletter: Suscripción gratuita\n"
-            f"• Comunidad: Grupo público de Telegram\n\n"
-            f"<i>Seguir a Diana en redes sociales puede acelerar "
-            f"su acceso al canal Free.</i>"
-        )
+        # Solo cabecera y botones de redes sociales
+        message_text = "🫦 <b>Diana:</b>\n\nMis redes"
 
-        # Create keyboard with navigation using helper
+        # Create keyboard with social media buttons
         from bot.utils.keyboards import create_content_with_navigation
 
+        social_buttons = [
+            [{"text": "📷 Instagram @srta.kinky", "url": "https://instagram.com/srta.kinky"}],
+            [{"text": "📷 Instagram @ella.es.diana", "url": "https://instagram.com/ella.es.diana"}],
+            [{"text": "🎵 TikTok @srtakinky", "url": "https://tiktok.com/@srtakinky"}],
+            [{"text": "🐦 X @SrtaKinky", "url": "https://x.com/SrtaKinky"}],
+        ]
+
         keyboard = create_content_with_navigation(
-            content_buttons=[],
+            content_buttons=social_buttons,
             back_text="⬅️ Volver al Menú Free",
             back_callback="menu:free:main"
         )
@@ -583,6 +583,111 @@ async def handle_menu_back(callback: CallbackQuery, container):
     except Exception as e:
         logger.error(f"Error volviendo al menú Free para {user.id}: {e}", exc_info=True)
         await callback.answer("⚠️ Error volviendo al menú", show_alert=True)
+
+
+@free_callbacks_router.callback_query(lambda c: c.data == "vip:subscription:interest")
+async def handle_vip_subscription_interest(callback: CallbackQuery, container, session):
+    """
+    Registra interés en suscripción VIP y notifica a administradores.
+
+    Args:
+        callback: CallbackQuery de Telegram
+        container: ServiceContainer inyectado por middleware
+        session: Sesión de base de datos inyectada por middleware
+    """
+    user = callback.from_user
+
+    if not container or not session:
+        await callback.answer("⚠️ Error: servicio no disponible", show_alert=True)
+        return
+
+    try:
+        # Verificar si ya existe interés reciente (ventana de 5 minutos)
+        from datetime import datetime, timedelta
+        from bot.database.models import UserInterest
+        from sqlalchemy import select, and_
+
+        five_minutes_ago = datetime.utcnow() - timedelta(minutes=5)
+
+        # Buscar interés reciente específico de suscripción VIP (package_id=0)
+        result = await session.execute(
+            select(UserInterest).where(
+                and_(
+                    UserInterest.user_id == user.id,
+                    UserInterest.package_id == 0,  # 0 = Interés en suscripción VIP
+                    UserInterest.created_at >= five_minutes_ago
+                )
+            )
+        )
+        existing_interest = result.scalar_one_or_none()
+
+        if existing_interest:
+            await callback.answer(
+                "✅ Tu interés ya fue registrado. Diana será notificada.",
+                show_alert=True
+            )
+            return
+
+        # Crear registro de interés especial para suscripción VIP
+        # Usamos package_id=0 para indicar interés en suscripción VIP
+        interest = UserInterest(
+            user_id=user.id,
+            package_id=0,  # 0 indica interés en suscripción VIP
+            is_attended=False,
+            attended_at=None,
+            created_at=datetime.utcnow()
+        )
+
+        # Guardar en base de datos
+        session.add(interest)
+        await session.flush()  # Para obtener el ID
+
+        # Notificar a administradores
+        from bot.handlers.utils import send_admin_interest_notification
+
+        # Crear objeto paquete ficticio para la notificación
+        # con atributos requeridos por send_admin_interest_notification
+        from bot.database.enums import ContentCategory
+
+        class VIPPackage:
+            def __init__(self):
+                self.name = "Suscripción VIP - El Diván"
+                self.id = 0
+                self.description = "Interés en suscripción mensual al canal VIP"
+                self.price = 350.00  # $350 MXN
+                self.category = ContentCategory.VIP_PREMIUM
+
+        vip_package = VIPPackage()
+
+        await send_admin_interest_notification(
+            bot=callback.bot,
+            container=container,
+            user=user,
+            package=vip_package,
+            interest=interest,
+            user_role="Free (Interés VIP)"
+        )
+
+        # Mostrar confirmación con botón "Escribirme" y navegación
+        text, keyboard = container.message.user.flows.package_interest_confirmation(
+            user_name=user.first_name or "Usuario",
+            package_name="Suscripción VIP - El Diván",
+            user_role="Free",
+            user_id=user.id,
+            source_section="vip"
+        )
+
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=keyboard)
+        await callback.answer("✅ Interés registrado")
+
+        logger.info(f"💎 Interés en suscripción VIP registrado: user {user.id}")
+
+    except Exception as e:
+        logger.error(f"Error registrando interés VIP para {user.id}: {e}", exc_info=True)
+        await callback.answer(
+            "⚠️ Error registrando interés. Intenta de nuevo más tarde.",
+            show_alert=True
+        )
 
 
 # DISABLED: Exit button removed from navigation (Quick Task 002)

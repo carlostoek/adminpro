@@ -13,12 +13,14 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.exceptions import TelegramNetworkError
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 from config import Config
 from bot.database import init_db, close_db
 from bot.database.migrations import run_migrations_if_needed
 from bot.background import start_background_tasks, stop_background_tasks
 from bot.health.runner import start_health_server
+from bot.middlewares import TelegramIPValidationMiddleware
 
 # Flag global para señalizar shutdown
 _shutdown_requested = False
@@ -333,20 +335,55 @@ async def main() -> None:
         dp.startup.register(on_startup_webhook)
         dp.shutdown.register(on_shutdown)
 
-        # Iniciar webhook server
+        # Crear aiohttp application con middleware de validación de IPs (ALTA-006)
+        # Esto protege contra spoofing de webhooks
+        app = web.Application()
+
+        # Configurar middleware de validación de IPs de Telegram
+        # trust_x_forwarded_for=True si está detrás de proxy (Railway, etc.)
+        trust_proxy = os.getenv("TRUST_X_FORWARDED_FOR", "false").lower() in ("true", "1", "yes")
+        ip_validation_middleware = TelegramIPValidationMiddleware(trust_x_forwarded_for=trust_proxy)
+        app.middlewares.append(ip_validation_middleware)
+        logger.info(f"🔒 Middleware de validación de IPs activado (trust_proxy={trust_proxy})")
+
+        # Crear handler de aiogram para webhooks
+        webhook_handler = SimpleRequestHandler(
+            dispatcher=dp,
+            bot=bot,
+            secret_token=Config.WEBHOOK_SECRET
+        )
+
+        # Registrar el handler en la ruta configurada
+        webhook_handler.register(app, path=Config.WEBHOOK_PATH)
+
+        # Setup de la aplicación aiogram
+        setup_application(app, dp, bot=bot)
+
+        # Iniciar servidor con validación de IPs
         try:
-            await dp.start_webhook(
-                bot,
-                webhook_path=Config.WEBHOOK_PATH,
-                host=Config.WEBHOOK_HOST,
-                port=Config.PORT,
-                secret_token=Config.WEBHOOK_SECRET
-            )
+            logger.info(f"🌐 Iniciando servidor webhook en {Config.WEBHOOK_HOST}:{Config.PORT}")
+            runner = web.AppRunner(app)
+            await runner.setup()
+
+            site = web.TCPSite(runner, Config.WEBHOOK_HOST, Config.PORT)
+            await site.start()
+
+            logger.info(f"✅ Servidor webhook iniciado en http://{Config.WEBHOOK_HOST}:{Config.PORT}")
+            logger.info(f"🔗 Endpoint de webhook: {Config.WEBHOOK_PATH}")
+
+            # Mantener el servidor corriendo hasta señal de shutdown
+            while not _shutdown_requested:
+                await asyncio.sleep(1)
+
         except KeyboardInterrupt:
             logger.info("⌨️ Interrupción por teclado (Ctrl+C) - Deteniendo webhook...")
         except Exception as e:
             logger.error(f"❌ Error crítico en webhook: {e}", exc_info=True)
         finally:
+            # Cleanup
+            logger.info("🧹 Cerrando servidor webhook...")
+            await runner.cleanup()
+
             # Cerrar sesión del bot
             logger.info("🧹 Cerrando sesión del bot...")
             try:

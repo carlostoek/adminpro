@@ -31,9 +31,9 @@ class TestFreeUserMenuRouting:
         reply_markup = call_args.kwargs.get('reply_markup')
         assert reply_markup is not None
 
-        # Check text contains Lucien's voice (text is first positional arg)
+        # Check text contains Diana's voice for user menus (text is first positional arg)
         text = call_args.args[0] if call_args.args else call_args.kwargs.get('text', '')
-        assert '🎩' in text
+        assert '🫦' in text  # Diana's voice for user menus
 
     async def test_free_menu_has_content_option(self, free_message, test_session, mock_bot):
         """Verify Free menu includes content access option."""
@@ -57,9 +57,9 @@ class TestFreeUserMenuRouting:
         user_message.answer.assert_called()
         call_args = user_message.answer.call_args
 
-        # Check text contains Lucien's voice (text is first positional arg)
+        # Check text contains Diana's voice for user menus (text is first positional arg)
         text = call_args.args[0] if call_args.args else call_args.kwargs.get('text', '')
-        assert '🎩' in text
+        assert '🫦' in text  # Diana's voice for user menus
 
 
 class TestAdminMenuRouting:
@@ -129,22 +129,26 @@ class TestRoleDetection:
 class TestMenuRoleConsistency:
     """Tests for menu consistency across roles."""
 
-    async def test_all_menus_use_lucien_voice(self, admin_message, free_message, test_session, mock_bot):
-        """Verify all role menus use Lucien's voice consistently."""
+    async def test_all_menus_use_appropriate_voice(self, admin_message, free_message, test_session, mock_bot):
+        """Verify all role menus use appropriate voice consistently.
+
+        - Admin menus: Lucien's voice (🎩)
+        - User menus: Diana's voice (🫦)
+        """
         from bot.handlers.user.start import cmd_start
 
-        # Test admin menu
+        # Test admin menu (Lucien's voice for admin greeting)
         with patch('bot.handlers.user.start.Config.is_admin', return_value=True):
             await cmd_start(admin_message, test_session)
             admin_text = admin_message.answer.call_args.args[0] if admin_message.answer.call_args.args else admin_message.answer.call_args.kwargs.get('text', '')
 
-        # Test Free menu
+        # Test Free menu (Diana's voice for user menus)
         await cmd_start(free_message, test_session)
         free_text = free_message.answer.call_args.args[0] if free_message.answer.call_args.args else free_message.answer.call_args.kwargs.get('text', '')
 
-        # All should have Lucien's signature
-        assert '🎩' in admin_text
-        assert '🎩' in free_text
+        # Admin uses Lucien's signature, user menus use Diana's
+        assert '🎩' in admin_text  # Admin greeting uses Lucien
+        assert '🫦' in free_text   # User menus use Diana
 
 
 class TestVIPMenuDirect:
@@ -169,8 +173,8 @@ class TestVIPMenuDirect:
         call_args = vip_message.answer.call_args
         text = call_args.args[0] if call_args.args else call_args.kwargs.get('text', '')
 
-        # Should have Lucien's voice
-        assert '🎩' in text
+        # User menus use Diana's voice
+        assert '🫦' in text
 
     async def test_vip_menu_with_subscription_info(self, vip_message, test_session, mock_bot):
         """Verify VIP menu shows subscription info when available."""
@@ -188,6 +192,6 @@ class TestVIPMenuDirect:
         call_args = vip_message.answer.call_args
         text = call_args.args[0] if call_args.args else call_args.kwargs.get('text', '')
 
-        # Should have Lucien's voice
-        assert '🎩' in text
+        # User menus use Diana's voice
+        assert '🫦' in text
         assert len(text) > 0
