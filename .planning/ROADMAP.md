@@ -110,6 +110,7 @@ Sistema completo de gamificación con moneda virtual "besitos", reacciones con b
 **Goal:** Users have a virtual currency wallet with transaction history and level progression
 **Requirements:** ECON-01 through ECON-08 (8 requirements)
 **Dependencies:** None (builds on v1.2 infrastructure)
+**Plans:** 4 plans
 
 **Success Criteria:**
 1. User can view current besitos balance in their personal menu
@@ -120,6 +121,12 @@ Sistema completo de gamificación con moneda virtual "besitos", reacciones con b
 6. Admin can credit or debit besitos to any user with reason note
 7. User level displays correctly based on total lifetime besitos earned
 8. Admin can configure level progression formula
+
+Plans:
+- [ ] 19-01-PLAN.md — Database foundation (TransactionType enum, UserGamificationProfile, Transaction models)
+- [ ] 19-02-PLAN.md — WalletService core (atomic earn/spend, transaction history, level calculation)
+- [ ] 19-03-PLAN.md — Admin operations (credit/debit, level formula configuration)
+- [ ] 19-04-PLAN.md — Integration and testing (ServiceContainer integration, ECON requirement tests)
 
 ### Phase 20: Reaction System
 **Goal:** Users can react to channel content with inline buttons and earn besitos
