@@ -11,22 +11,22 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 19 - Economy Foundation
-**Plan:** 03 - Admin Operations and Configuration (COMPLETE)
-**Status:** Wave 3 complete, ready for Wave 4
+**Plan:** 04 - Integration and Testing (COMPLETE)
+**Status:** Wave 4 complete, ready for Wave 5
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
 ### Progress Bar
 
 ```
-Phase 19: [██████░░░░] 60% - Economy Foundation (Wave 3/6 complete)
+Phase 19: [████████░░] 80% - Economy Foundation (Wave 4/6 complete)
 Phase 20: [░░░░░░░░░░] 0% - Reaction System
 Phase 21: [░░░░░░░░░░] 0% - Daily Rewards & Streaks
 Phase 22: [░░░░░░░░░░] 0% - Shop System
 Phase 23: [░░░░░░░░░░] 0% - Rewards System
 Phase 24: [░░░░░░░░░░] 0% - Admin Configuration
 
-Overall v2.0:  [██░░░░░░░░] 7% (3/43 requirements)
+Overall v2.0:  [██░░░░░░░░] 8% (4/43 requirements)
 ```
 
 ## Performance Metrics
@@ -51,10 +51,11 @@ Overall v2.0:  [██░░░░░░░░] 7% (3/43 requirements)
 - Services: 14
 - Tests: 212 passing
 
-**v2.0 Target:**
-- New services: 5 (WalletService, ReactionService, StreakService, ShopService, RewardService)
-- New models: 6+ (UserEconomy, Transaction, UserReaction, UserStreak, ShopProduct, Reward, RewardCondition)
-- Requirements: 43
+**v2.0 Current:**
+- New services: 1/5 (WalletService ✓, ReactionService, StreakService, ShopService, RewardService)
+- New models: 2/6+ (UserGamificationProfile ✓, Transaction ✓, UserReaction, UserStreak, ShopProduct, Reward, RewardCondition)
+- Requirements: 8/43 (all ECON requirements complete)
+- Tests: 302 passing (90 new economy tests)
 
 ## Accumulated Context
 
@@ -135,9 +136,18 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-09 — Completed Wave 3: Admin Operations and Configuration
-**Stopped at:** Phase 19 Plan 03 complete
-**Next:** Wave 4: Reaction Service (earn on reactions, inline buttons)
+**Last session:** 2026-02-09 — Completed Wave 4: Integration and Testing
+**Stopped at:** Phase 19 Plan 04 complete
+**Next:** Wave 5: Reaction Service (earn on reactions, inline buttons)
+
+### Wave 4 Summary
+- WalletService integrated into ServiceContainer with lazy loading
+- 90 new tests covering all economy functionality
+- All 8 ECON requirements explicitly verified
+- Test files:
+  - `tests/services/test_wallet.py` (35 tests)
+  - `tests/services/test_config_economy.py` (18 tests)
+  - `tests/economy/test_econ_requirements.py` (11 tests)
 
 ### Open Questions
 
@@ -161,24 +171,28 @@ None.
 
 **Key Services Created:**
 1. `bot/services/wallet.py` - WalletService ✓ (earn/spend/levels/transactions)
+   - Integrated into ServiceContainer ✓
+   - 35 comprehensive tests ✓
+   - All 8 ECON requirements verified ✓
 
 **Key Services to Create:**
-2. `bot/services/reaction.py` - ReactionService
-3. `bot/services/streak.py` - StreakService
-4. `bot/services/shop.py` - ShopService
-5. `bot/services/reward.py` - RewardService
+2. `bot/services/reaction.py` - ReactionService (Wave 5)
+3. `bot/services/streak.py` - StreakService (Phase 21)
+4. `bot/services/shop.py` - ShopService (Phase 22)
+5. `bot/services/reward.py` - RewardService (Phase 23)
 
 **Key Models Created:**
 1. `UserGamificationProfile` - balance, level, total earned ✓
 2. `Transaction` - audit trail ✓
 
 **Key Models Pending:**
-3. `UserReaction` - reaction tracking
-4. `UserStreak` - streak data
-5. `ShopProduct` - catalog items
-6. `Reward` / `RewardCondition` - achievement system
+3. `UserReaction` - reaction tracking (Wave 5)
+4. `UserStreak` - streak data (Phase 21)
+5. `ShopProduct` - catalog items (Phase 22)
+6. `Reward` / `RewardCondition` - achievement system (Phase 23)
 
 ---
 
-*State updated: 2026-02-09 after Wave 2 completion*
-*Milestone v2.0 (Gamification) Phase 19 in progress - 2/6 waves complete*
+*State updated: 2026-02-09 after Wave 4 completion*
+*Milestone v2.0 (Gamification) Phase 19 in progress - 4/6 waves complete*
+*All 8 ECON requirements satisfied and tested*
