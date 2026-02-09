@@ -565,3 +565,119 @@ class ContentPackage(Base):
         Index('idx_content_category_active', 'category', 'is_active'),
         Index('idx_content_type_active', 'type', 'is_active'),
     )
+
+
+class UserGamificationProfile(Base):
+    """
+    Perfil de gamificación de usuario (sistema de economía).
+
+    Almacena el balance de besitos, estadísticas lifetime y nivel
+    del usuario en el sistema de gamificación.
+
+    Attributes:
+        id: ID único del perfil (Primary Key)
+        user_id: ID del usuario (Foreign Key, único)
+        balance: Besitos disponibles actualmente
+        total_earned: Total de besitos ganados (lifetime)
+        total_spent: Total de besitos gastados (lifetime)
+        level: Nivel actual (cached, recalculable)
+        created_at: Fecha de creación del perfil
+        updated_at: Última actualización
+
+    Relaciones:
+        user: Usuario asociado (1:1)
+
+    Notas:
+        - El balance puede calcularse como: total_earned - total_spent
+        - El nivel se cachea para queries rápidas de leaderboard
+        - Se crea automáticamente al registrar un nuevo usuario
+    """
+
+    __tablename__ = "user_gamification_profiles"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User relationship (1:1)
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+    user = relationship("User", uselist=False, lazy="selectin")
+
+    # Economy fields
+    balance = Column(Integer, nullable=False, default=0)
+    total_earned = Column(Integer, nullable=False, default=0)
+    total_spent = Column(Integer, nullable=False, default=0)
+    level = Column(Integer, nullable=False, default=1, index=True)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Index for leaderboard queries (ordered by level)
+        Index('idx_gamification_level_balance', 'level', 'balance'),
+    )
+
+    def calculate_level(self, formula: str = "linear") -> int:
+        """
+        Calcula el nivel basado en total_earned.
+
+        Args:
+            formula: Fórmula de progresión ("linear" o "exponential")
+
+        Returns:
+            Nivel calculado (mínimo 1)
+
+        Fórmulas:
+            linear: level = 1 + (total_earned // 100)
+            exponential: level = 1 + floor(sqrt(total_earned / 50))
+        """
+        if formula == "linear":
+            # Cada 100 besitos = 1 nivel
+            return max(1, 1 + (self.total_earned // 100))
+        elif formula == "exponential":
+            # Progresión más lenta al inicio, más rápida después
+            import math
+            return max(1, 1 + int(math.sqrt(self.total_earned / 50)))
+        else:
+            # Default: linear
+            return max(1, 1 + (self.total_earned // 100))
+
+    def update_level(self, formula: str = "linear") -> int:
+        """
+        Actualiza el nivel cacheado y retorna el nuevo valor.
+
+        Args:
+            formula: Fórmula de progresión
+
+        Returns:
+            Nuevo nivel calculado
+        """
+        self.level = self.calculate_level(formula)
+        return self.level
+
+    @property
+    def next_level_threshold(self) -> int:
+        """
+        Retorna besitos necesarios para el siguiente nivel.
+
+        Returns:
+            Cantidad de besitos necesarios para subir de nivel
+        """
+        return (self.level * 100) - self.total_earned
+
+    def __repr__(self) -> str:
+        return (
+            f"<UserGamificationProfile(user_id={self.user_id}, "
+            f"balance={self.balance}, level={self.level})>"
+        )
