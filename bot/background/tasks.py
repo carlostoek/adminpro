@@ -5,16 +5,20 @@ Tareas:
 - Expulsión de VIPs expirados del canal
 - Procesamiento de cola Free (envío de invite links)
 - Limpieza de datos antiguos
+- Limpieza de solicitudes expiradas al inicio (post-restart)
 """
 import logging
+from datetime import datetime, timedelta
 from typing import Optional
 
 from aiogram import Bot
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
+from sqlalchemy import select
 
 from bot.database import get_session
+from bot.database.models import FreeChannelRequest
 from bot.services.container import ServiceContainer
 from config import Config
 
@@ -147,7 +151,72 @@ async def cleanup_old_data(bot: Bot):
         logger.error(f"❌ Error en tarea de limpieza: {e}", exc_info=True)
 
 
-def start_background_tasks(bot: Bot):
+async def cleanup_expired_requests_after_restart(bot: Bot):
+    """
+    Limpia solicitudes Free pendientes que probablemente expiraron durante un reinicio.
+
+    PROBLEMA: Los ChatJoinRequest de Telegram expiran después de ~10 minutos.
+    Si el bot se reinicia, las solicitudes pendientes en BD pueden ya no ser válidas
+    en Telegram, causando errores cuando se intentan procesar.
+
+    SOLUCIÓN: Al iniciar el bot, marcar como procesadas las solicitudes que:
+    - Tienen más de 15 minutos sin procesar
+    - Aún no han sido procesadas
+
+    Esto evita errores innecesarios y logs de error confusos.
+
+    Args:
+        bot: Instancia del bot de Telegram
+
+    Returns:
+        int: Cantidad de solicitudes marcadas como expiradas
+    """
+    logger.info("🔄 Verificando solicitudes pendientes post-reinicio...")
+
+    try:
+        async with get_session() as session:
+            # Buscar solicitudes pendientes con más de 15 minutos de antigüedad
+            # (Los ChatJoinRequest de Telegram expiran después de ~10 minutos)
+            cutoff_time = datetime.utcnow() - timedelta(minutes=15)
+
+            result = await session.execute(
+                select(FreeChannelRequest).where(
+                    FreeChannelRequest.processed == False,
+                    FreeChannelRequest.request_date <= cutoff_time
+                )
+            )
+            old_requests = result.scalars().all()
+
+            if not old_requests:
+                logger.info("✅ No hay solicitudes pendientes potencialmente expiradas")
+                return 0
+
+            # Marcar como procesadas (expiradas)
+            expired_count = 0
+            for request in old_requests:
+                request.processed = True
+                request.processed_at = datetime.utcnow()
+                expired_count += 1
+                logger.info(
+                    f"🧹 Solicitud marcada como expirada (post-reinicio): "
+                    f"user {request.user_id} (creada hace {request.minutes_since_request():.0f} min)"
+                )
+
+            await session.commit()
+
+            logger.info(
+                f"✅ {expired_count} solicitud(es) marcada(s) como expiradas post-reinicio. "
+                f"Los usuarios deberán solicitar nuevamente si aún no están en el canal."
+            )
+
+            return expired_count
+
+    except Exception as e:
+        logger.error(f"❌ Error en limpieza post-reinicio: {e}", exc_info=True)
+        return 0
+
+
+async def start_background_tasks(bot: Bot):
     """
     Inicia el scheduler con todas las tareas programadas.
 
@@ -155,6 +224,7 @@ def start_background_tasks(bot: Bot):
     - Expulsión VIP: Cada 60 minutos (configurable)
     - Procesamiento Free: Cada 5 minutos (o según wait_time)
     - Limpieza: Cada 24 horas (diaria a las 3 AM)
+    - Limpieza post-reinicio: Al inicio del bot
 
     Args:
         bot: Instancia del bot de Telegram
@@ -166,6 +236,11 @@ def start_background_tasks(bot: Bot):
         return
 
     logger.info("🚀 Iniciando background tasks...")
+
+    # LIMPIEZA POST-REINICIO: Marcar solicitudes antiguas como expiradas
+    # Esto evita errores cuando el bot se reinicia y hay solicitudes pendientes
+    # que ya expiraron en Telegram (ChatJoinRequest expira después de ~10 min)
+    await cleanup_expired_requests_after_restart(bot)
 
     _scheduler = AsyncIOScheduler(timezone="UTC")
 
