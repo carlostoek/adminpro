@@ -69,6 +69,13 @@ class BotConfig(Base):
     social_x = Column(String(200), nullable=True)          # X/Twitter handle or URL
     free_channel_invite_link = Column(String(500), nullable=True)  # Stored invite link for Free channel
 
+    # Economy Configuration (Phase 19 - Wave 3)
+    level_formula = Column(String(255), default="floor(sqrt(total_earned / 100)) + 1")
+    besitos_per_reaction = Column(Integer, default=5)
+    besitos_daily_gift = Column(Integer, default=50)
+    besitos_daily_streak_bonus = Column(Integer, default=10)
+    max_reactions_per_day = Column(Integer, default=20)
+
     def __repr__(self):
         return (
             f"<BotConfig(vip={self.vip_channel_id}, "
