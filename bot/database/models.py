@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from bot.database.base import Base
-from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType
+from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType, TransactionType
 
 logger = logging.getLogger(__name__)
 
@@ -680,4 +680,86 @@ class UserGamificationProfile(Base):
         return (
             f"<UserGamificationProfile(user_id={self.user_id}, "
             f"balance={self.balance}, level={self.level})>"
+        )
+
+
+class Transaction(Base):
+    """
+    Registro de transacciones del sistema de economía.
+
+    Audit trail completo de todos los movimientos de besitos.
+    Cada cambio de balance genera una transacción registrada.
+
+    Attributes:
+        id: ID único de la transacción (Primary Key)
+        user_id: ID del usuario afectado
+        amount: Cantidad de besitos (positivo = ganancia, negativo = gasto)
+        type: Tipo de transacción (TransactionType enum)
+        reason: Descripción legible de la transacción
+        metadata: Datos adicionales en JSON (admin_id, shop_item_id, etc.)
+        created_at: Fecha y hora de la transacción
+
+    Notas:
+        - amount > 0: Usuario recibió besitos (EARN_*)
+        - amount < 0: Usuario gastó besitos (SPEND_*)
+        - metadata permite trazabilidad completa
+        - Las transacciones NUNCA se borran (append-only)
+    """
+
+    __tablename__ = "transactions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User affected
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Transaction details
+    amount = Column(Integer, nullable=False)  # Positive = earn, negative = spend
+    type = Column(
+        Enum(TransactionType),
+        nullable=False,
+        index=True
+    )
+    reason = Column(String(255), nullable=False)  # Human readable description
+    transaction_metadata = Column(JSON, nullable=True)  # Extra data: {"admin_id": 123, "shop_item_id": 456}
+
+    # Timestamp
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Composite index for user transaction history (most recent first)
+        Index('idx_transaction_user_created', 'user_id', 'created_at'),
+        # Composite index for analytics by type
+        Index('idx_transaction_type_created', 'type', 'created_at'),
+        # Composite index for filtering by user and type
+        Index('idx_transaction_user_type', 'user_id', 'type'),
+    )
+
+    @property
+    def is_earn(self) -> bool:
+        """Retorna True si es una transacción de ganancia."""
+        return self.amount > 0
+
+    @property
+    def is_spend(self) -> bool:
+        """Retorna True si es una transacción de gasto."""
+        return self.amount < 0
+
+    @property
+    def formatted_amount(self) -> str:
+        """Retorna la cantidad formateada con signo."""
+        if self.amount > 0:
+            return f"+{self.amount}"
+        return str(self.amount)
+
+    def __repr__(self) -> str:
+        return (
+            f"<Transaction(id={self.id}, user_id={self.user_id}, "
+            f"amount={self.amount}, type={self.type.value})>"
         )
