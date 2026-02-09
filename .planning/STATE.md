@@ -11,15 +11,15 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 19 - Economy Foundation
-**Plan:** 02 - WalletService Core (COMPLETE)
-**Status:** Wave 2 complete, ready for Wave 3
+**Plan:** 03 - Admin Operations and Configuration (COMPLETE)
+**Status:** Wave 3 complete, ready for Wave 4
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
 ### Progress Bar
 
 ```
-Phase 19: [████░░░░░░] 40% - Economy Foundation (Wave 2/6 complete)
+Phase 19: [██████░░░░] 60% - Economy Foundation (Wave 3/6 complete)
 Phase 20: [░░░░░░░░░░] 0% - Reaction System
 Phase 21: [░░░░░░░░░░] 0% - Daily Rewards & Streaks
 Phase 22: [░░░░░░░░░░] 0% - Shop System
@@ -70,6 +70,8 @@ Overall v2.0:  [██░░░░░░░░] 7% (3/43 requirements)
 | Atomic transaction pattern | UPDATE SET col = col + delta for thread-safety | **Implemented** |
 | transaction_metadata field | Avoid SQLAlchemy reserved 'metadata' name | **Implemented** |
 | Safe formula evaluation | Regex validation + restricted eval for level formulas | **Implemented** |
+| Admin credit/debit | EARN_ADMIN/SPEND_ADMIN with audit metadata | **Implemented** |
+| Economy config in BotConfig | level_formula, besitos_per_reaction, etc. | **Implemented** |
 
 ### Critical Implementation Notes
 
@@ -133,9 +135,9 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-09 — Completed Wave 2: WalletService Core Implementation
-**Stopped at:** Phase 19 Plan 02 complete
-**Next:** Wave 3: Reaction Service (earn on reactions, inline buttons)
+**Last session:** 2026-02-09 — Completed Wave 3: Admin Operations and Configuration
+**Stopped at:** Phase 19 Plan 03 complete
+**Next:** Wave 4: Reaction Service (earn on reactions, inline buttons)
 
 ### Open Questions
 
