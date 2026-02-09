@@ -295,6 +295,90 @@ class WalletService:
             self.logger.error(f"❌ Error en spend_besitos para user {user_id}: {e}")
             return False, str(e), None
 
+    async def admin_credit(
+        self,
+        user_id: int,
+        amount: int,
+        reason: str,
+        admin_id: int
+    ) -> Tuple[bool, str, Optional[Transaction]]:
+        """
+        Admin manually credits besitos to user.
+
+        Args:
+            user_id: Target user ID
+            amount: Amount to credit (positive)
+            reason: Human-readable reason for credit
+            admin_id: Admin performing the action (for audit)
+
+        Returns:
+            (success, message, transaction)
+        """
+        # Validate amount > 0
+        if amount <= 0:
+            return False, "invalid_amount", None
+
+        # Call earn_besitos with admin metadata
+        success, msg, transaction = await self.earn_besitos(
+            user_id=user_id,
+            amount=amount,
+            transaction_type=TransactionType.EARN_ADMIN,
+            reason=reason,
+            metadata={"admin_id": admin_id, "action": "credit"}
+        )
+
+        if success:
+            self.logger.info(
+                f"✅ Admin {admin_id} credited {amount} besitos to user {user_id}: {reason}"
+            )
+            return True, "credited", transaction
+        else:
+            return False, msg, None
+
+    async def admin_debit(
+        self,
+        user_id: int,
+        amount: int,
+        reason: str,
+        admin_id: int
+    ) -> Tuple[bool, str, Optional[Transaction]]:
+        """
+        Admin manually debits besitos from user.
+
+        Args:
+            user_id: Target user ID
+            amount: Amount to debit (positive)
+            reason: Human-readable reason for debit
+            admin_id: Admin performing the action (for audit)
+
+        Returns:
+            (success, message, transaction)
+        """
+        # Validate amount > 0
+        if amount <= 0:
+            return False, "invalid_amount", None
+
+        # Call spend_besitos with admin metadata
+        success, msg, transaction = await self.spend_besitos(
+            user_id=user_id,
+            amount=amount,
+            transaction_type=TransactionType.SPEND_ADMIN,
+            reason=reason,
+            metadata={"admin_id": admin_id, "action": "debit"}
+        )
+
+        if success:
+            self.logger.info(
+                f"✅ Admin {admin_id} debited {amount} besitos from user {user_id}: {reason}"
+            )
+            return True, "debited", transaction
+        elif msg == "insufficient_funds":
+            return False, "insufficient_funds", None
+        elif msg == "no_profile":
+            return False, "no_profile", None
+        else:
+            return False, msg, None
+
     async def get_transaction_history(
         self,
         user_id: int,
