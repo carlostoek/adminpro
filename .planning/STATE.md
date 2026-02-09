@@ -11,22 +11,22 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 19 - Economy Foundation
-**Plan:** 01 - Database Foundation (COMPLETE)
-**Status:** Wave 1 complete, ready for Wave 2
+**Plan:** 02 - WalletService Core (COMPLETE)
+**Status:** Wave 2 complete, ready for Wave 3
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
 ### Progress Bar
 
 ```
-Phase 19: [██░░░░░░░░] 20% - Economy Foundation (Wave 1/6 complete)
+Phase 19: [████░░░░░░] 40% - Economy Foundation (Wave 2/6 complete)
 Phase 20: [░░░░░░░░░░] 0% - Reaction System
 Phase 21: [░░░░░░░░░░] 0% - Daily Rewards & Streaks
 Phase 22: [░░░░░░░░░░] 0% - Shop System
 Phase 23: [░░░░░░░░░░] 0% - Rewards System
 Phase 24: [░░░░░░░░░░] 0% - Admin Configuration
 
-Overall v2.0:  [░░░░░░░░░░] 5% (2/43 requirements)
+Overall v2.0:  [██░░░░░░░░] 7% (3/43 requirements)
 ```
 
 ## Performance Metrics
@@ -43,7 +43,7 @@ Overall v2.0:  [░░░░░░░░░░] 5% (2/43 requirements)
 | v1.0 (Phases 1-4) | 14 | ~2 hours | ~8.6 min |
 | v1.1 (Phases 5-13) | 48 | ~10.2 hours | ~12.8 min |
 | v1.2 (Phases 14-18) | 21 | ~3.5 hours | ~10 min |
-| v2.0 (Phases 19-24) | 1 | ~15 min | ~15 min |
+| v2.0 (Phases 19-24) | 2 | ~20 min | ~10 min |
 
 **v1.2 Baseline:**
 - Total lines of code: ~177,811 Python
@@ -69,6 +69,7 @@ Overall v2.0:  [░░░░░░░░░░] 5% (2/43 requirements)
 | Niveles por puntos totales | Progresión clara y medible | **Implemented** |
 | Atomic transaction pattern | UPDATE SET col = col + delta for thread-safety | **Implemented** |
 | transaction_metadata field | Avoid SQLAlchemy reserved 'metadata' name | **Implemented** |
+| Safe formula evaluation | Regex validation + restricted eval for level formulas | **Implemented** |
 
 ### Critical Implementation Notes
 
@@ -132,9 +133,9 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-09 — Completed Wave 1: Database Foundation
-**Stopped at:** Phase 19 Plan 01 complete
-**Next:** Wave 2: Wallet Service (earn/spend operations, balance queries)
+**Last session:** 2026-02-09 — Completed Wave 2: WalletService Core Implementation
+**Stopped at:** Phase 19 Plan 02 complete
+**Next:** Wave 3: Reaction Service (earn on reactions, inline buttons)
 
 ### Open Questions
 
@@ -156,8 +157,10 @@ None.
 /gsd:plan-phase 19
 ```
 
+**Key Services Created:**
+1. `bot/services/wallet.py` - WalletService ✓ (earn/spend/levels/transactions)
+
 **Key Services to Create:**
-1. `bot/services/wallet.py` - WalletService
 2. `bot/services/reaction.py` - ReactionService
 3. `bot/services/streak.py` - StreakService
 4. `bot/services/shop.py` - ShopService
@@ -175,5 +178,5 @@ None.
 
 ---
 
-*State updated: 2026-02-09 after Wave 1 completion*
-*Milestone v2.0 (Gamification) Phase 19 in progress - 1/6 waves complete*
+*State updated: 2026-02-09 after Wave 2 completion*
+*Milestone v2.0 (Gamification) Phase 19 in progress - 2/6 waves complete*
