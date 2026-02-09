@@ -6,9 +6,12 @@ Responsabilidades:
 - Gestionar tiempo de espera Free
 - Gestionar reacciones de canales
 - Validar que configuración está completa
+- Configuración de economía (fórmula de niveles, besitos)
 """
 import logging
-from typing import List, Dict, Optional
+import math
+import re
+from typing import List, Dict, Optional, Tuple
 from urllib.parse import urlparse, urlunparse
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -519,3 +522,207 @@ class ConfigService:
             summary += f"\n\n⚠️ <b>Faltante:</b> {', '.join(status['missing'])}"
 
         return summary
+
+    # ===== ECONOMY CONFIGURATION =====
+
+    async def get_level_formula(self) -> str:
+        """Get current level progression formula.
+
+        Returns:
+            Formula string using total_earned variable
+        """
+        config = await self.get_config()
+        return config.level_formula
+
+    def _validate_formula_syntax(self, formula: str) -> Tuple[bool, str]:
+        """Validate formula syntax without executing it.
+
+        Args:
+            formula: Formula string to validate
+
+        Returns:
+            (is_valid, error_message)
+        """
+        # Allowed tokens pattern
+        allowed_pattern = r'^[\w\s+\-*/().]+$'
+        if not re.match(allowed_pattern, formula):
+            return False, "Formula contains invalid characters"
+
+        # Check for allowed identifiers only
+        # Extract all words from formula
+        words = re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*', formula)
+        allowed_words = {'total_earned', 'sqrt', 'floor'}
+
+        for word in words:
+            if word not in allowed_words:
+                return False, f"Unknown identifier: {word}"
+
+        return True, ""
+
+    def _test_formula_evaluation(self, formula: str) -> Tuple[bool, int, str]:
+        """Test formula evaluation with sample values.
+
+        Args:
+            formula: Formula string to test
+
+        Returns:
+            (success, result, error_message)
+        """
+        try:
+            safe_dict = {
+                'sqrt': math.sqrt,
+                'floor': math.floor,
+                'total_earned': 0
+            }
+
+            # Test with total_earned = 0
+            result_0 = eval(formula, {"__builtins__": {}}, safe_dict.copy())
+            if not isinstance(result_0, (int, float)):
+                return False, 0, "Formula must evaluate to a number"
+            if result_0 < 1:
+                return False, 0, f"Formula must produce level >= 1, got {result_0}"
+
+            # Test with total_earned = 100
+            safe_dict['total_earned'] = 100
+            result_100 = eval(formula, {"__builtins__": {}}, safe_dict.copy())
+            if result_100 < 1:
+                return False, 0, f"Formula must produce level >= 1, got {result_100}"
+
+            # Test with total_earned = 10000
+            safe_dict['total_earned'] = 10000
+            result_10000 = eval(formula, {"__builtins__": {}}, safe_dict.copy())
+            if result_10000 < 1:
+                return False, 0, f"Formula must produce level >= 1, got {result_10000}"
+
+            return True, int(result_0), ""
+
+        except Exception as e:
+            return False, 0, f"Formula evaluation error: {str(e)}"
+
+    async def set_level_formula(self, formula: str) -> Tuple[bool, str]:
+        """Set level progression formula.
+
+        Args:
+            formula: Formula string using total_earned variable
+                     Supported: sqrt, floor, +, -, *, /, (, )
+
+        Returns:
+            (success, message)
+        """
+        # Validate syntax
+        is_valid, error_msg = self._validate_formula_syntax(formula)
+        if not is_valid:
+            return False, f"invalid_syntax: {error_msg}"
+
+        # Test evaluation
+        success, _, eval_error = self._test_formula_evaluation(formula)
+        if not success:
+            return False, f"invalid_syntax: {eval_error}"
+
+        # Save to config
+        config = await self.get_config()
+        config.level_formula = formula
+        await self.session.commit()
+
+        logger.info(f"📊 Level formula updated: {formula}")
+        return True, "formula_updated"
+
+    # Economy value getters
+
+    async def get_besitos_per_reaction(self) -> int:
+        """Get besitos awarded per reaction."""
+        config = await self.get_config()
+        return config.besitos_per_reaction
+
+    async def get_besitos_daily_gift(self) -> int:
+        """Get besitos awarded for daily gift."""
+        config = await self.get_config()
+        return config.besitos_daily_gift
+
+    async def get_besitos_daily_streak_bonus(self) -> int:
+        """Get besitos awarded for daily streak bonus."""
+        config = await self.get_config()
+        return config.besitos_daily_streak_bonus
+
+    async def get_max_reactions_per_day(self) -> int:
+        """Get maximum reactions allowed per day per user."""
+        config = await self.get_config()
+        return config.max_reactions_per_day
+
+    # Economy value setters
+
+    async def set_besitos_per_reaction(self, value: int) -> Tuple[bool, str]:
+        """Set besitos awarded per reaction.
+
+        Args:
+            value: Must be > 0
+
+        Returns:
+            (success, message)
+        """
+        if value <= 0:
+            return False, "value_must_be_positive"
+
+        config = await self.get_config()
+        config.besitos_per_reaction = value
+        await self.session.commit()
+
+        logger.info(f"💰 besitos_per_reaction updated: {value}")
+        return True, "value_updated"
+
+    async def set_besitos_daily_gift(self, value: int) -> Tuple[bool, str]:
+        """Set besitos awarded for daily gift.
+
+        Args:
+            value: Must be > 0
+
+        Returns:
+            (success, message)
+        """
+        if value <= 0:
+            return False, "value_must_be_positive"
+
+        config = await self.get_config()
+        config.besitos_daily_gift = value
+        await self.session.commit()
+
+        logger.info(f"🎁 besitos_daily_gift updated: {value}")
+        return True, "value_updated"
+
+    async def set_besitos_daily_streak_bonus(self, value: int) -> Tuple[bool, str]:
+        """Set besitos awarded for daily streak bonus.
+
+        Args:
+            value: Must be > 0
+
+        Returns:
+            (success, message)
+        """
+        if value <= 0:
+            return False, "value_must_be_positive"
+
+        config = await self.get_config()
+        config.besitos_daily_streak_bonus = value
+        await self.session.commit()
+
+        logger.info(f"🔥 besitos_daily_streak_bonus updated: {value}")
+        return True, "value_updated"
+
+    async def set_max_reactions_per_day(self, value: int) -> Tuple[bool, str]:
+        """Set maximum reactions allowed per day per user.
+
+        Args:
+            value: Must be > 0
+
+        Returns:
+            (success, message)
+        """
+        if value <= 0:
+            return False, "value_must_be_positive"
+
+        config = await self.get_config()
+        config.max_reactions_per_day = value
+        await self.session.commit()
+
+        logger.info(f"⚡ max_reactions_per_day updated: {value}")
+        return True, "value_updated"
