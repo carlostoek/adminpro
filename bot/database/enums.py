@@ -164,3 +164,58 @@ class RoleChangeReason(str, Enum):
             RoleChangeReason.SYSTEM_AUTOMATIC: "Automático"
         }
         return names[self]
+
+
+class TransactionType(str, Enum):
+    """
+    Tipos de transacciones en el sistema de economía.
+
+    Categorías:
+        EARN_*: Transacciones de ganancia (besitos entrantes)
+        SPEND_*: Transacciones de gasto (besitos salientes)
+
+    Tipos:
+        EARN_REACTION: Ganancia por reaccionar a contenido
+        EARN_DAILY: Ganancia por reclamar regalo diario
+        EARN_STREAK: Ganancia por mantener racha
+        EARN_REWARD: Ganancia por completar logro/recompensa
+        EARN_ADMIN: Ganancia otorgada por administrador
+        SPEND_SHOP: Gasto en tienda
+        SPEND_ADMIN: Gasto por ajuste de administrador
+    """
+
+    EARN_REACTION = "EARN_REACTION"
+    EARN_DAILY = "EARN_DAILY"
+    EARN_STREAK = "EARN_STREAK"
+    EARN_REWARD = "EARN_REWARD"
+    EARN_ADMIN = "EARN_ADMIN"
+    SPEND_SHOP = "SPEND_SHOP"
+    SPEND_ADMIN = "SPEND_ADMIN"
+
+    def __str__(self) -> str:
+        """Retorna valor string del enum."""
+        return self.value
+
+    @property
+    def display_name(self) -> str:
+        """Retorna nombre legible del tipo de transacción."""
+        names = {
+            TransactionType.EARN_REACTION: "Reacción",
+            TransactionType.EARN_DAILY: "Regalo Diario",
+            TransactionType.EARN_STREAK: "Racha",
+            TransactionType.EARN_REWARD: "Recompensa",
+            TransactionType.EARN_ADMIN: "Otorgado por Admin",
+            TransactionType.SPEND_SHOP: "Compra en Tienda",
+            TransactionType.SPEND_ADMIN: "Ajuste por Admin"
+        }
+        return names[self]
+
+    @property
+    def is_earn(self) -> bool:
+        """Retorna True si es una transacción de ganancia."""
+        return self.value.startswith("EARN_")
+
+    @property
+    def is_spend(self) -> bool:
+        """Retorna True si es una transacción de gasto."""
+        return self.value.startswith("SPEND_")
