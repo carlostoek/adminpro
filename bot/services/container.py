@@ -59,6 +59,7 @@ class ServiceContainer:
         self._interest_service = None
         self._user_management_service = None
         self._vip_entry_service = None
+        self._wallet_service = None
 
         logger.debug("🏭 ServiceContainer inicializado (modo lazy)")
 
@@ -387,6 +388,35 @@ class ServiceContainer:
 
         return self._vip_entry_service
 
+    # ===== WALLET SERVICE =====
+
+    @property
+    def wallet(self):
+        """
+        Service de economía (besitos, transacciones, niveles).
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            WalletService: Instancia del service
+
+        Usage:
+            # Credit user
+            success, msg, tx = await container.wallet.earn_besitos(...)
+
+            # Check balance
+            balance = await container.wallet.get_balance(user_id)
+
+            # Get transaction history
+            txs, total = await container.wallet.get_transaction_history(user_id)
+        """
+        if self._wallet_service is None:
+            from bot.services.wallet import WalletService
+            logger.debug("🔄 Lazy loading: WalletService")
+            self._wallet_service = WalletService(self._session)
+
+        return self._wallet_service
+
     # ===== UTILIDADES =====
 
     def get_loaded_services(self) -> list[str]:
@@ -428,6 +458,8 @@ class ServiceContainer:
             loaded.append("user_management")
         if self._vip_entry_service is not None:
             loaded.append("vip_entry")
+        if self._wallet_service is not None:
+            loaded.append("wallet")
 
         return loaded
 
