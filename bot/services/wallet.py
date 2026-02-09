@@ -294,3 +294,58 @@ class WalletService:
         except Exception as e:
             self.logger.error(f"❌ Error en spend_besitos para user {user_id}: {e}")
             return False, str(e), None
+
+    async def get_transaction_history(
+        self,
+        user_id: int,
+        page: int = 1,
+        per_page: int = 10,
+        transaction_type: Optional[TransactionType] = None
+    ) -> Tuple[List[Transaction], int]:
+        """
+        Get paginated transaction history for user.
+
+        Args:
+            user_id: User ID to query
+            page: Page number (1-indexed)
+            per_page: Items per page
+            transaction_type: Optional filter by type
+
+        Returns:
+            Tuple of (transactions list, total count)
+
+        Example:
+            txs, total = await wallet.get_transaction_history(
+                user_id=123,
+                page=1,
+                per_page=10
+            )
+        """
+        # Build base query
+        base_query = select(Transaction).where(Transaction.user_id == user_id)
+
+        # Add type filter if provided
+        if transaction_type is not None:
+            base_query = base_query.where(Transaction.type == transaction_type)
+
+        # Get total count
+        count_query = select(func.count(Transaction.id)).where(Transaction.user_id == user_id)
+        if transaction_type is not None:
+            count_query = count_query.where(Transaction.type == transaction_type)
+
+        count_result = await self.session.execute(count_query)
+        total = count_result.scalar_one_or_none() or 0
+
+        # Apply pagination and ordering
+        offset = (page - 1) * per_page
+        query = (
+            base_query
+            .order_by(Transaction.created_at.desc())
+            .offset(offset)
+            .limit(per_page)
+        )
+
+        result = await self.session.execute(query)
+        transactions = list(result.scalars().all())
+
+        return transactions, total
