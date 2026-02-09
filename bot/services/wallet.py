@@ -208,3 +208,89 @@ class WalletService:
         except Exception as e:
             self.logger.error(f"❌ Error en earn_besitos para user {user_id}: {e}")
             return False, str(e), None
+
+    async def spend_besitos(
+        self,
+        user_id: int,
+        amount: int,
+        transaction_type: TransactionType,
+        reason: str,
+        metadata: Optional[Dict] = None
+    ) -> Tuple[bool, str, Optional[Transaction]]:
+        """
+        Gasta besitos de forma atómica con prevención de balance negativo.
+
+        Solo permite el gasto si el usuario tiene suficiente balance.
+        Usa UPDATE con condición balance >= amount para atomicidad.
+
+        Args:
+            user_id: ID del usuario que gasta besitos
+            amount: Cantidad a gastar (debe ser > 0)
+            transaction_type: Tipo de transacción (SPEND_*)
+            reason: Descripción legible del gasto
+            metadata: Datos adicionales opcionales
+
+        Returns:
+            Tuple[bool, str, Optional[Transaction]]:
+                - bool: True si éxito, False si error
+                - str: Mensaje descriptivo ("spent", "insufficient_funds", "no_profile", "invalid_amount")
+                - Optional[Transaction]: Transacción creada o None
+
+        Example:
+            success, msg, tx = await wallet.spend_besitos(
+                user_id=123,
+                amount=50,
+                transaction_type=TransactionType.SPEND_SHOP,
+                reason="Purchase item #789"
+            )
+        """
+        # Validation
+        if amount <= 0:
+            return False, "invalid_amount", None
+
+        try:
+            # Atomic UPDATE with balance check
+            # Only succeeds if balance >= amount
+            result = await self.session.execute(
+                update(UserGamificationProfile)
+                .where(
+                    UserGamificationProfile.user_id == user_id,
+                    UserGamificationProfile.balance >= amount
+                )
+                .values(
+                    balance=UserGamificationProfile.balance - amount,
+                    total_spent=UserGamificationProfile.total_spent + amount,
+                    updated_at=datetime.utcnow()
+                )
+            )
+
+            # Check if update succeeded
+            if result.rowcount == 0:
+                # Either no profile or insufficient balance
+                # Query to determine which case
+                profile = await self.get_profile(user_id)
+                if profile is None:
+                    return False, "no_profile", None
+                else:
+                    return False, "insufficient_funds", None
+
+            # Create transaction record (negative amount for spend)
+            transaction = Transaction(
+                user_id=user_id,
+                amount=-amount,  # Negative for spend
+                type=transaction_type,
+                reason=reason,
+                transaction_metadata=metadata
+            )
+            self.session.add(transaction)
+            await self.session.flush()
+
+            self.logger.info(
+                f"✅ User {user_id} spent {amount} besitos ({transaction_type.value}): {reason}"
+            )
+
+            return True, "spent", transaction
+
+        except Exception as e:
+            self.logger.error(f"❌ Error en spend_besitos para user {user_id}: {e}")
+            return False, str(e), None
