@@ -1137,9 +1137,10 @@ class SubscriptionService:
 
                 # Verificar si es un error de solicitud expirada/cancelada
                 # Esto ocurre cuando el ChatJoinRequest de Telegram expiró o fue cancelado
+                # O cuando el usuario ya está en el canal (USER_ALREADY_PARTICIPANT)
                 is_expired_error = any(
                     keyword in error_msg
-                    for keyword in ["expired", "not found", "no pending", "request expired", "user_not_participant"]
+                    for keyword in ["expired", "not found", "no pending", "request expired", "user_not_participant", "user_already_participant"]
                 )
 
                 if is_expired_error:
@@ -1285,9 +1286,27 @@ class SubscriptionService:
 
                 except Exception as e:
                     error_count += 1
-                    logger.warning(
-                        f"⚠️ Error aprobando solicitud de user {_mask_user_id(request.user_id)}: {e}"
+                    error_msg = str(e).lower()
+
+                    # Verificar si es un error que indica que la solicitud ya no es válida
+                    # (expirada, usuario ya en canal, etc.)
+                    is_final_error = any(
+                        keyword in error_msg
+                        for keyword in ["expired", "not found", "no pending", "request expired", "user_not_participant", "user_already_participant"]
                     )
+
+                    if is_final_error:
+                        # Marcar como procesada para no volver a intentar
+                        request.processed = True
+                        request.processed_at = datetime.utcnow()
+                        logger.warning(
+                            f"⚠️ Solicitud de user {_mask_user_id(request.user_id)} no se pudo aprobar "
+                            f"({e}). Marcada como procesada para evitar reintentos."
+                        )
+                    else:
+                        logger.warning(
+                            f"⚠️ Error aprobando solicitud de user {_mask_user_id(request.user_id)}: {e}"
+                        )
 
             await self.session.commit()
 

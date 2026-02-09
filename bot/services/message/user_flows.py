@@ -96,6 +96,7 @@ class UserFlowMessages(BaseMessageProvider):
 
         body = (
             "<i>Ah… alguien ha llamado a la puerta.</i>\n\n"
+            "Le escribo porque solicitó acceso a Diana.\n\n"
             "Su solicitud para entrar a <b>Los Kinkys</b> ha sido recibida.\n\n"
             "Ahora mismo hay varias solicitudes en revisión, y cada una se evalúa con atención.\n"
             "Si desea que su solicitud pueda tener un impulso en la revisión siga a Diana en sus diferentes redes.\n"
@@ -105,6 +106,8 @@ class UserFlowMessages(BaseMessageProvider):
         )
 
         footer = (
+            "<i>Este es el único canal por el que podré avisarle cuando todo esté listo.\n"
+            "Si este chat desaparece, también lo hará su aviso.</i>\n\n"
             "Mientras tanto… este es su rastro 👇"
         )
 
