@@ -123,3 +123,88 @@ class WalletService:
             )
         )
         return result.scalar_one_or_none()
+
+    async def earn_besitos(
+        self,
+        user_id: int,
+        amount: int,
+        transaction_type: TransactionType,
+        reason: str,
+        metadata: Optional[Dict] = None
+    ) -> Tuple[bool, str, Optional[Transaction]]:
+        """
+        Gana besitos de forma atómica.
+
+        Actualiza el balance y total_earned atómicamente usando UPDATE SET,
+        luego registra la transacción en el audit trail.
+
+        Args:
+            user_id: ID del usuario que gana besitos
+            amount: Cantidad a ganar (debe ser > 0)
+            transaction_type: Tipo de transacción (EARN_*)
+            reason: Descripción legible de la ganancia
+            metadata: Datos adicionales opcionales
+
+        Returns:
+            Tuple[bool, str, Optional[Transaction]]:
+                - bool: True si éxito, False si error
+                - str: Mensaje descriptivo ("earned" o "invalid_amount")
+                - Optional[Transaction]: Transacción creada o None
+
+        Example:
+            success, msg, tx = await wallet.earn_besitos(
+                user_id=123,
+                amount=100,
+                transaction_type=TransactionType.EARN_REACTION,
+                reason="Reaction to content #456"
+            )
+        """
+        # Validation
+        if amount <= 0:
+            return False, "invalid_amount", None
+
+        try:
+            # Atomic UPDATE: try to update existing profile
+            result = await self.session.execute(
+                update(UserGamificationProfile)
+                .where(UserGamificationProfile.user_id == user_id)
+                .values(
+                    balance=UserGamificationProfile.balance + amount,
+                    total_earned=UserGamificationProfile.total_earned + amount,
+                    updated_at=datetime.utcnow()
+                )
+            )
+
+            # If no rows affected, profile doesn't exist - create it
+            if result.rowcount == 0:
+                profile = UserGamificationProfile(
+                    user_id=user_id,
+                    balance=amount,
+                    total_earned=amount,
+                    total_spent=0,
+                    level=1
+                )
+                self.session.add(profile)
+                await self.session.flush()
+                self.logger.info(f"✅ Perfil creado al ganar besitos: user {user_id}")
+
+            # Create transaction record
+            transaction = Transaction(
+                user_id=user_id,
+                amount=amount,  # Positive for earn
+                type=transaction_type,
+                reason=reason,
+                transaction_metadata=metadata
+            )
+            self.session.add(transaction)
+            await self.session.flush()
+
+            self.logger.info(
+                f"✅ User {user_id} earned {amount} besitos ({transaction_type.value}): {reason}"
+            )
+
+            return True, "earned", transaction
+
+        except Exception as e:
+            self.logger.error(f"❌ Error en earn_besitos para user {user_id}: {e}")
+            return False, str(e), None
