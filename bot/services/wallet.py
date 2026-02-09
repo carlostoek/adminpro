@@ -349,3 +349,102 @@ class WalletService:
         transactions = list(result.scalars().all())
 
         return transactions, total
+
+    def _evaluate_level_formula(self, total_earned: int, formula: str) -> int:
+        """
+        Evalúa la fórmula de nivel de forma segura.
+
+        Args:
+            total_earned: Total de besitos ganados
+            formula: Fórmula a evaluar (default: "floor(sqrt(total_earned / 100)) + 1")
+
+        Returns:
+            int: Nivel calculado (mínimo 1)
+
+        Supported operations:
+            - sqrt(x): Raíz cuadrada
+            - floor(x): Redondeo hacia abajo
+            - +, -, *, /: Operaciones aritméticas
+            - (, ): Agrupación
+
+        Variable:
+            - total_earned: Total de besitos ganados
+        """
+        if not formula:
+            formula = "floor(sqrt(total_earned / 100)) + 1"
+
+        try:
+            # Create safe evaluation environment
+            # Only allow specific math functions and operators
+            safe_dict = {
+                'sqrt': math.sqrt,
+                'floor': math.floor,
+                'total_earned': total_earned
+            }
+
+            # Validate formula contains only allowed characters
+            # Allowed: letters, numbers, spaces, operators, parentheses, dots
+            if not re.match(r'^[\w\s+\-*/().]+$', formula):
+                self.logger.warning(f"⚠️ Fórmula contiene caracteres inválidos: {formula}")
+                # Fallback to default
+                formula = "floor(sqrt(total_earned / 100)) + 1"
+
+            # Evaluate formula safely
+            level = eval(formula, {"__builtins__": {}}, safe_dict)
+
+            # Ensure minimum level of 1
+            return max(1, int(level))
+
+        except Exception as e:
+            self.logger.error(f"❌ Error evaluando fórmula '{formula}': {e}")
+            # Fallback: linear formula
+            return max(1, 1 + (total_earned // 100))
+
+    async def get_user_level(self, user_id: int, formula: Optional[str] = None) -> int:
+        """
+        Calculate user level based on total_earned.
+
+        Args:
+            user_id: User to calculate for
+            formula: Optional formula override (uses default if None)
+
+        Returns:
+            Current level (1 if no profile)
+
+        Example:
+            level = await wallet.get_user_level(user_id=123)
+            # Returns: 1, 2, 3, etc.
+        """
+        profile = await self.get_profile(user_id)
+
+        if profile is None:
+            return 1
+
+        return self._evaluate_level_formula(profile.total_earned, formula)
+
+    async def update_user_level(self, user_id: int, formula: Optional[str] = None) -> int:
+        """
+        Calculate and update cached level in profile.
+
+        Args:
+            user_id: User to update
+            formula: Optional formula override
+
+        Returns:
+            New level value
+
+        Example:
+            new_level = await wallet.update_user_level(user_id=123)
+        """
+        # Calculate new level
+        new_level = await self.get_user_level(user_id, formula)
+
+        # Update profile
+        profile = await self._get_or_create_profile(user_id)
+
+        if profile.level != new_level:
+            profile.level = new_level
+            await self.session.flush()
+            self.logger.info(f"✅ User {user_id} level updated to {new_level}")
+
+        return new_level
