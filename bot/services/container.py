@@ -60,6 +60,7 @@ class ServiceContainer:
         self._user_management_service = None
         self._vip_entry_service = None
         self._wallet_service = None
+        self._reaction_service = None
 
         logger.debug("🏭 ServiceContainer inicializado (modo lazy)")
 
@@ -417,6 +418,45 @@ class ServiceContainer:
 
         return self._wallet_service
 
+    # ===== REACTION SERVICE =====
+
+    @property
+    def reaction(self):
+        """
+        Service de gestión de reacciones a contenido.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            ReactionService: Instancia del service
+
+        Usage:
+            # Add reaction
+            success, code, data = await container.reaction.add_reaction(
+                user_id=123,
+                content_id=456,
+                channel_id="-1001234567890",
+                emoji="❤️",
+                content_category=ContentCategory.VIP_CONTENT
+            )
+
+            # Get content reaction counts
+            counts = await container.reaction.get_content_reactions(
+                content_id=456,
+                channel_id="-1001234567890"
+            )
+        """
+        if self._reaction_service is None:
+            from bot.services.reaction import ReactionService
+            logger.debug("🔄 Lazy loading: ReactionService")
+            # Inject wallet service for besitos earning
+            self._reaction_service = ReactionService(
+                self._session,
+                wallet_service=self.wallet
+            )
+
+        return self._reaction_service
+
     # ===== UTILIDADES =====
 
     def get_loaded_services(self) -> list[str]:
@@ -460,6 +500,8 @@ class ServiceContainer:
             loaded.append("vip_entry")
         if self._wallet_service is not None:
             loaded.append("wallet")
+        if self._reaction_service is not None:
+            loaded.append("reaction")
 
         return loaded
 
