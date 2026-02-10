@@ -9,6 +9,7 @@ from bot.services.interest import InterestService
 from bot.services.user_management import UserManagementService
 from bot.services.test_runner import TestRunnerService, TestResult
 from bot.services.wallet import WalletService
+from bot.services.reaction import ReactionService
 
 __all__ = [
     "ServiceContainer",
@@ -23,4 +24,5 @@ __all__ = [
     "TestRunnerService",
     "TestResult",
     "WalletService",
+    "ReactionService",
 ]
