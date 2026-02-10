@@ -352,3 +352,31 @@ class ReactionService:
         count_today = result.scalar_one_or_none() or 0
 
         return count_today, limit
+
+    async def get_user_reactions_for_content(
+        self,
+        user_id: int,
+        content_id: int,
+        channel_id: str
+    ) -> List[str]:
+        """
+        Obtiene lista de emojis que el usuario usó en un contenido.
+
+        Args:
+            user_id: ID del usuario
+            content_id: ID del contenido
+            channel_id: ID del canal
+
+        Returns:
+            Lista de emojis (ej: ["❤️", "🔥"])
+        """
+        result = await self.session.execute(
+            select(UserReaction.emoji)
+            .where(
+                UserReaction.user_id == user_id,
+                UserReaction.content_id == content_id,
+                UserReaction.channel_id == channel_id
+            )
+        )
+
+        return [row[0] for row in result.all()]
