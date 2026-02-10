@@ -133,6 +133,7 @@ Plans:
 **Goal:** Users can react to channel content with inline buttons and earn besitos
 **Requirements:** REACT-01 through REACT-07 (7 requirements)
 **Dependencies:** Phase 19 (WalletService)
+**Plans:** 4 plans
 
 **Success Criteria:**
 1. Every message in channels displays inline reaction buttons with configured emojis
@@ -142,6 +143,12 @@ Plans:
 5. User receives besitos immediately after valid reaction
 6. User cannot exceed daily reaction limit
 7. VIP content reactions rejected for non-VIP users
+
+Plans:
+- [ ] 20-01 — Database and Service foundation (UserReaction model, ReactionService core)
+- [ ] 20-02 — ServiceContainer integration and keyboard utilities
+- [ ] 20-03 — Callback handlers and reaction flow
+- [ ] 20-04 — Channel integration and REACT requirements verification
 
 ### Phase 21: Daily Rewards & Streaks
 **Goal:** Users can claim daily rewards with streak bonuses
@@ -227,7 +234,7 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24
 | 17. System Tests | v1.2 | 4/4 | Complete | 2026-01-30 |
 | 18. Admin Test Runner & Performance Profiling | v1.2 | 4/4 | Complete | 2026-01-30 |
 | 19. Economy Foundation | v2.0 | 4/4 | Complete | 2026-02-09 |
-| 20. Reaction System | v2.0 | 0/0 | Pending | — |
+| 20. Reaction System | v2.0 | 0/4 | Pending | — |
 | 21. Daily Rewards & Streaks | v2.0 | 0/0 | Pending | — |
 | 22. Shop System | v2.0 | 0/0 | Pending | — |
 | 23. Rewards System | v2.0 | 0/0 | Pending | — |
