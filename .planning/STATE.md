@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 20 - Reaction System 🔄 IN PROGRESS
-**Plan:** 20-01 Database Foundation ✅ COMPLETE
-**Status:** UserReaction model and ReactionService created, ready for Plan 02
+**Plan:** 20-02 Service Integration ✅ COMPLETE
+**Status:** ReactionService integrated into container, keyboard utilities created, 18 tests passing
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -20,13 +20,13 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 ```
 Phase 19: [██████████] 100% - Economy Foundation ✅
-Phase 20: [██░░░░░░░░] 20% - Reaction System 🔄
+Phase 20: [████░░░░░░] 40% - Reaction System 🔄
 Phase 21: [░░░░░░░░░░] 0% - Daily Rewards & Streaks
 Phase 22: [░░░░░░░░░░] 0% - Shop System
 Phase 23: [░░░░░░░░░░] 0% - Rewards System
 Phase 24: [░░░░░░░░░░] 0% - Admin Configuration
 
-Overall v2.0:  [███░░░░░░░] 21% (9/43 requirements)
+Overall v2.0:  [███░░░░░░░] 23% (10/43 requirements)
 ```
 
 ## Performance Metrics
@@ -43,7 +43,7 @@ Overall v2.0:  [███░░░░░░░] 21% (9/43 requirements)
 | v1.0 (Phases 1-4) | 14 | ~2 hours | ~8.6 min |
 | v1.1 (Phases 5-13) | 48 | ~10.2 hours | ~12.8 min |
 | v1.2 (Phases 14-18) | 21 | ~3.5 hours | ~10 min |
-| v2.0 (Phases 19-24) | 3 | ~28 min | ~9.3 min |
+| v2.0 (Phases 19-24) | 4 | ~40 min | ~10 min |
 
 **v1.2 Baseline:**
 - Total lines of code: ~177,811 Python
@@ -52,10 +52,10 @@ Overall v2.0:  [███░░░░░░░] 21% (9/43 requirements)
 - Tests: 212 passing
 
 **v2.0 Current:**
-- New services: 2/5 (WalletService ✓, ReactionService ✓, StreakService, ShopService, RewardService)
+- New services: 2/5 integrated (WalletService ✓, ReactionService ✓, StreakService, ShopService, RewardService)
 - New models: 3/6+ (UserGamificationProfile ✓, Transaction ✓, UserReaction ✓, UserStreak, ShopProduct, Reward, RewardCondition)
 - Requirements: 8/43 (all ECON requirements complete)
-- Tests: 302 passing (90 new economy tests)
+- Tests: 320 passing (108 new economy/reaction tests)
 
 ## Accumulated Context
 
@@ -63,7 +63,7 @@ Overall v2.0:  [███░░░░░░░] 21% (9/43 requirements)
 
 | Decision | Rationale | Status |
 |----------|-----------|--------|
-| Botones inline para reacciones | Telegram no expone reacciones nativas en canales | **Database Ready** |
+| Botones inline para reacciones | Telegram no expone reacciones nativas en canales | **Fully Implemented** |
 | Tienda solo con besitos | Separar economía virtual de dinero real | Pending |
 | Configuración en cascada | Evitar fragmentación que complica UX admin | Pending |
 | Rachas se reinician | Mecánica simple, fácil de entender | Pending |
@@ -136,9 +136,9 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-10 — Completed Phase 20 Plan 01: Reaction System Database Foundation
-**Stopped at:** Plan 20-01 complete, ready for Plan 02 (inline keyboard integration)
-**Next:** Phase 20 Plan 02: Reaction inline buttons and handlers
+**Last session:** 2026-02-09 — Completed Phase 20 Plan 02: Reaction Service Integration
+**Stopped at:** Plan 20-02 complete, ReactionService integrated into container, keyboard utilities ready
+**Next:** Phase 20 Plan 03: Reaction callback handlers and channel integration
 
 ### Wave 4 Summary
 - WalletService integrated into ServiceContainer with lazy loading
@@ -178,6 +178,9 @@ None.
    - UserReaction model with deduplication ✓
    - 30s cooldown, daily limits, VIP access control ✓
    - Integration with WalletService for EARN_REACTION ✓
+   - ServiceContainer integration with lazy loading ✓
+   - Keyboard utilities for inline reaction buttons ✓
+   - 18 comprehensive tests ✓
 
 **Key Services to Create:**
 3. `bot/services/streak.py` - StreakService (Phase 21)
@@ -198,6 +201,6 @@ None.
 
 ---
 
-*State updated: 2026-02-10 after Phase 20 Plan 01 completion*
+*State updated: 2026-02-09 after Phase 20 Plan 02 completion*
 *Milestone v2.0 (Gamification) Phase 20 in progress - 8/43 requirements*
-*UserReaction model and ReactionService foundation complete*
+*ReactionService fully integrated with container and keyboard utilities*
