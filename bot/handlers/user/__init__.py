@@ -11,4 +11,7 @@ from bot.handlers.user.vip_entry import vip_entry_router
 import bot.handlers.user.free_flow
 # vip_flow.py removed - manual token redemption deprecated, only deep link activation exists
 
+# Importar y registrar handlers de reacciones
+from bot.handlers.user.reactions import register_reaction_handlers
+
 __all__ = ["user_router", "free_join_router", "vip_entry_router"]
