@@ -137,7 +137,7 @@ async def _handle_success(
 async def _handle_failure(
     callback: CallbackQuery,
     code: str,
-    data: dict
+    data: Optional[dict]
 ) -> None:
     """
     Maneja fallo en reacción.
@@ -145,8 +145,11 @@ async def _handle_failure(
     Args:
         callback: Callback query
         code: Código de error
-        data: Datos adicionales del error
+        data: Datos adicionales del error (puede ser None)
     """
+    # Ensure data is a dict for safe access
+    data = data or {}
+
     messages = {
         "duplicate": "Ya reaccionaste con este emoji 👆",
         "rate_limited": f"Espera {data.get('seconds_remaining', 30)}s entre reacciones ⏱",
