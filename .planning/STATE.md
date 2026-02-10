@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 **Milestone:** v2.0 Gamification
-**Phase:** 19 - Economy Foundation ✅ COMPLETE
-**Plan:** All 4 plans executed and verified
-**Status:** Phase goal achieved, ready for Phase 20
+**Phase:** 20 - Reaction System 🔄 IN PROGRESS
+**Plan:** 20-01 Database Foundation ✅ COMPLETE
+**Status:** UserReaction model and ReactionService created, ready for Plan 02
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -20,13 +20,13 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 ```
 Phase 19: [██████████] 100% - Economy Foundation ✅
-Phase 20: [░░░░░░░░░░] 0% - Reaction System
+Phase 20: [██░░░░░░░░] 20% - Reaction System 🔄
 Phase 21: [░░░░░░░░░░] 0% - Daily Rewards & Streaks
 Phase 22: [░░░░░░░░░░] 0% - Shop System
 Phase 23: [░░░░░░░░░░] 0% - Rewards System
 Phase 24: [░░░░░░░░░░] 0% - Admin Configuration
 
-Overall v2.0:  [██░░░░░░░░] 19% (8/43 requirements)
+Overall v2.0:  [███░░░░░░░] 21% (9/43 requirements)
 ```
 
 ## Performance Metrics
@@ -43,7 +43,7 @@ Overall v2.0:  [██░░░░░░░░] 19% (8/43 requirements)
 | v1.0 (Phases 1-4) | 14 | ~2 hours | ~8.6 min |
 | v1.1 (Phases 5-13) | 48 | ~10.2 hours | ~12.8 min |
 | v1.2 (Phases 14-18) | 21 | ~3.5 hours | ~10 min |
-| v2.0 (Phases 19-24) | 2 | ~20 min | ~10 min |
+| v2.0 (Phases 19-24) | 3 | ~28 min | ~9.3 min |
 
 **v1.2 Baseline:**
 - Total lines of code: ~177,811 Python
@@ -52,8 +52,8 @@ Overall v2.0:  [██░░░░░░░░] 19% (8/43 requirements)
 - Tests: 212 passing
 
 **v2.0 Current:**
-- New services: 1/5 (WalletService ✓, ReactionService, StreakService, ShopService, RewardService)
-- New models: 2/6+ (UserGamificationProfile ✓, Transaction ✓, UserReaction, UserStreak, ShopProduct, Reward, RewardCondition)
+- New services: 2/5 (WalletService ✓, ReactionService ✓, StreakService, ShopService, RewardService)
+- New models: 3/6+ (UserGamificationProfile ✓, Transaction ✓, UserReaction ✓, UserStreak, ShopProduct, Reward, RewardCondition)
 - Requirements: 8/43 (all ECON requirements complete)
 - Tests: 302 passing (90 new economy tests)
 
@@ -63,7 +63,7 @@ Overall v2.0:  [██░░░░░░░░] 19% (8/43 requirements)
 
 | Decision | Rationale | Status |
 |----------|-----------|--------|
-| Botones inline para reacciones | Telegram no expone reacciones nativas en canales | Pending |
+| Botones inline para reacciones | Telegram no expone reacciones nativas en canales | **Database Ready** |
 | Tienda solo con besitos | Separar economía virtual de dinero real | Pending |
 | Configuración en cascada | Evitar fragmentación que complica UX admin | Pending |
 | Rachas se reinician | Mecánica simple, fácil de entender | Pending |
@@ -136,9 +136,9 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-09 — Completed Phase 19: Economy Foundation
-**Stopped at:** Phase 19 verified and complete
-**Next:** Phase 20: Reaction System
+**Last session:** 2026-02-10 — Completed Phase 20 Plan 01: Reaction System Database Foundation
+**Stopped at:** Plan 20-01 complete, ready for Plan 02 (inline keyboard integration)
+**Next:** Phase 20 Plan 02: Reaction inline buttons and handlers
 
 ### Wave 4 Summary
 - WalletService integrated into ServiceContainer with lazy loading
@@ -174,9 +174,12 @@ None.
    - Integrated into ServiceContainer ✓
    - 35 comprehensive tests ✓
    - All 8 ECON requirements verified ✓
+2. `bot/services/reaction.py` - ReactionService ✓ (reaction tracking, rate limiting)
+   - UserReaction model with deduplication ✓
+   - 30s cooldown, daily limits, VIP access control ✓
+   - Integration with WalletService for EARN_REACTION ✓
 
 **Key Services to Create:**
-2. `bot/services/reaction.py` - ReactionService (Phase 20)
 3. `bot/services/streak.py` - StreakService (Phase 21)
 4. `bot/services/shop.py` - ShopService (Phase 22)
 5. `bot/services/reward.py` - RewardService (Phase 23)
@@ -185,14 +188,16 @@ None.
 1. `UserGamificationProfile` - balance, level, total earned ✓
 2. `Transaction` - audit trail ✓
 
+**Key Models Created (continued):**
+3. `UserReaction` - reaction tracking ✓ (deduplication, rate limiting support)
+
 **Key Models Pending:**
-3. `UserReaction` - reaction tracking (Wave 5)
 4. `UserStreak` - streak data (Phase 21)
 5. `ShopProduct` - catalog items (Phase 22)
 6. `Reward` / `RewardCondition` - achievement system (Phase 23)
 
 ---
 
-*State updated: 2026-02-09 after Phase 19 completion*
-*Milestone v2.0 (Gamification) Phase 19 COMPLETE - 8/43 requirements*
-*All 8 ECON requirements satisfied and verified*
+*State updated: 2026-02-10 after Phase 20 Plan 01 completion*
+*Milestone v2.0 (Gamification) Phase 20 in progress - 8/43 requirements*
+*UserReaction model and ReactionService foundation complete*
