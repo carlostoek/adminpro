@@ -5,11 +5,119 @@ Funciones:
 - create_inline_keyboard: Crea teclado a partir de estructura de botones
 - create_menu_navigation: Crea filas de navegación estándar (Volver/Salir)
 - create_content_with_navigation: Combina contenido con navegación
+- get_reaction_keyboard: Genera teclado de reacciones para contenido
 
 Centraliza la creación de keyboards para consistencia visual y navegación.
 """
 from typing import List, Optional
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+
+# Default reactions for content
+DEFAULT_REACTIONS = ["❤️", "🔥", "💋", "😈"]
+
+
+def get_reaction_keyboard(
+    content_id: int,
+    channel_id: str,
+    reactions: Optional[List[str]] = None,
+    current_counts: Optional[dict] = None
+) -> InlineKeyboardMarkup:
+    """
+    Genera teclado inline con botones de reacción.
+
+    Args:
+        content_id: ID del mensaje/contenido
+        channel_id: ID del canal
+        reactions: Lista de emojis a mostrar (default: ["❤️", "🔥", "💋", "😈"])
+        current_counts: Dict {emoji: count} con conteos actuales
+
+    Returns:
+        InlineKeyboardMarkup con botones de reacción
+
+    Example:
+        keyboard = get_reaction_keyboard(
+            content_id=message.message_id,
+            channel_id="-1001234567890",
+            current_counts={"❤️": 5, "🔥": 3}
+        )
+    """
+    if reactions is None:
+        reactions = DEFAULT_REACTIONS
+
+    if current_counts is None:
+        current_counts = {}
+
+    # Build buttons row
+    buttons = []
+    for emoji in reactions:
+        count = current_counts.get(emoji, 0)
+        # Format: "❤️ 5" or just "❤️" if no reactions
+        text = f"{emoji} {count}" if count > 0 else emoji
+
+        # Callback data format: react:{channel_id}:{content_id}:{emoji}
+        # Note: channel_id may contain -100 prefix, keep as-is
+        callback_data = f"react:{channel_id}:{content_id}:{emoji}"
+
+        # Telegram callback_data limit is 64 bytes
+        # If too long, use hash or shorter format
+        if len(callback_data.encode('utf-8')) > 64:
+            # Fallback: use shortened format
+            callback_data = f"r:{content_id}:{emoji}"
+
+        buttons.append(
+            InlineKeyboardButton(text=text, callback_data=callback_data)
+        )
+
+    # Arrange in rows of 4 buttons
+    keyboard = []
+    for i in range(0, len(buttons), 4):
+        keyboard.append(buttons[i:i+4])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_reaction_keyboard_with_counts(
+    content_id: int,
+    channel_id: str,
+    reactions: List[str],
+    user_reactions: List[str]  # Emojis the user already reacted with
+) -> InlineKeyboardMarkup:
+    """
+    Genera teclado mostrando qué reacciones ya hizo el usuario.
+
+    Args:
+        content_id: ID del mensaje/contenido
+        channel_id: ID del canal
+        reactions: Lista de emojis disponibles
+        user_reactions: Lista de emojis que el usuario ya usó
+
+    Returns:
+        InlineKeyboardMarkup con indicación visual de reacciones del usuario
+    """
+    buttons = []
+    for emoji in reactions:
+        # Mark user reactions with checkmark
+        if emoji in user_reactions:
+            text = f"✓{emoji}"
+        else:
+            text = emoji
+
+        callback_data = f"react:{channel_id}:{content_id}:{emoji}"
+
+        # Handle length limit
+        if len(callback_data.encode('utf-8')) > 64:
+            callback_data = f"r:{content_id}:{emoji}"
+
+        buttons.append(
+            InlineKeyboardButton(text=text, callback_data=callback_data)
+        )
+
+    keyboard = []
+    for i in range(0, len(buttons), 4):
+        keyboard.append(buttons[i:i+4])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def create_inline_keyboard(
