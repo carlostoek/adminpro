@@ -21,15 +21,15 @@ from bot.database.enums import ContentCategory, TransactionType, UserRole
 
 
 @pytest.fixture
-async def wallet_service(db_session):
+async def wallet_service(test_session):
     """Create a real WalletService for integration testing."""
-    return WalletService(db_session)
+    return WalletService(test_session)
 
 
 @pytest.fixture
-async def reaction_service(db_session, wallet_service):
+async def reaction_service(test_session, wallet_service):
     """Create ReactionService with real WalletService."""
-    return ReactionService(db_session, wallet_service=wallet_service)
+    return ReactionService(test_session, wallet_service=wallet_service)
 
 
 class TestREACT01_InlineButtons:
@@ -67,7 +67,7 @@ class TestREACT02_UserCanReact:
     """REACT-02: User can react to content via inline buttons."""
 
     async def test_user_can_add_reaction(
-        self, reaction_service, db_session, test_user
+        self, reaction_service, test_session, test_user
     ):
         """User should be able to add a reaction."""
         success, code, data = await reaction_service.add_reaction(
@@ -84,7 +84,7 @@ class TestREACT02_UserCanReact:
         # Verify reaction was saved
         from sqlalchemy import select
 
-        result = await db_session.execute(
+        result = await test_session.execute(
             select(UserReaction).where(
                 UserReaction.user_id == test_user.user_id,
                 UserReaction.content_id == 100,
@@ -99,9 +99,11 @@ class TestREACT03_Deduplication:
     """REACT-03: System deduplicates reactions."""
 
     async def test_cannot_react_twice_with_same_emoji(
-        self, reaction_service, db_session, test_user
+        self, reaction_service, test_session, test_user
     ):
         """User cannot react twice with same emoji to same content."""
+        import asyncio
+
         # First reaction
         success1, _, _ = await reaction_service.add_reaction(
             user_id=test_user.user_id,
@@ -111,7 +113,10 @@ class TestREACT03_Deduplication:
             content_category=ContentCategory.FREE_CONTENT
         )
         assert success1 is True
-        await db_session.commit()
+        await test_session.commit()
+
+        # Wait for rate limit to pass before testing deduplication
+        await asyncio.sleep(31)
 
         # Second reaction (duplicate)
         success2, code, _ = await reaction_service.add_reaction(
@@ -126,7 +131,7 @@ class TestREACT03_Deduplication:
         assert code == "duplicate"
 
     async def test_can_react_with_different_emojis(
-        self, reaction_service, db_session, test_user
+        self, reaction_service, test_session, test_user
     ):
         """User can react with different emojis to same content."""
         # First reaction
@@ -137,7 +142,7 @@ class TestREACT03_Deduplication:
             emoji="❤️",
             content_category=ContentCategory.FREE_CONTENT
         )
-        await db_session.commit()
+        await test_session.commit()
 
         # Wait for rate limit
         import asyncio
@@ -159,7 +164,7 @@ class TestREACT04_RateLimiting:
     """REACT-04: Rate limiting prevents reaction spam."""
 
     async def test_rate_limit_enforced(
-        self, reaction_service, db_session, test_user
+        self, reaction_service, test_session, test_user
     ):
         """User cannot react within 30 seconds of previous reaction."""
         # First reaction
@@ -170,7 +175,7 @@ class TestREACT04_RateLimiting:
             emoji="❤️",
             content_category=ContentCategory.FREE_CONTENT
         )
-        await db_session.commit()
+        await test_session.commit()
 
         # Immediate second reaction
         success, code, data = await reaction_service.add_reaction(
@@ -190,7 +195,7 @@ class TestREACT05_BesitosEarning:
     """REACT-05: User earns besitos for valid reactions."""
 
     async def test_reaction_earns_besitos(
-        self, reaction_service, wallet_service, db_session, test_user
+        self, reaction_service, wallet_service, test_session, test_user
     ):
         """Valid reaction should earn besitos."""
         success, code, data = await reaction_service.add_reaction(
@@ -209,7 +214,7 @@ class TestREACT05_BesitosEarning:
         assert balance == data["besitos_earned"]
 
     async def test_reaction_creates_transaction(
-        self, reaction_service, db_session, test_user
+        self, reaction_service, test_session, test_user
     ):
         """Reaction should create EARN_REACTION transaction."""
         from bot.database.models import Transaction
@@ -222,10 +227,10 @@ class TestREACT05_BesitosEarning:
             emoji="❤️",
             content_category=ContentCategory.FREE_CONTENT
         )
-        await db_session.commit()
+        await test_session.commit()
 
         # Verify transaction exists
-        result = await db_session.execute(
+        result = await test_session.execute(
             select(Transaction).where(
                 Transaction.user_id == test_user.user_id,
                 Transaction.type == TransactionType.EARN_REACTION
@@ -240,20 +245,21 @@ class TestREACT06_DailyLimit:
     """REACT-06: Daily reaction limit per user."""
 
     async def test_daily_limit_enforced(
-        self, reaction_service, db_session, test_user
+        self, reaction_service, test_session, test_user
     ):
         """User cannot exceed daily reaction limit."""
-        # Create reactions up to limit
+        # Create reactions up to limit with timestamps in the past (beyond rate limit window)
+        past_time = datetime.utcnow() - timedelta(seconds=60)
         for i in range(20):
             reaction = UserReaction(
                 user_id=test_user.user_id,
                 content_id=i,
                 channel_id="-100123",
                 emoji="❤️",
-                created_at=datetime.utcnow()
+                created_at=past_time - timedelta(minutes=i)  # Spread them out
             )
-            db_session.add(reaction)
-        await db_session.commit()
+            test_session.add(reaction)
+        await test_session.commit()
 
         # Try to add one more
         success, code, data = await reaction_service.add_reaction(
@@ -287,21 +293,30 @@ class TestREACT07_VIPAccessControl:
         assert code == "no_access"
 
     async def test_vip_content_allowed_for_vip_user(
-        self, reaction_service, db_session, test_user
+        self, reaction_service, test_session, test_user
     ):
         """VIP user can react to VIP content."""
         # Make user VIP
-        from bot.database.models import VIPSubscriber
+        from bot.database.models import VIPSubscriber, InvitationToken
+
+        # Create an invitation token first (required for VIPSubscriber)
+        token = InvitationToken(
+            token="TEST_TOKEN_123",
+            duration_hours=720,
+            generated_by=99999,  # Admin user ID
+        )
+        test_session.add(token)
+        await test_session.flush()  # Get the token ID
 
         test_user.role = UserRole.VIP
         subscriber = VIPSubscriber(
             user_id=test_user.user_id,
             expiry_date=datetime.utcnow() + timedelta(days=30),
             status="active",
-            token_id=1
+            token_id=token.id
         )
-        db_session.add(subscriber)
-        await db_session.commit()
+        test_session.add(subscriber)
+        await test_session.commit()
 
         success, code, _ = await reaction_service.add_reaction(
             user_id=test_user.user_id,
@@ -318,7 +333,7 @@ class TestEndToEndFlow:
     """End-to-end integration tests."""
 
     async def test_full_reaction_flow(
-        self, reaction_service, wallet_service, db_session, test_user
+        self, reaction_service, wallet_service, test_session, test_user
     ):
         """
         Complete flow: User reacts, earns besitos, sees updated counts.
