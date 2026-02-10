@@ -770,3 +770,65 @@ class Transaction(Base):
             f"<Transaction(id={self.id}, user_id={self.user_id}, "
             f"amount={self.amount}, type={self.type.value})>"
         )
+
+
+class UserReaction(Base):
+    """
+    Registro de reacciones de usuario a contenido de canales.
+
+    Cada reacción:
+    - Se vincula a un usuario y un mensaje de canal específico
+    - Usa un emoji específico (no duplicados por usuario/contenido/emoji)
+    - Registra timestamp para rate limiting y análisis
+
+    Attributes:
+        id: ID único de la reacción
+        user_id: ID del usuario que reaccionó
+        content_id: ID del mensaje de canal al que se reaccionó
+        emoji: Emoji usado para la reacción (ej: "❤️", "🔥")
+        channel_id: ID del canal donde está el contenido
+        created_at: Timestamp de la reacción
+
+    Constraints:
+        - Un usuario solo puede reaccionar una vez con cada emoji a un contenido
+        - Rate limiting: 30 segundos entre reacciones del mismo usuario
+        - Límite diario: configurable (default 20 reacciones/día)
+    """
+
+    __tablename__ = "user_reactions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User who reacted
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Content being reacted to (Telegram message ID in channel)
+    content_id = Column(BigInteger, nullable=False, index=True)
+    channel_id = Column(String(50), nullable=False, index=True)
+
+    # Reaction details
+    emoji = Column(String(10), nullable=False)  # Emoji used
+
+    # Timestamp
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Unique constraint: one reaction per user/content/emoji combination
+        Index('idx_user_content_emoji', 'user_id', 'content_id', 'emoji', unique=True),
+        # Index for "user's recent reactions" queries (rate limiting)
+        Index('idx_user_reactions_recent', 'user_id', 'created_at'),
+        # Index for "reactions to content" queries
+        Index('idx_content_reactions', 'channel_id', 'content_id', 'emoji'),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<UserReaction(id={self.id}, user_id={self.user_id}, "
+            f"content_id={self.content_id}, emoji={self.emoji})>"
+        )
