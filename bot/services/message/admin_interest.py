@@ -172,7 +172,7 @@ class AdminInterestMessages(BaseMessageProvider):
                 package = interest.package
 
                 # Format user
-                username = f"@{user.username}" if user.username else f"Usuario {user.id}"
+                username = f"@{user.username}" if user.username else f"Usuario {user.user_id}"
                 user_role = "👑 VIP" if hasattr(user, 'role') and hasattr(user.role, 'value') and user.role.value == "VIP" else "🌸 Free"
 
                 # Format package
@@ -286,7 +286,7 @@ class AdminInterestMessages(BaseMessageProvider):
             f"<b>🔔 Detalles del Interés</b>\n\n"
             f"<b>👤 Usuario:</b>\n"
             f"   {full_name} ({username_display})\n"
-            f"   ID: {user.id}\n"
+            f"   ID: {user.user_id}\n"
             f"   {user_role}\n\n"
             f"<b>📦 Paquete de Interés:</b>\n"
             f"   {pkg_type_emoji}\n"
@@ -399,7 +399,7 @@ class AdminInterestMessages(BaseMessageProvider):
         if recent:
             body += "<b>🕒 Manifestaciones Recientes:</b>\n"
             for idx, interest in enumerate(recent[:5], 1):
-                username = f"@{interest.user.username}" if hasattr(interest, 'user') and interest.user and hasattr(interest.user, 'username') and interest.user.username else f"User {interest.user.id if hasattr(interest, 'user') and interest.user else 'N/A'}"
+                username = f"@{interest.user.username}" if hasattr(interest, 'user') and interest.user and hasattr(interest.user, 'username') and interest.user.username else f"User {interest.user.user_id if hasattr(interest, 'user') and interest.user else 'N/A'}"
                 time_str = interest.created_at.strftime("%d/%m %H:%M") if hasattr(interest, 'created_at') and interest.created_at else "N/A"
                 package_name = interest.package.name if hasattr(interest, 'package') and interest.package else "N/A"
                 body += f"   {idx}. {username} - {package_name} ({time_str})\n"
@@ -423,7 +423,7 @@ class AdminInterestMessages(BaseMessageProvider):
             >>> '¿marcar' in text.lower() or 'confirmar' in text.lower()
             True
         """
-        username = f"@{interest.user.username}" if hasattr(interest, 'user') and interest.user and hasattr(interest.user, 'username') and interest.user.username else f"Usuario {interest.user.id if hasattr(interest, 'user') and interest.user else 'N/A'}"
+        username = f"@{interest.user.username}" if hasattr(interest, 'user') and interest.user and hasattr(interest.user, 'username') and interest.user.username else f"Usuario {interest.user.user_id if hasattr(interest, 'user') and interest.user else 'N/A'}"
         package_name = interest.package.name if hasattr(interest, 'package') and interest.package else "N/A"
 
         body = (
@@ -453,7 +453,7 @@ class AdminInterestMessages(BaseMessageProvider):
             >>> '✅' in text or 'atendido' in text.lower()
             True
         """
-        username = f"@{interest.user.username}" if hasattr(interest, 'user') and interest.user and hasattr(interest.user, 'username') and interest.user.username else f"Usuario {interest.user.id if hasattr(interest, 'user') and interest.user else 'N/A'}"
+        username = f"@{interest.user.username}" if hasattr(interest, 'user') and interest.user and hasattr(interest.user, 'username') and interest.user.username else f"Usuario {interest.user.user_id if hasattr(interest, 'user') and interest.user else 'N/A'}"
         package_name = interest.package.name if hasattr(interest, 'package') and interest.package else "N/A"
         time_str = interest.attended_at.strftime("%H:%M") if hasattr(interest, 'attended_at') and interest.attended_at else "ahora"
 

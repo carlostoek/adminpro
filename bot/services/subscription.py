@@ -1263,6 +1263,39 @@ class SubscriptionService:
         success_count = 0
         error_count = 0
 
+        # Obtener info del canal una vez (evita N+1 queries)
+        try:
+            channel_info = await self.bot.get_chat(free_channel_id)
+            channel_name = channel_info.title or "Canal Free"
+        except Exception as e:
+            logger.warning(f"⚠️ No se pudo obtener info del canal Free: {e}")
+            channel_name = "Canal Free"
+
+        # Obtener enlace del canal (stored or fallback)
+        from bot.services.message.user_flows import UserFlowMessages
+
+        config_result = await self.session.execute(
+            select(BotConfig).where(BotConfig.id == 1)
+        )
+        bot_config = config_result.scalar_one_or_none()
+
+        # Use stored link or fallback to public t.me URL
+        channel_link = None
+        if bot_config and bot_config.free_channel_invite_link:
+            channel_link = bot_config.free_channel_invite_link
+        else:
+            # Fallback: construct public URL from channel_id
+            if free_channel_id.startswith('@'):
+                channel_link = f"t.me/{free_channel_id[1:]}"
+            elif free_channel_id.startswith('-100'):
+                channel_link = None  # Will skip sending message
+                logger.warning(
+                    f"⚠️ No stored invite link found. "
+                    f"Admin should set free_channel_invite_link in BotConfig."
+                )
+            else:
+                channel_link = f"t.me/{free_channel_id}"
+
         while True:
             pending_requests = await self.get_pending_free_requests(limit=100)
             if not pending_requests:
@@ -1280,6 +1313,37 @@ class SubscriptionService:
                     # Marcar como procesada
                     request.processed = True
                     request.processed_at = datetime.utcnow()
+
+                    # Enviar mensaje de aprobación con Lucien's voice
+                    if channel_link:
+                        try:
+                            flows = UserFlowMessages()
+                            approval_text, keyboard = flows.free_request_approved(
+                                channel_name=channel_name,
+                                channel_link=channel_link
+                            )
+
+                            await self.bot.send_message(
+                                chat_id=request.user_id,
+                                text=approval_text,
+                                reply_markup=keyboard,
+                                parse_mode="HTML"
+                            )
+
+                            logger.info(
+                                f"✅ Aprobación enviada a user {_mask_user_id(request.user_id)} con enlace al canal"
+                            )
+                        except Exception as notify_error:
+                            # Distinguir entre usuario que bloqueó el bot vs otros errores
+                            error_type = type(notify_error).__name__
+                            if "Forbidden" in error_type or "blocked" in str(notify_error).lower():
+                                logger.warning(
+                                    f"⚠️ Usuario {_mask_user_id(request.user_id)} bloqueó el bot, no se envió confirmación"
+                                )
+                            else:
+                                logger.warning(
+                                    f"⚠️ No se pudo enviar confirmación a user {_mask_user_id(request.user_id)}: {notify_error}"
+                                )
 
                     success_count += 1
                     logger.info(f"✅ Solicitud Free aprobada (bulk): user {_mask_user_id(request.user_id)}")
