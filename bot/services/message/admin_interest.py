@@ -163,6 +163,7 @@ class AdminInterestMessages(BaseMessageProvider):
         title = filter_titles.get(filter_type, "📋 Intereses")
 
         # Build interest list
+        detail_buttons = []  # Botones para ver detalle de cada interés
         if not interests:
             body = self._interests_empty_message(filter_type)
         else:
@@ -195,6 +196,12 @@ class AdminInterestMessages(BaseMessageProvider):
 
                 items.append(item_text)
 
+                # Agregar botón para ver detalle de este interés
+                action_text = "👁️ Ver" if interest.is_attended else "✅ Atender"
+                detail_buttons.append([
+                    {"text": f"{action_text} #{idx} - {username[:20]}", "callback_data": f"admin:interest:view:{interest.id}"}
+                ])
+
             body = (
                 f"{title}\n\n"
                 f"{chr(10).join(items)}\n\n"
@@ -202,7 +209,7 @@ class AdminInterestMessages(BaseMessageProvider):
             )
 
         text = f"🎩 <b>Lucien:</b>\n\n{body}"
-        keyboard = self._interests_list_keyboard(page, total_pages, filter_type)
+        keyboard = self._interests_list_keyboard(page, total_pages, filter_type, detail_buttons)
         return text, keyboard
 
     def interests_empty(self, filter_type: str = "all") -> Tuple[str, InlineKeyboardMarkup]:
@@ -500,9 +507,19 @@ class AdminInterestMessages(BaseMessageProvider):
         ]
         return create_inline_keyboard(buttons)
 
-    def _interests_list_keyboard(self, page: int, total_pages: int, filter_type: str) -> InlineKeyboardMarkup:
+    def _interests_list_keyboard(
+        self,
+        page: int,
+        total_pages: int,
+        filter_type: str,
+        detail_buttons: Optional[List[List[dict]]] = None
+    ) -> InlineKeyboardMarkup:
         """Generate keyboard for paginated interests list."""
         buttons = []
+
+        # Botones de detalle para cada interés (pasados desde interests_list)
+        if detail_buttons:
+            buttons.extend(detail_buttons)
 
         # Filter row
         buttons.append([{"text": "🔍 Filtros", "callback_data": f"admin:interests:filters:{filter_type}"}])
