@@ -79,6 +79,12 @@ class DatabaseMiddleware(BaseMiddleware):
                 )
                 raise
             except Exception as e:
-                # Otros errores - loguear como ERROR
+                # Otros errores - loguear como ERROR y hacer rollback de la sesión
                 logger.error(f"❌ Error en handler con sesión DB: {e}", exc_info=True)
+                # Rollback para limpiar la transacción fallida y evitar PendingRollbackError
+                try:
+                    await session.rollback()
+                    logger.debug("🔄 Sesión DB rollback ejecutado tras error")
+                except Exception as rollback_error:
+                    logger.warning(f"⚠️ Error durante rollback: {rollback_error}")
                 raise

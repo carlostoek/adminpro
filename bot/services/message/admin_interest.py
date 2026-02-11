@@ -163,6 +163,7 @@ class AdminInterestMessages(BaseMessageProvider):
         title = filter_titles.get(filter_type, "📋 Intereses")
 
         # Build interest list
+        detail_buttons = []  # Botones para ver detalle de cada interés
         if not interests:
             body = self._interests_empty_message(filter_type)
         else:
@@ -172,7 +173,7 @@ class AdminInterestMessages(BaseMessageProvider):
                 package = interest.package
 
                 # Format user
-                username = f"@{user.username}" if user.username else f"Usuario {user.id}"
+                username = f"@{user.username}" if user.username else f"Usuario {user.user_id}"
                 user_role = "👑 VIP" if hasattr(user, 'role') and hasattr(user.role, 'value') and user.role.value == "VIP" else "🌸 Free"
 
                 # Format package
@@ -195,6 +196,12 @@ class AdminInterestMessages(BaseMessageProvider):
 
                 items.append(item_text)
 
+                # Agregar botón para ver detalle de este interés
+                action_text = "👁️ Ver" if interest.is_attended else "✅ Atender"
+                detail_buttons.append([
+                    {"text": f"{action_text} #{idx} - {username[:20]}", "callback_data": f"admin:interest:view:{interest.id}"}
+                ])
+
             body = (
                 f"{title}\n\n"
                 f"{chr(10).join(items)}\n\n"
@@ -202,7 +209,7 @@ class AdminInterestMessages(BaseMessageProvider):
             )
 
         text = f"🎩 <b>Lucien:</b>\n\n{body}"
-        keyboard = self._interests_list_keyboard(page, total_pages, filter_type)
+        keyboard = self._interests_list_keyboard(page, total_pages, filter_type, detail_buttons)
         return text, keyboard
 
     def interests_empty(self, filter_type: str = "all") -> Tuple[str, InlineKeyboardMarkup]:
@@ -286,7 +293,7 @@ class AdminInterestMessages(BaseMessageProvider):
             f"<b>🔔 Detalles del Interés</b>\n\n"
             f"<b>👤 Usuario:</b>\n"
             f"   {full_name} ({username_display})\n"
-            f"   ID: {user.id}\n"
+            f"   ID: {user.user_id}\n"
             f"   {user_role}\n\n"
             f"<b>📦 Paquete de Interés:</b>\n"
             f"   {pkg_type_emoji}\n"
@@ -399,7 +406,7 @@ class AdminInterestMessages(BaseMessageProvider):
         if recent:
             body += "<b>🕒 Manifestaciones Recientes:</b>\n"
             for idx, interest in enumerate(recent[:5], 1):
-                username = f"@{interest.user.username}" if hasattr(interest, 'user') and interest.user and hasattr(interest.user, 'username') and interest.user.username else f"User {interest.user.id if hasattr(interest, 'user') and interest.user else 'N/A'}"
+                username = f"@{interest.user.username}" if hasattr(interest, 'user') and interest.user and hasattr(interest.user, 'username') and interest.user.username else f"User {interest.user.user_id if hasattr(interest, 'user') and interest.user else 'N/A'}"
                 time_str = interest.created_at.strftime("%d/%m %H:%M") if hasattr(interest, 'created_at') and interest.created_at else "N/A"
                 package_name = interest.package.name if hasattr(interest, 'package') and interest.package else "N/A"
                 body += f"   {idx}. {username} - {package_name} ({time_str})\n"
@@ -423,7 +430,7 @@ class AdminInterestMessages(BaseMessageProvider):
             >>> '¿marcar' in text.lower() or 'confirmar' in text.lower()
             True
         """
-        username = f"@{interest.user.username}" if hasattr(interest, 'user') and interest.user and hasattr(interest.user, 'username') and interest.user.username else f"Usuario {interest.user.id if hasattr(interest, 'user') and interest.user else 'N/A'}"
+        username = f"@{interest.user.username}" if hasattr(interest, 'user') and interest.user and hasattr(interest.user, 'username') and interest.user.username else f"Usuario {interest.user.user_id if hasattr(interest, 'user') and interest.user else 'N/A'}"
         package_name = interest.package.name if hasattr(interest, 'package') and interest.package else "N/A"
 
         body = (
@@ -453,7 +460,7 @@ class AdminInterestMessages(BaseMessageProvider):
             >>> '✅' in text or 'atendido' in text.lower()
             True
         """
-        username = f"@{interest.user.username}" if hasattr(interest, 'user') and interest.user and hasattr(interest.user, 'username') and interest.user.username else f"Usuario {interest.user.id if hasattr(interest, 'user') and interest.user else 'N/A'}"
+        username = f"@{interest.user.username}" if hasattr(interest, 'user') and interest.user and hasattr(interest.user, 'username') and interest.user.username else f"Usuario {interest.user.user_id if hasattr(interest, 'user') and interest.user else 'N/A'}"
         package_name = interest.package.name if hasattr(interest, 'package') and interest.package else "N/A"
         time_str = interest.attended_at.strftime("%H:%M") if hasattr(interest, 'attended_at') and interest.attended_at else "ahora"
 
@@ -500,9 +507,19 @@ class AdminInterestMessages(BaseMessageProvider):
         ]
         return create_inline_keyboard(buttons)
 
-    def _interests_list_keyboard(self, page: int, total_pages: int, filter_type: str) -> InlineKeyboardMarkup:
+    def _interests_list_keyboard(
+        self,
+        page: int,
+        total_pages: int,
+        filter_type: str,
+        detail_buttons: Optional[List[List[dict]]] = None
+    ) -> InlineKeyboardMarkup:
         """Generate keyboard for paginated interests list."""
         buttons = []
+
+        # Botones de detalle para cada interés (pasados desde interests_list)
+        if detail_buttons:
+            buttons.extend(detail_buttons)
 
         # Filter row
         buttons.append([{"text": "🔍 Filtros", "callback_data": f"admin:interests:filters:{filter_type}"}])

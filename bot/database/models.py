@@ -406,7 +406,7 @@ class UserInterest(Base):
     package_id = Column(
         Integer,
         ForeignKey("content_packages.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,  # NULL = interés en suscripción VIP (no asociado a paquete)
         index=True
     )
 

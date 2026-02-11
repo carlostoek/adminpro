@@ -107,8 +107,8 @@ async def on_startup_webhook(bot: Bot, dispatcher: Dispatcher) -> None:
         logger.error(f"❌ Error al inicializar BD: {e}")
         sys.exit(1)
 
-    # Iniciar background tasks
-    start_background_tasks(bot)
+    # Iniciar background tasks (incluye limpieza de solicitudes expiradas post-reinicio)
+    await start_background_tasks(bot)
 
     # Configurar webhook
     webhook_url = f"{Config.WEBHOOK_BASE_URL}{Config.WEBHOOK_PATH}"
@@ -181,8 +181,8 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
         logger.error(f"❌ Error al inicializar BD: {e}")
         sys.exit(1)
 
-    # Iniciar background tasks
-    start_background_tasks(bot)
+    # Iniciar background tasks (incluye limpieza de solicitudes expiradas post-reinicio)
+    await start_background_tasks(bot)
 
     # Iniciar health check API en thread separado
     # El health server corre en su propio thread con su propio event loop

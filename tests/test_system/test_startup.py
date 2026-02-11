@@ -176,7 +176,7 @@ async def test_background_tasks_scheduler_initialization():
 
     try:
         # Start background tasks
-        start_background_tasks(mock_bot)
+        await start_background_tasks(mock_bot)
 
         # Verify scheduler is running
         status = get_scheduler_status()
@@ -204,8 +204,8 @@ async def test_background_tasks_scheduler_no_duplicate_start():
 
     try:
         # Start twice
-        start_background_tasks(mock_bot)
-        start_background_tasks(mock_bot)  # Should warn but not duplicate
+        await start_background_tasks(mock_bot)
+        await start_background_tasks(mock_bot)  # Should warn but not duplicate
 
         # Should still have only 3 jobs
         status = get_scheduler_status()
@@ -228,7 +228,7 @@ async def test_background_tasks_job_details():
     mock_bot.id = 123456789
 
     try:
-        start_background_tasks(mock_bot)
+        await start_background_tasks(mock_bot)
 
         status = get_scheduler_status()
         jobs = status["jobs"]

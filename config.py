@@ -93,7 +93,9 @@ class Config:
     )
 
     # Logging
-    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    # NOTA: En producción usar "WARNING" para reducir ruido de logs
+    # Valores: DEBUG (desarrollo), INFO (detallado), WARNING (producción), ERROR, CRITICAL
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "WARNING")
 
     # ===== LIMITS (Optimizados para Termux) =====
     # Máximo de suscriptores VIP antes de alertar
@@ -273,25 +275,43 @@ class Config:
         Configura el sistema de logging según LOG_LEVEL.
 
         Niveles soportados: DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+        En producción (WARNING):
+        - Solo se muestran warnings, errores y eventos críticos
+        - Se silencian logs de aiogram, apscheduler y tareas periódicas
+        - Los usuarios deben ser aprobados/rechazados sin logs de confirmación
         """
         numeric_level = getattr(logging, cls.LOG_LEVEL.upper(), None)
 
         if not isinstance(numeric_level, int):
-            logger.warning(f"LOG_LEVEL inválido: {cls.LOG_LEVEL}, usando INFO")
-            numeric_level = logging.INFO
+            logger.warning(f"LOG_LEVEL inválido: {cls.LOG_LEVEL}, usando WARNING")
+            numeric_level = logging.WARNING
 
-        # Formato de logs
-        log_format = (
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
+        # Formato de logs: timestamp - logger - level - message
+        log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
+        # Configuración base
         logging.basicConfig(
             level=numeric_level,
             format=log_format,
-            handlers=[
-                logging.StreamHandler(sys.stdout)
-            ]
+            handlers=[logging.StreamHandler(sys.stdout)]
         )
+
+        # Configurar niveles específicos por módulo para reducir ruido
+        # Estos módulos son muy verbosos incluso en INFO
+        logging.getLogger("aiogram").setLevel(logging.WARNING)
+        logging.getLogger("apscheduler").setLevel(logging.WARNING)
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+
+        # En modo WARNING (producción), también silenciar módulos internos ruidosos
+        if numeric_level >= logging.WARNING:
+            # Reducir verbosidad de tareas periódicas y handlers frecuentes
+            logging.getLogger("bot.background.tasks").setLevel(logging.WARNING)
+            logging.getLogger("bot.handlers.user.free_join_request").setLevel(logging.WARNING)
+            logging.getLogger("bot.services.subscription").setLevel(logging.WARNING)
+
+        # Siempre mostrar errores de cualquier módulo
+        logging.getLogger("bot").setLevel(min(logging.WARNING, numeric_level))
 
         logger.info(f"📝 Logging configurado: nivel {cls.LOG_LEVEL}")
 

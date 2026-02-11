@@ -36,7 +36,7 @@ async def test_scheduler_starts_with_utc_timezone(mock_bot):
     try:
         # Paso 1: Iniciar scheduler
         print("  1. Iniciando scheduler...")
-        start_background_tasks(mock_bot)
+        await start_background_tasks(mock_bot)
 
         # Paso 2: Verificar estado
         print("  2. Verificando estado del scheduler...")
@@ -95,7 +95,7 @@ async def test_scheduler_handles_multiple_start_calls(mock_bot):
     try:
         # Paso 1: Iniciar scheduler
         print("  1. Primera llamada a start_background_tasks...")
-        start_background_tasks(mock_bot)
+        await start_background_tasks(mock_bot)
 
         status = get_scheduler_status()
         assert status["running"] is True
@@ -104,7 +104,7 @@ async def test_scheduler_handles_multiple_start_calls(mock_bot):
 
         # Paso 2: Intentar iniciar nuevamente
         print("  2. Segunda llamada a start_background_tasks (debe ser ignorada)...")
-        start_background_tasks(mock_bot)
+        await start_background_tasks(mock_bot)
 
         # Paso 3: Verificar estado
         print("  3. Verificando que no se duplicaron jobs...")
