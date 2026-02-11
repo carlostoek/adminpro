@@ -82,7 +82,7 @@ Overall v2.0:  [████░░░░░░] 35% (15/43 requirements)
 - Transaction audit trail required for every change
 
 **Anti-Exploit Measures:**
-- Reaction deduplication: one per user per content per emoji
+- Reaction deduplication: one per user per content (regardless of emoji)
 - Rate limiting: 30-second cooldown between reactions
 - Daily limits: configurable per-user caps
 
@@ -206,13 +206,14 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-10 — Completed Phase 20 Plan 04: Channel Integration
-**Stopped at:** Phase 20 COMPLETE - All REACT requirements satisfied
+**Last session:** 2026-02-11 — Completed Phase 20 Plan 05: Fix Duplicate Reaction Constraint
+**Stopped at:** Phase 20 FULLY COMPLETE - Gap closure finished
 **Next:** Phase 21 Plan 01: Streak Service Core (STREAK-01 through STREAK-03)
 
 ### Wave 4 Summary (Complete)
 - WalletService integrated into ServiceContainer with lazy loading
 - ReactionService with full channel integration
+- Fixed duplicate reaction constraint (one reaction per content, not per emoji)
 - 148 new tests covering all economy and reaction functionality
 - All 8 ECON + all 7 REACT requirements explicitly verified
 - Test files:
@@ -224,8 +225,14 @@ None.
   - `tests/services/test_reaction_integration.py` (12 tests)
   - `tests/requirements/test_react_requirements.py` (8 tests)
 
+### Gap Closure: Duplicate Reaction Fix (Plan 20-05)
+- Changed unique constraint from `(user_id, content_id, emoji)` to `(user_id, content_id)`
+- Created Alembic migration to deduplicate existing data
+- Updated error message: "Ya reaccionaste a este contenido"
+- All 58 reaction tests pass with new behavior
+
 ---
 
-*State updated: 2026-02-10 after Phase 20 Plan 04 completion*
-*Milestone v2.0 (Gamification) Phase 20 COMPLETE - 15/43 requirements*
+*State updated: 2026-02-11 after Phase 20 Plan 05 completion*
+*Milestone v2.0 (Gamification) Phase 20 FULLY COMPLETE - 15/43 requirements*
 *All channel messages now automatically include reaction buttons*
