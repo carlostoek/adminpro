@@ -151,7 +151,7 @@ async def _handle_failure(
     data = data or {}
 
     messages = {
-        "duplicate": "Ya reaccionaste con este emoji 👆",
+        "duplicate": "Ya reaccionaste a este contenido 👆",
         "rate_limited": f"Espera {data.get('seconds_remaining', 30)}s entre reacciones ⏱",
         "daily_limit_reached": f"Límite diario alcanzado ({data.get('used', 20)}/{data.get('limit', 20)}) 📊",
         "no_access": data.get("error", "No tienes acceso a este contenido 🔒"),
