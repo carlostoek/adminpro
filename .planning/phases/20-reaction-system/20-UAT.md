@@ -25,18 +25,9 @@ expected: Tapping a reaction button saves the reaction and shows immediate visua
 result: pass
 
 ### 3. Duplicate Reaction Prevention
-expected: User cannot react twice with the same emoji to the same content; system shows "Ya reaccionaste" message
-result: issue
-reported: "Los usuarios pueden reaccionar varias veces al mismo mensaje - deberia limitar a una reaccion por mensaje, no solo una por emoji"
-severity: major
-expected: Tapping a reaction button saves the reaction and shows immediate visual feedback
-result: pending
-
-### 3. Duplicate Reaction Prevention
-expected: User cannot react twice with the same emoji to the same content; system shows "Ya reaccionaste" message
-result: issue
-reported: "Los usuarios pueden reaccionar varias veces al mismo mensaje - deberia limitar a una reaccion por mensaje, no solo una por emoji"
-severity: major
+expected: User cannot react twice to the same content (only one reaction per message allowed); system shows "Ya reaccionaste a este contenido" message
+result: pass
+note: Fixed by plan 20-05 - changed unique constraint from (user_id, content_id, emoji) to (user_id, content_id)
 
 ### 4. Rate Limiting (30 second cooldown)
 expected: User sees cooldown message "Espera Ns entre reacciones" if reacting within 30 seconds
@@ -57,15 +48,11 @@ result: pass
 ## Summary
 
 total: 7
-passed: 6
-issues: 1
+passed: 7
+issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
-- truth: "User cannot react twice to the same content - only one reaction per message allowed"
-  status: failed
-  reason: "User reported: Los usuarios pueden reaccionar varias veces al mismo mensaje - deberia limitar a una reaccion por mensaje, no solo una por emoji"
-  severity: major
-  test: 3
+None - all gaps closed by plan 20-05.
