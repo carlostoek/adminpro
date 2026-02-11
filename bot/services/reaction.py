@@ -139,26 +139,23 @@ class ReactionService:
     async def _is_duplicate_reaction(
         self,
         user_id: int,
-        content_id: int,
-        emoji: str
+        content_id: int
     ) -> bool:
         """
-        Verifica si el usuario ya reaccionó con este emoji a este contenido.
+        Verifica si el usuario ya reaccionó a este contenido.
 
         Args:
             user_id: ID del usuario
             content_id: ID del contenido
-            emoji: Emoji de la reacción
 
         Returns:
-            True si ya existe reacción idéntica
+            True si ya existe reacción del usuario a este contenido
         """
         result = await self.session.execute(
             select(UserReaction.id)
             .where(
                 UserReaction.user_id == user_id,
-                UserReaction.content_id == content_id,
-                UserReaction.emoji == emoji
+                UserReaction.content_id == content_id
             )
             .limit(1)
         )
@@ -226,7 +223,7 @@ class ReactionService:
 
         Códigos de retorno:
             - "success": Reacción registrada, besitos otorgados
-            - "duplicate": Ya reaccionó con este emoji a este contenido
+            - "duplicate": Ya reaccionó a este contenido
             - "rate_limited": Debe esperar N segundos
             - "daily_limit_reached": Límite diario alcanzado
             - "no_access": No tiene acceso al contenido (VIP)
@@ -249,7 +246,7 @@ class ReactionService:
             return False, "daily_limit_reached", {"used": used_today, "limit": limit}
 
         # 4. Verificar duplicado
-        if await self._is_duplicate_reaction(user_id, content_id, emoji):
+        if await self._is_duplicate_reaction(user_id, content_id):
             return False, "duplicate", None
 
         try:
