@@ -112,12 +112,12 @@ class TestDuplicateDetection:
     async def test_no_duplicate(self, reaction_service, test_user):
         """New reaction should not be duplicate."""
         is_dup = await reaction_service._is_duplicate_reaction(
-            test_user.user_id, 1, "❤️"
+            test_user.user_id, 1
         )
         assert is_dup is False
 
     async def test_duplicate_detected(self, reaction_service, test_session, test_user):
-        """Same emoji on same content should be duplicate."""
+        """Existing reaction on same content should be duplicate."""
         # Create existing reaction
         reaction = UserReaction(
             user_id=test_user.user_id,
@@ -129,15 +129,15 @@ class TestDuplicateDetection:
         await test_session.commit()
 
         is_dup = await reaction_service._is_duplicate_reaction(
-            test_user.user_id, 1, "❤️"
+            test_user.user_id, 1
         )
         assert is_dup is True
 
-    async def test_different_emoji_not_duplicate(
+    async def test_different_emoji_same_content_is_duplicate(
         self, reaction_service, test_session, test_user
     ):
-        """Different emoji on same content should not be duplicate."""
-        # Create existing reaction
+        """Different emoji on same content should be duplicate (one reaction per content)."""
+        # Create existing reaction with one emoji
         reaction = UserReaction(
             user_id=test_user.user_id,
             content_id=1,
@@ -147,10 +147,11 @@ class TestDuplicateDetection:
         test_session.add(reaction)
         await test_session.commit()
 
+        # Trying to react with different emoji to same content should be blocked
         is_dup = await reaction_service._is_duplicate_reaction(
-            test_user.user_id, 1, "🔥"
+            test_user.user_id, 1
         )
-        assert is_dup is False
+        assert is_dup is True
 
 
 class TestContentAccess:

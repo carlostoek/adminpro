@@ -130,10 +130,10 @@ class TestREACT03_Deduplication:
         assert success2 is False
         assert code == "duplicate"
 
-    async def test_can_react_with_different_emojis(
+    async def test_cannot_react_with_different_emoji_to_same_content(
         self, reaction_service, test_session, test_user
     ):
-        """User can react with different emojis to same content."""
+        """User cannot react with different emoji to same content (one reaction per content)."""
         # First reaction
         await reaction_service.add_reaction(
             user_id=test_user.user_id,
@@ -148,7 +148,7 @@ class TestREACT03_Deduplication:
         import asyncio
         await asyncio.sleep(31)
 
-        # Second reaction with different emoji
+        # Second reaction with different emoji should be blocked
         success, code, _ = await reaction_service.add_reaction(
             user_id=test_user.user_id,
             content_id=100,
@@ -157,7 +157,8 @@ class TestREACT03_Deduplication:
             content_category=ContentCategory.FREE_CONTENT
         )
 
-        assert success is True
+        assert success is False
+        assert code == "duplicate"
 
 
 class TestREACT04_RateLimiting:
