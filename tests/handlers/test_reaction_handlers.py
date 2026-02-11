@@ -67,7 +67,7 @@ class TestHandleReactionCallback:
 
         mock_callback.answer.assert_called_once()
         call_args = mock_callback.answer.call_args
-        assert "Ya reaccionaste" in call_args[0][0]
+        assert "Lucien" in call_args[0][0]
         assert call_args[1].get("show_alert") is True
 
     async def test_rate_limited(self, mock_callback, mock_container):
@@ -210,7 +210,7 @@ class TestHandleFailure:
 
         callback.answer.assert_called_once()
         call_args = callback.answer.call_args
-        assert "Ya reaccionaste" in call_args[0][0]
+        assert "Lucien" in call_args[0][0]
         assert call_args[1].get("show_alert") is True
 
     async def test_rate_limited_error(self):

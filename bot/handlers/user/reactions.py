@@ -151,7 +151,7 @@ async def _handle_failure(
     data = data or {}
 
     messages = {
-        "duplicate": "Ya reaccionaste a este contenido 👆",
+        "duplicate": "🎩 Lucien:\n\nSé que le encantan las publicaciones de Diana pero solo puede reaccionar una vez a cada publicación.",
         "rate_limited": f"Espera {data.get('seconds_remaining', 30)}s entre reacciones ⏱",
         "daily_limit_reached": f"Límite diario alcanzado ({data.get('used', 20)}/{data.get('limit', 20)}) 📊",
         "no_access": data.get("error", "No tienes acceso a este contenido 🔒"),
