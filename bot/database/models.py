@@ -76,6 +76,12 @@ class BotConfig(Base):
     besitos_daily_streak_bonus = Column(Integer, default=10)
     max_reactions_per_day = Column(Integer, default=20)
 
+    # Streak Configuration (Phase 21)
+    besitos_daily_base = Column(Integer, default=20)  # Base besitos for daily claim
+    besitos_streak_bonus_per_day = Column(Integer, default=2)  # Bonus per streak day
+    besitos_streak_bonus_max = Column(Integer, default=50)  # Maximum streak bonus
+    streak_display_format = Column(String(50), default="🔥 {days} days")  # Display format
+
     def __repr__(self):
         return (
             f"<BotConfig(vip={self.vip_channel_id}, "
