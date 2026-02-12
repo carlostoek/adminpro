@@ -43,16 +43,18 @@ class ReactionService:
     # Configuración de rate limiting y límites
     REACTION_COOLDOWN_SECONDS = 30
 
-    def __init__(self, session: AsyncSession, wallet_service=None):
+    def __init__(self, session: AsyncSession, wallet_service=None, streak_service=None):
         """
         Inicializa el ReactionService.
 
         Args:
             session: Sesión de base de datos async
             wallet_service: WalletService opcional para otorgar besitos
+            streak_service: StreakService opcional para tracking de rachas
         """
         self.session = session
         self.wallet = wallet_service
+        self.streak = streak_service
         self.logger = logging.getLogger(__name__)
 
     async def _get_config_value(self, key: str, default: int) -> int:
@@ -284,6 +286,14 @@ class ReactionService:
                     self.logger.info(
                         f"✅ User {user_id} earned {besitos_earned} besitos for reaction {emoji}"
                     )
+
+                    # Track reaction streak (only for reactions that earn besitos)
+                    if self.streak:
+                        streak_incremented, current_streak = await self.streak.record_reaction(user_id)
+                        self.logger.debug(
+                            f"User {user_id} reaction streak: {current_streak} "
+                            f"(incremented: {streak_incremented})"
+                        )
 
             return True, "success", {
                 "besitos_earned": besitos_earned,
