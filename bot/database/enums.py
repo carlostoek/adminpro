@@ -166,6 +166,41 @@ class RoleChangeReason(str, Enum):
         return names[self]
 
 
+class StreakType(str, Enum):
+    """
+    Tipos de rachas en el sistema de gamificación.
+
+    Tipos:
+        DAILY_GIFT: Racha de reclamos diarios de regalo
+        REACTION: Racha de días consecutivos con reacciones
+    """
+
+    DAILY_GIFT = "DAILY_GIFT"
+    REACTION = "REACTION"
+
+    def __str__(self) -> str:
+        """Retorna valor string del enum."""
+        return self.value
+
+    @property
+    def display_name(self) -> str:
+        """Retorna nombre legible del tipo de racha."""
+        names = {
+            StreakType.DAILY_GIFT: "Regalo Diario",
+            StreakType.REACTION: "Reacciones"
+        }
+        return names[self]
+
+    @property
+    def emoji(self) -> str:
+        """Retorna emoji del tipo de racha."""
+        emojis = {
+            StreakType.DAILY_GIFT: "🎁",
+            StreakType.REACTION: "🔥"
+        }
+        return emojis[self]
+
+
 class TransactionType(str, Enum):
     """
     Tipos de transacciones en el sistema de economía.
