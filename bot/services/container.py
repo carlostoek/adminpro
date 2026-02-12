@@ -450,10 +450,11 @@ class ServiceContainer:
         if self._reaction_service is None:
             from bot.services.reaction import ReactionService
             logger.debug("🔄 Lazy loading: ReactionService")
-            # Inject wallet service for besitos earning
+            # Inject wallet service for besitos earning and streak service for tracking
             self._reaction_service = ReactionService(
                 self._session,
-                wallet_service=self.wallet
+                wallet_service=self.wallet,
+                streak_service=self.streak
             )
 
         return self._reaction_service

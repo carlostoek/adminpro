@@ -10,6 +10,7 @@ from bot.services.user_management import UserManagementService
 from bot.services.test_runner import TestRunnerService, TestResult
 from bot.services.wallet import WalletService
 from bot.services.reaction import ReactionService
+from bot.services.streak import StreakService
 
 __all__ = [
     "ServiceContainer",
@@ -25,4 +26,5 @@ __all__ = [
     "TestResult",
     "WalletService",
     "ReactionService",
+    "StreakService",
 ]
