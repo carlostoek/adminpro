@@ -151,6 +151,46 @@ async def cleanup_old_data(bot: Bot):
         logger.error(f"❌ Error en tarea de limpieza: {e}", exc_info=True)
 
 
+async def expire_streaks(bot: Bot):
+    """
+    Tarea: Expiración de rachas diarias a medianoche UTC.
+
+    Proceso:
+    1. Resetea rachas DAILY_GIFT donde last_claim_date < hoy UTC
+    2. Resetea rachas REACTION donde last_reaction_date < hoy UTC
+    3. Preserva longest_streak como registro histórico
+    4. Loguea resumen con conteos
+
+    Ejecuta automáticamente a las 00:00 UTC cada día.
+
+    Args:
+        bot: Instancia del bot de Telegram
+    """
+    logger.info("🔄 Ejecutando tarea: Expiración de rachas")
+
+    try:
+        async with get_session() as session:
+            container = ServiceContainer(session, bot)
+
+            # Process daily gift streak expirations
+            daily_reset_count = await container.streak.process_streak_expirations()
+
+            # Process reaction streak expirations
+            reaction_reset_count = await container.streak.process_reaction_streak_expirations()
+
+            # Log summary
+            if daily_reset_count > 0 or reaction_reset_count > 0:
+                logger.info(
+                    f"✅ Rachas expiradas: {daily_reset_count} diarias, "
+                    f"{reaction_reset_count} de reacciones"
+                )
+            else:
+                logger.debug("✓ No hay rachas expiradas para procesar")
+
+    except Exception as e:
+        logger.error(f"❌ Error en tarea de expiración de rachas: {e}", exc_info=True)
+
+
 async def cleanup_expired_requests_after_restart(bot: Bot):
     """
     Limpia solicitudes Free pendientes que probablemente expiraron durante un reinicio.
