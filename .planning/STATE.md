@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 21 - Daily Rewards & Streaks 🔄 IN PROGRESS
-**Plan:** 21-03 Reaction Streak Tracking ✅ COMPLETE
-**Status:** Reaction streak tracking implemented and integrated with ReactionService
+**Plan:** 21-02 StreakService Core Logic ✅ COMPLETE
+**Status:** StreakService with UTC-based daily gift tracking and WalletService integration complete
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -188,6 +188,10 @@ None.
 **Key Services Created:**
 3. `bot/services/streak.py` - StreakService ✓ (daily gift + reaction streaks)
    - StreakService core with DAILY_GIFT and REACTION types ✓
+   - UTC-based day boundaries for global consistency ✓
+   - Base 20 + capped bonus (max 50) calculation ✓
+   - WalletService integration for automatic besitos crediting ✓
+   - 35 comprehensive tests ✓
    - Reaction streak tracking integrated with ReactionService ✓
 
 **Key Services to Create:**
@@ -212,9 +216,9 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-12 — Completed Phase 21 Plan 03: Reaction Streak Tracking
-**Stopped at:** Reaction streak tracking integrated with ReactionService
-**Next:** Phase 21 Plan 04: Background job for streak expiration
+**Last session:** 2026-02-12 — Completed Phase 21 Plan 02: StreakService Core Logic
+**Stopped at:** StreakService with daily gift tracking and WalletService integration complete
+**Next:** Phase 21 Plan 03: Daily Gift Handler (user-facing claim flow)
 
 ### Wave 4 Summary (Complete)
 - WalletService integrated into ServiceContainer with lazy loading
@@ -237,8 +241,17 @@ None.
 - Updated error message: "Ya reaccionaste a este contenido"
 - All 58 reaction tests pass with new behavior
 
+### Wave 5 Summary (StreakService)
+- StreakService with UTC-based daily gift tracking
+- Base 20 besitos + streak bonus (capped at 50)
+- WalletService integration for automatic crediting
+- 35 new tests for streak functionality
+- All 4 STREAK requirements verified (STREAK-01 through STREAK-04)
+- Test files:
+  - `tests/services/test_streak_service.py` (35 tests)
+
 ---
 
-*State updated: 2026-02-12 after Phase 21 Plan 03 completion*
+*State updated: 2026-02-12 after Phase 21 Plan 02 completion*
 *Milestone v2.0 (Gamification) Phase 21 IN PROGRESS - 16/43 requirements*
-*Reaction streak tracking integrated with ReactionService*
+*StreakService core logic complete with WalletService integration*
