@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 21 - Daily Rewards & Streaks 🔄 IN PROGRESS
-**Plan:** 21-02 StreakService Core Logic ✅ COMPLETE
-**Status:** StreakService with UTC-based daily gift tracking and WalletService integration complete
+**Plan:** 21-05 Streak Display in User Menu ✅ COMPLETE
+**Status:** Streak display with fire emoji and daily gift button integrated in VIP/Free menus
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -21,12 +21,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ```
 Phase 19: [██████████] 100% - Economy Foundation ✅
 Phase 20: [██████████] 100% - Reaction System ✅
-Phase 21: [███░░░░░░░] 30% - Daily Rewards & Streaks (Plans 01-03 complete)
+Phase 21: [█████░░░░░] 50% - Daily Rewards & Streaks (Plans 01-05 complete)
 Phase 22: [░░░░░░░░░░] 0% - Shop System
 Phase 23: [░░░░░░░░░░] 0% - Rewards System
 Phase 24: [░░░░░░░░░░] 0% - Admin Configuration
 
-Overall v2.0:  [████░░░░░░] 37% (16/43 requirements)
+Overall v2.0:  [████░░░░░░] 40% (17/43 requirements)
 ```
 
 ## Performance Metrics
@@ -52,10 +52,10 @@ Overall v2.0:  [████░░░░░░] 37% (16/43 requirements)
 - Tests: 212 passing
 
 **v2.0 Current:**
-- New services: 2/5 integrated (WalletService ✓, ReactionService ✓, StreakService, ShopService, RewardService)
+- New services: 3/5 integrated (WalletService ✓, ReactionService ✓, StreakService ✓, ShopService, RewardService)
 - New models: 4/6+ (UserGamificationProfile ✓, Transaction ✓, UserReaction ✓, UserStreak ✓, ShopProduct, Reward, RewardCondition)
-- Requirements: 15/43 (all ECON + all REACT requirements complete)
-- Tests: 360 passing (148 new economy/reaction tests)
+- Requirements: 17/43 (all ECON + all REACT + STREAK-01 through STREAK-05 complete)
+- Tests: 377 passing (165 new economy/reaction/streak tests)
 
 ## Accumulated Context
 
@@ -193,6 +193,12 @@ None.
    - WalletService integration for automatic besitos crediting ✓
    - 35 comprehensive tests ✓
    - Reaction streak tracking integrated with ReactionService ✓
+   - **Daily Gift Handler** ✓ (Plan 21-04)
+     - `/daily_gift` command with Lucien's voice (🎩)
+     - Detailed breakdown: base + bonus = total
+     - FSM states for claim flow
+     - Countdown timer for next claim
+     - 17 handler tests ✓
 
 **Key Services to Create:**
 4. `bot/services/shop.py` - ShopService (Phase 22)
@@ -216,9 +222,24 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-12 — Completed Phase 21 Plan 02: StreakService Core Logic
-**Stopped at:** StreakService with daily gift tracking and WalletService integration complete
-**Next:** Phase 21 Plan 03: Daily Gift Handler (user-facing claim flow)
+**Last session:** 2026-02-12 — Completed Phase 21 Plan 04: Daily Gift Handler
+**Stopped at:** Daily gift handler with Lucien's voice and detailed breakdown complete
+**Next:** Phase 21 Plan 05: Background Jobs (streak expiration at UTC midnight)
+
+### Wave 5 Summary (StreakService + Handler)
+- StreakService with UTC-based daily gift tracking
+- Base 20 besitos + streak bonus (capped at 50)
+- WalletService integration for automatic crediting
+- **Daily Gift Handler** with Lucien's voice (🎩)
+  - `/daily_gift` command with claim button
+  - Detailed breakdown display (base + bonus = total)
+  - Countdown timer for next claim
+  - FSM state management
+- 52 total streak tests (35 service + 17 handler)
+- All STREAK requirements verified (STREAK-01 through STREAK-03)
+- Test files:
+  - `tests/services/test_streak_service.py` (35 tests)
+  - `tests/handlers/test_streak_handlers.py` (17 tests)
 
 ### Wave 4 Summary (Complete)
 - WalletService integrated into ServiceContainer with lazy loading
@@ -252,6 +273,6 @@ None.
 
 ---
 
-*State updated: 2026-02-12 after Phase 21 Plan 02 completion*
-*Milestone v2.0 (Gamification) Phase 21 IN PROGRESS - 16/43 requirements*
-*StreakService core logic complete with WalletService integration*
+*State updated: 2026-02-12 after Phase 21 Plan 05 completion*
+*Milestone v2.0 (Gamification) Phase 21 IN PROGRESS - 17/43 requirements*
+*Streak display in user menus complete - STREAK-05 satisfied*
