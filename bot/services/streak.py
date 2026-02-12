@@ -471,6 +471,88 @@ class StreakService:
 
         return True, streak.current_streak
 
+    async def process_streak_expirations(self) -> int:
+        """
+        Procesa expiraciones de rachas DAILY_GIFT que no reclamaron hoy.
+
+        Busca todas las rachas DAILY_GIFT donde last_claim_date < hoy (UTC)
+        y resetea current_streak a 0. Preserva longest_streak como histórico.
+
+        Returns:
+            int: Cantidad de rachas reseteadas
+        """
+        today = self._get_utc_date()
+
+        # Find all DAILY_GIFT streaks where last_claim_date < today
+        result = await self.session.execute(
+            select(UserStreak).where(
+                UserStreak.streak_type == StreakType.DAILY_GIFT,
+                UserStreak.current_streak > 0,
+                UserStreak.last_claim_date < datetime.combine(today, datetime.min.time())
+            )
+        )
+        expired_streaks = result.scalars().all()
+
+        reset_count = 0
+        for streak in expired_streaks:
+            old_streak = streak.current_streak
+            streak.current_streak = 0
+
+            self.logger.info(
+                f"🔄 Reset DAILY_GIFT streak for user {streak.user_id} "
+                f"(was {old_streak}, missed day)"
+            )
+            reset_count += 1
+
+        if reset_count > 0:
+            await self.session.flush()
+            self.logger.info(
+                f"✅ Processed {reset_count} expired DAILY_GIFT streaks"
+            )
+
+        return reset_count
+
+    async def process_reaction_streak_expirations(self) -> int:
+        """
+        Procesa expiraciones de rachas REACTION que no reaccionaron hoy.
+
+        Busca todas las rachas REACTION donde last_reaction_date < hoy (UTC)
+        y resetea current_streak a 0. Preserva longest_streak como histórico.
+
+        Returns:
+            int: Cantidad de rachas reseteadas
+        """
+        today = self._get_utc_date()
+
+        # Find all REACTION streaks where last_reaction_date < today
+        result = await self.session.execute(
+            select(UserStreak).where(
+                UserStreak.streak_type == StreakType.REACTION,
+                UserStreak.current_streak > 0,
+                UserStreak.last_reaction_date < datetime.combine(today, datetime.min.time())
+            )
+        )
+        expired_streaks = result.scalars().all()
+
+        reset_count = 0
+        for streak in expired_streaks:
+            old_streak = streak.current_streak
+            streak.current_streak = 0
+
+            self.logger.info(
+                f"🔄 Reset REACTION streak for user {streak.user_id} "
+                f"(was {old_streak}, missed day)"
+            )
+            reset_count += 1
+
+        if reset_count > 0:
+            await self.session.flush()
+            self.logger.info(
+                f"✅ Processed {reset_count} expired REACTION streaks"
+            )
+
+        return reset_count
+
     async def get_reaction_streak(self, user_id: int) -> int:
         """
         Obtiene la racha actual de reacciones del usuario.
