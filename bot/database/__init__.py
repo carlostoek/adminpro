@@ -6,7 +6,8 @@ from bot.database.models import (
     BotConfig,
     InvitationToken,
     VIPSubscriber,
-    FreeChannelRequest
+    FreeChannelRequest,
+    UserStreak
 )
 from bot.database.engine import (
     init_db,
@@ -23,6 +24,7 @@ __all__ = [
     "InvitationToken",
     "VIPSubscriber",
     "FreeChannelRequest",
+    "UserStreak",
 
     # Engine & Sessions
     "init_db",
