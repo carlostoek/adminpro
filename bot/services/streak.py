@@ -395,6 +395,105 @@ class StreakService:
 
         return True
 
+    async def record_reaction(
+        self,
+        user_id: int,
+        reaction_date: Optional[datetime] = None
+    ) -> Tuple[bool, int]:
+        """
+        Registra una reacción y actualiza la racha de reacciones.
+
+        Called when user adds a reaction to content.
+        Gets or creates REACTION type streak for user.
+        Checks if reaction is on a new day (UTC).
+        If new day: increment streak, update last_reaction_date.
+        If same day: no streak change (already counted for today).
+
+        Args:
+            user_id: ID del usuario
+            reaction_date: Fecha opcional de la reacción (default: ahora UTC)
+
+        Returns:
+            Tuple[bool, int]: (streak_incremented, new_streak)
+            - streak_incremented: True si se incrementó la racha (nuevo día)
+            - new_streak: Valor actual de la racha
+        """
+        if reaction_date is None:
+            reaction_date = datetime.utcnow()
+
+        # Get or create reaction streak
+        streak = await self._get_or_create_streak(user_id, StreakType.REACTION)
+
+        # Get today's date (UTC)
+        today = self._get_utc_date(reaction_date)
+
+        # Check if already reacted today
+        if streak.last_reaction_date is not None:
+            last_date = self._get_utc_date(streak.last_reaction_date)
+
+            if last_date == today:
+                # Same day: no streak change
+                self.logger.debug(
+                    f"User {user_id} already reacted today, "
+                    f"streak unchanged at {streak.current_streak}"
+                )
+                return False, streak.current_streak
+
+            # Check if consecutive day or missed
+            yesterday = today - timedelta(days=1)
+            if last_date == yesterday:
+                # Consecutive day: increment streak
+                streak.current_streak += 1
+                if streak.current_streak > streak.longest_streak:
+                    streak.longest_streak = streak.current_streak
+
+                self.logger.info(
+                    f"User {user_id} reaction streak incremented to "
+                    f"{streak.current_streak}"
+                )
+            else:
+                # Missed day(s): reset to 1
+                streak.current_streak = 1
+                self.logger.info(
+                    f"User {user_id} reaction streak reset to 1 "
+                    f"(missed days)"
+                )
+        else:
+            # First reaction ever: start at 1
+            streak.current_streak = 1
+            self.logger.info(
+                f"User {user_id} started reaction streak at 1"
+            )
+
+        # Update last reaction date
+        streak.last_reaction_date = reaction_date
+        await self.session.flush()
+
+        return True, streak.current_streak
+
+    async def get_reaction_streak(self, user_id: int) -> int:
+        """
+        Obtiene la racha actual de reacciones del usuario.
+
+        Args:
+            user_id: ID del usuario
+
+        Returns:
+            int: Racha actual (0 si no existe)
+        """
+        result = await self.session.execute(
+            select(UserStreak).where(
+                UserStreak.user_id == user_id,
+                UserStreak.streak_type == StreakType.REACTION
+            )
+        )
+        streak = result.scalar_one_or_none()
+
+        if streak is None:
+            return 0
+
+        return streak.current_streak
+
     async def update_reaction_streak(self, user_id: int) -> Tuple[bool, int]:
         """
         Actualiza la racha de reacciones para el usuario.
@@ -402,49 +501,12 @@ class StreakService:
         Llama cada vez que el usuario reacciona a contenido.
         Incrementa la racha si es un día diferente al último.
 
+        DEPRECATED: Use record_reaction() instead.
+
         Args:
             user_id: ID del usuario
 
         Returns:
             Tuple[bool, int]: (streak_incremented, current_streak)
         """
-        streak = await self._get_or_create_streak(user_id, StreakType.REACTION)
-
-        today = self._get_utc_date()
-
-        if streak.last_reaction_date is None:
-            # First reaction ever
-            streak.current_streak = 1
-            streak.last_reaction_date = datetime.utcnow()
-            await self.session.flush()
-            return True, 1
-
-        last_reaction = self._get_utc_date(streak.last_reaction_date)
-
-        if last_reaction == today:
-            # Already reacted today, no streak change
-            return False, streak.current_streak
-
-        # New day - increment streak
-        yesterday = today - timedelta(days=1)
-
-        if last_reaction == yesterday:
-            # Consecutive day
-            streak.current_streak += 1
-        else:
-            # Missed a day - reset to 1
-            streak.current_streak = 1
-
-        # Update longest streak if applicable
-        if streak.current_streak > streak.longest_streak:
-            streak.longest_streak = streak.current_streak
-
-        streak.last_reaction_date = datetime.utcnow()
-        await self.session.flush()
-
-        self.logger.info(
-            f"✅ Updated reaction streak for user {user_id}: "
-            f"{streak.current_streak} days"
-        )
-
-        return True, streak.current_streak
+        return await self.record_reaction(user_id)
