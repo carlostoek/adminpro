@@ -1053,44 +1053,30 @@ class SubscriptionService:
                     user_id=request.user_id
                 )
 
-                # 2. Obtener enlace del canal (stored or fallback to public URL)
+                # 2. Obtener enlace del canal (dinámicamente generado si no existe)
                 # Import UserFlowMessages
                 from bot.services.message.user_flows import UserFlowMessages
+                from bot.services.channel import ChannelService
 
-                # Get stored invite link from BotConfig
-                config_result = await self.session.execute(
-                    select(BotConfig).where(BotConfig.id == 1)
-                )
-                bot_config = config_result.scalar_one_or_none()
+                # Usar ChannelService para obtener o crear el enlace dinámicamente
+                channel_service = ChannelService(self.session, self.bot)
+                channel_link = await channel_service.get_or_create_free_channel_invite_link()
 
-                # Use stored link or fallback to public t.me URL
-                channel_link = None
-                if bot_config and bot_config.free_channel_invite_link:
-                    channel_link = bot_config.free_channel_invite_link
-                else:
-                    # Fallback: construct public URL from channel_id
-                    # Assumes channel_id is numeric or @username format
-                    if free_channel_id.startswith('@'):
+                if not channel_link:
+                    # Fallback: intentar obtener desde BotConfig (legacy) o construir URL pública
+                    config_result = await self.session.execute(
+                        select(BotConfig).where(BotConfig.id == 1)
+                    )
+                    bot_config = config_result.scalar_one_or_none()
+
+                    if bot_config and bot_config.free_channel_invite_link:
+                        channel_link = bot_config.free_channel_invite_link
+                    elif free_channel_id.startswith('@'):
                         channel_link = f"t.me/{free_channel_id[1:]}"
-                        logger.warning(
-                            "⚠️ free_channel_invite_link not configured in BotConfig. "
-                            "Using fallback URL. Admin should set stored invite link for better UX."
-                        )
-                    elif free_channel_id.startswith('-100'):
-                        # Extract numeric ID for public channel lookup
-                        # This won't work for private channels, but it's a best-effort fallback
-                        channel_link = None  # Will skip sending message
-                        # Better: admin should set stored link
-                        logger.warning(
-                            f"⚠️ No stored invite link found. "
-                            f"Admin should set free_channel_invite_link in BotConfig."
-                        )
+                        logger.warning("⚠️ Usando fallback t.me URL para canal público")
                     else:
-                        channel_link = f"t.me/{free_channel_id}"
-                        logger.warning(
-                            "⚠️ free_channel_invite_link not configured in BotConfig. "
-                            "Using fallback URL. Admin should set stored invite link for better UX."
-                        )
+                        logger.error("❌ No se pudo obtener ni crear enlace de invitación")
+                        # Continuar sin enviar mensaje (la aprobación ya se hizo)
 
                 # 3. Enviar mensaje de aprobación con Lucien's voice
                 if channel_link:
@@ -1271,30 +1257,29 @@ class SubscriptionService:
             logger.warning(f"⚠️ No se pudo obtener info del canal Free: {e}")
             channel_name = "Canal Free"
 
-        # Obtener enlace del canal (stored or fallback)
+        # Obtener enlace del canal (dinámicamente generado si no existe)
         from bot.services.message.user_flows import UserFlowMessages
+        from bot.services.channel import ChannelService
 
-        config_result = await self.session.execute(
-            select(BotConfig).where(BotConfig.id == 1)
-        )
-        bot_config = config_result.scalar_one_or_none()
+        # Usar ChannelService para obtener o crear el enlace dinámicamente
+        channel_service = ChannelService(self.session, self.bot)
+        channel_link = await channel_service.get_or_create_free_channel_invite_link()
 
-        # Use stored link or fallback to public t.me URL
-        channel_link = None
-        if bot_config and bot_config.free_channel_invite_link:
-            channel_link = bot_config.free_channel_invite_link
-        else:
-            # Fallback: construct public URL from channel_id
-            if free_channel_id.startswith('@'):
+        if not channel_link:
+            # Fallback: intentar obtener desde BotConfig (legacy) o construir URL pública
+            config_result = await self.session.execute(
+                select(BotConfig).where(BotConfig.id == 1)
+            )
+            bot_config = config_result.scalar_one_or_none()
+
+            if bot_config and bot_config.free_channel_invite_link:
+                channel_link = bot_config.free_channel_invite_link
+            elif free_channel_id.startswith('@'):
                 channel_link = f"t.me/{free_channel_id[1:]}"
-            elif free_channel_id.startswith('-100'):
-                channel_link = None  # Will skip sending message
-                logger.warning(
-                    f"⚠️ No stored invite link found. "
-                    f"Admin should set free_channel_invite_link in BotConfig."
-                )
+                logger.warning("⚠️ Usando fallback t.me URL para canal público")
             else:
-                channel_link = f"t.me/{free_channel_id}"
+                channel_link = None
+                logger.error("❌ No se pudo obtener ni crear enlace de invitación")
 
         while True:
             pending_requests = await self.get_pending_free_requests(limit=100)

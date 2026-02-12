@@ -497,3 +497,107 @@ class ChannelService:
         except Exception as e:
             logger.error(f"Error al obtener miembros de {channel_id}: {e}")
             return None
+
+    # ===== GESTIÓN DE ENLACES DE INVITACIÓN =====
+
+    async def get_or_create_free_channel_invite_link(self) -> Optional[str]:
+        """
+        Obtiene o crea un enlace de invitación para el canal Free.
+
+        Este método:
+        1. Verifica si ya existe un enlace almacenado en BotConfig
+        2. Si existe, lo retorna
+        3. Si no existe, crea uno nuevo vía API de Telegram y lo almacena
+
+        El enlace es ÚNICO y COMPARTIDO para todos los usuarios (no uno por usuario).
+        Esto es diferente a los enlaces VIP que son de un solo uso y expiran.
+
+        Returns:
+            str: URL del enlace de invitación, o None si no se pudo crear
+        """
+        try:
+            config = await self.get_bot_config()
+
+            # 1. Verificar si ya existe un enlace almacenado
+            if config.free_channel_invite_link:
+                logger.debug(f"🔗 Usando enlace Free existente: {config.free_channel_invite_link[:40]}...")
+                return config.free_channel_invite_link
+
+            # 2. No existe enlace, crear uno nuevo
+            free_channel_id = config.free_channel_id
+            if not free_channel_id:
+                logger.error("❌ No hay canal Free configurado para crear enlace")
+                return None
+
+            # Verificar permisos antes de crear
+            can_invite, perm_msg = await self.verify_bot_permissions(free_channel_id)
+            if not can_invite:
+                logger.error(f"❌ Bot no tiene permisos para crear enlaces: {perm_msg}")
+                return None
+
+            # Crear enlace de invitación (sin expiración, sin límite de usos)
+            # member_limit=0 significa sin límite
+            # expire_date=None significa que no expira
+            from aiogram.types import ChatInviteLink
+
+            invite_link_obj: ChatInviteLink = await self.bot.create_chat_invite_link(
+                chat_id=free_channel_id,
+                name="LosKinkys Free - Enlace General",
+                creates_join_request=False,  # Aprobación automática
+            )
+
+            # Almacenar el enlace en la configuración
+            config.free_channel_invite_link = invite_link_obj.invite_link
+            await self.session.commit()
+
+            logger.info(
+                f"✅ Enlace Free creado y almacenado: {invite_link_obj.invite_link[:50]}..."
+            )
+
+            return invite_link_obj.invite_link
+
+        except Exception as e:
+            logger.error(f"❌ Error creando enlace de invitación Free: {e}", exc_info=True)
+            return None
+
+    async def revoke_free_channel_invite_link(self) -> Tuple[bool, str]:
+        """
+        Revoca el enlace de invitación actual del canal Free.
+
+        Útil cuando el admin quiere invalidar el enlace anterior
+        y forzar la creación de uno nuevo en la próxima solicitud.
+
+        Returns:
+            Tuple[bool, str]: (éxito, mensaje)
+        """
+        try:
+            config = await self.get_bot_config()
+
+            if not config.free_channel_invite_link:
+                return False, "No hay enlace activo para revocar"
+
+            free_channel_id = config.free_channel_id
+            if not free_channel_id:
+                return False, "Canal Free no configurado"
+
+            # Revocar el enlace en Telegram
+            try:
+                await self.bot.revoke_chat_invite_link(
+                    chat_id=free_channel_id,
+                    invite_link=config.free_channel_invite_link
+                )
+            except Exception as revoke_error:
+                logger.warning(f"⚠️ No se pudo revocar enlace en Telegram: {revoke_error}")
+                # Continuar de todas formas para limpiar la BD
+
+            # Limpiar el enlace almacenado
+            old_link = config.free_channel_invite_link
+            config.free_channel_invite_link = None
+            await self.session.commit()
+
+            logger.info(f"✅ Enlace Free revocado: {old_link[:50]}...")
+            return True, "Enlace revocado. Se creará uno nuevo automáticamente."
+
+        except Exception as e:
+            logger.error(f"❌ Error revocando enlace Free: {e}")
+            return False, f"Error al revocar: {str(e)}"
