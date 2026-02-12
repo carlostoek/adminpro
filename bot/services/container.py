@@ -61,6 +61,7 @@ class ServiceContainer:
         self._vip_entry_service = None
         self._wallet_service = None
         self._reaction_service = None
+        self._streak_service = None
 
         logger.debug("🏭 ServiceContainer inicializado (modo lazy)")
 
@@ -457,6 +458,39 @@ class ServiceContainer:
 
         return self._reaction_service
 
+    # ===== STREAK SERVICE =====
+
+    @property
+    def streak(self):
+        """
+        Service de gestión de rachas diarias y recompensas.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            StreakService: Instancia del service
+
+        Usage:
+            # Check if user can claim daily gift
+            can_claim, status = await container.streak.can_claim_daily_gift(user_id)
+
+            # Claim daily gift
+            success, result = await container.streak.claim_daily_gift(user_id)
+
+            # Get streak info
+            info = await container.streak.get_streak_info(user_id, StreakType.DAILY_GIFT)
+        """
+        if self._streak_service is None:
+            from bot.services.streak import StreakService
+            logger.debug("🔄 Lazy loading: StreakService")
+            # Inject wallet service for besitos crediting
+            self._streak_service = StreakService(
+                self._session,
+                wallet_service=self.wallet
+            )
+
+        return self._streak_service
+
     # ===== UTILIDADES =====
 
     def get_loaded_services(self) -> list[str]:
@@ -502,6 +536,8 @@ class ServiceContainer:
             loaded.append("wallet")
         if self._reaction_service is not None:
             loaded.append("reaction")
+        if self._streak_service is not None:
+            loaded.append("streak")
 
         return loaded
 
