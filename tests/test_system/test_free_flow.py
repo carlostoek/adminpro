@@ -267,3 +267,94 @@ async def test_free_request_is_ready(test_session, mock_bot):
 
     # Should NOT be ready for 15 minute wait time
     assert request.is_ready(wait_time_minutes=15) is False
+
+
+async def test_get_or_create_free_channel_invite_link(test_session, mock_bot):
+    """Verify ChannelService creates and reuses invite link."""
+    from bot.services.channel import ChannelService
+    from bot.database.models import BotConfig
+    from unittest.mock import patch
+
+    # Setup: Create BotConfig with free channel
+    bot_config = await test_session.get(BotConfig, 1)
+    bot_config.free_channel_id = "-1001234567890"
+    await test_session.commit()
+
+    # Mock the invite link creation and permissions
+    mock_invite_link = MagicMock()
+    mock_invite_link.invite_link = "https://t.me/+FreeChannelLink123"
+    mock_bot.create_chat_invite_link = AsyncMock(return_value=mock_invite_link)
+
+    channel_service = ChannelService(test_session, mock_bot)
+
+    # Patch verify_bot_permissions to return success
+    with patch.object(channel_service, 'verify_bot_permissions', return_value=(True, "OK")):
+        # First call - should create new link
+        link1 = await channel_service.get_or_create_free_channel_invite_link()
+
+        assert link1 is not None
+        assert link1 == "https://t.me/+FreeChannelLink123"
+        mock_bot.create_chat_invite_link.assert_called_once()
+
+        # Second call - should reuse existing link (not create new one)
+        mock_bot.create_chat_invite_link.reset_mock()
+        link2 = await channel_service.get_or_create_free_channel_invite_link()
+
+        assert link2 == link1  # Same link
+        mock_bot.create_chat_invite_link.assert_not_called()  # Not called again
+
+
+async def test_get_or_create_free_channel_invite_link_no_channel(test_session, mock_bot):
+    """Verify ChannelService returns None when no free channel configured."""
+    from bot.services.channel import ChannelService
+    from bot.database.models import BotConfig
+
+    # Setup: BotConfig without free channel
+    bot_config = await test_session.get(BotConfig, 1)
+    bot_config.free_channel_id = None
+    await test_session.commit()
+
+    channel_service = ChannelService(test_session, mock_bot)
+
+    # Should return None when no channel configured
+    link = await channel_service.get_or_create_free_channel_invite_link()
+
+    assert link is None
+    mock_bot.create_chat_invite_link.assert_not_called()
+
+
+async def test_revoke_free_channel_invite_link(test_session, mock_bot):
+    """Verify ChannelService can revoke invite link."""
+    from bot.services.channel import ChannelService
+    from bot.database.models import BotConfig
+    from unittest.mock import patch
+
+    # Setup: Create BotConfig with free channel and existing link
+    bot_config = await test_session.get(BotConfig, 1)
+    bot_config.free_channel_id = "-1001234567890"
+    bot_config.free_channel_invite_link = "https://t.me/+OldLink123"
+    await test_session.commit()
+
+    mock_bot.revoke_chat_invite_link = AsyncMock()
+
+    channel_service = ChannelService(test_session, mock_bot)
+
+    # Revoke the link
+    success, message = await channel_service.revoke_free_channel_invite_link()
+
+    assert success is True
+    assert "revocado" in message.lower() or "revoked" in message.lower()
+
+    # Verify link was cleared from database
+    await test_session.refresh(bot_config)
+    assert bot_config.free_channel_invite_link is None
+
+    # Verify next call creates new link (with patched permissions)
+    mock_invite_link = MagicMock()
+    mock_invite_link.invite_link = "https://t.me/+NewLink456"
+    mock_bot.create_chat_invite_link = AsyncMock(return_value=mock_invite_link)
+
+    with patch.object(channel_service, 'verify_bot_permissions', return_value=(True, "OK")):
+        new_link = await channel_service.get_or_create_free_channel_invite_link()
+        assert new_link == "https://t.me/+NewLink456"
+        mock_bot.create_chat_invite_link.assert_called_once()
