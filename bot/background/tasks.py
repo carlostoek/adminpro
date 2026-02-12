@@ -327,6 +327,19 @@ async def start_background_tasks(bot: Bot):
     )
     logger.info("✅ Tarea programada: Limpieza (diaria 3 AM UTC)")
 
+    # Tarea 4: Expiración de rachas diarias
+    # Frecuencia: Diaria a medianoche UTC (00:00)
+    _scheduler.add_job(
+        expire_streaks,
+        trigger=CronTrigger(hour=0, minute=0, timezone="UTC"),
+        args=[bot],
+        id="expire_streaks",
+        name="Expiración de rachas diarias",
+        replace_existing=True,
+        max_instances=1
+    )
+    logger.info("✅ Tarea programada: Expiración de rachas (medianoche UTC)")
+
     # Iniciar scheduler
     _scheduler.start()
     logger.info("✅ Background tasks iniciados correctamente")
