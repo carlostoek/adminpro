@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from bot.database.base import Base
-from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType, TransactionType
+from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType, TransactionType, StreakType
 
 logger = logging.getLogger(__name__)
 
@@ -831,4 +831,79 @@ class UserReaction(Base):
         return (
             f"<UserReaction(id={self.id}, user_id={self.user_id}, "
             f"content_id={self.content_id}, emoji={self.emoji})>"
+        )
+
+
+class UserStreak(Base):
+    """
+    Modelo de rachas de usuario para el sistema de gamificación.
+
+    Almacena el estado de rachas de usuarios para:
+    - Regalo diario: Días consecutivos reclamando el regalo diario
+    - Reacciones: Días consecutivos con al menos una reacción
+
+    Attributes:
+        id: ID único de la racha (Primary Key)
+        user_id: ID del usuario (Foreign Key a users.user_id)
+        streak_type: Tipo de racha (DAILY_GIFT o REACTION)
+        current_streak: Días consecutivos actuales
+        longest_streak: Récord máximo de días consecutivos
+        last_claim_date: Fecha UTC del último reclamo (para DAILY_GIFT)
+        last_reaction_date: Fecha UTC de la última reacción (para REACTION)
+        created_at: Fecha de creación del registro
+        updated_at: Última actualización
+
+    Constraints:
+        - Un usuario solo puede tener una racha de cada tipo
+        - Índice compuesto para leaderboards por tipo de racha
+    """
+
+    __tablename__ = "user_streaks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User relationship
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Streak type
+    streak_type = Column(
+        Enum(StreakType),
+        nullable=False,
+        index=True
+    )
+
+    # Streak counters
+    current_streak = Column(Integer, nullable=False, default=0)
+    longest_streak = Column(Integer, nullable=False, default=0)
+
+    # Last activity dates
+    last_claim_date = Column(DateTime, nullable=True)  # For DAILY_GIFT
+    last_reaction_date = Column(DateTime, nullable=True)  # For REACTION
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Unique constraint: one streak per user per type
+        Index('idx_user_streak_type', 'user_id', 'streak_type', unique=True),
+        # Composite index for leaderboards (ordered by current streak)
+        Index('idx_streak_type_current', 'streak_type', 'current_streak'),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<UserStreak(user_id={self.user_id}, type={self.streak_type.value}, "
+            f"current={self.current_streak}, longest={self.longest_streak})>"
         )
