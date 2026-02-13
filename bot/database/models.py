@@ -1005,3 +1005,121 @@ class ContentSet(Base):
             f"<ContentSet(id={self.id}, name='{self.name}', "
             f"tier={self.tier}, files={self.file_count})>"
         )
+
+
+class ShopProduct(Base):
+    """
+    Producto de la tienda del sistema.
+
+    Representa un item vendible en la tienda que está vinculado
+    a un ContentSet. Incluye precios para usuarios FREE y VIP
+    (con sistema de descuentos).
+
+    Attributes:
+        id: ID único del producto (Primary Key)
+        name: Nombre del producto en la tienda
+        description: Descripción de marketing
+        content_set_id: ID del ContentSet asociado
+        besitos_price: Precio en besitos para usuarios FREE
+        vip_discount_percentage: Porcentaje de descuento VIP (0-100)
+        vip_besitos_price: Precio VIP manual (opcional, auto-calculado si null)
+        tier: Quién puede comprar este producto
+        is_active: Si está disponible para compra
+        sort_order: Orden en el catálogo
+        purchase_count: Contador de compras (analytics)
+        created_at: Fecha de creación
+        updated_at: Última actualización
+
+    Relaciones:
+        content_set: ContentSet vinculado
+        purchase_records: Registros de compra de usuarios
+    """
+
+    __tablename__ = "shop_products"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Basic info
+    name = Column(String(200), nullable=False)
+    description = Column(String(1000), nullable=True)
+
+    # Content relationship
+    content_set_id = Column(
+        Integer,
+        ForeignKey("content_sets.id"),
+        nullable=False
+    )
+
+    # Pricing
+    besitos_price = Column(Integer, nullable=False)
+    vip_discount_percentage = Column(Integer, nullable=False, default=0)
+    vip_besitos_price = Column(Integer, nullable=True)
+
+    # Access control
+    tier = Column(
+        Enum(ContentTier),
+        nullable=False,
+        default=ContentTier.FREE
+    )
+
+    # State and ordering
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+
+    # Analytics
+    purchase_count = Column(Integer, nullable=False, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Relationships
+    content_set = relationship(
+        "ContentSet",
+        back_populates="shop_products",
+        lazy="selectin"
+    )
+    purchase_records = relationship(
+        "UserContentAccess",
+        back_populates="shop_product",
+        cascade="all, delete-orphan"
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Composite index for active products by tier
+        Index('idx_shop_product_active_tier', 'is_active', 'tier'),
+        # Index for price sorting
+        Index('idx_shop_product_price', 'besitos_price'),
+        # Index for catalog ordering
+        Index('idx_shop_product_sort', 'sort_order'),
+    )
+
+    @property
+    def vip_price(self) -> int:
+        """
+        Retorna precio VIP calculado.
+
+        Si vip_besitos_price está seteado, lo retorna.
+        Si no, calcula besitos_price * (100 - vip_discount_percentage) // 100.
+        """
+        if self.vip_besitos_price is not None:
+            return self.vip_besitos_price
+        discount = self.besitos_price * self.vip_discount_percentage // 100
+        return self.besitos_price - discount
+
+    @property
+    def has_vip_discount(self) -> bool:
+        """Retorna True si tiene descuento VIP."""
+        return self.vip_discount_percentage > 0
+
+    def __repr__(self) -> str:
+        return (
+            f"<ShopProduct(id={self.id}, name='{self.name}', "
+            f"price={self.besitos_price}, vip_price={self.vip_price})>"
+        )
