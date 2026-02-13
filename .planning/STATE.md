@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 22 - Shop System 🔄 IN PROGRESS
-**Plan:** 22-01 Shop Database Foundation ✅ COMPLETE
-**Status:** Phase 22 started - Database models created (ContentSet, ShopProduct, UserContentAccess)
+**Plan:** 22-02 ShopService ✅ COMPLETE
+**Status:** ShopService created with catalog browsing, purchase flow, and content delivery
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -22,11 +22,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 Phase 19: [██████████] 100% - Economy Foundation ✅
 Phase 20: [██████████] 100% - Reaction System ✅
 Phase 21: [██████████] 100% - Daily Rewards & Streaks ✅ COMPLETE
-Phase 22: [██░░░░░░░░] 20% - Shop System 🔄 IN PROGRESS
+Phase 22: [████░░░░░░] 40% - Shop System 🔄 IN PROGRESS
 Phase 23: [░░░░░░░░░░] 0% - Rewards System
 Phase 24: [░░░░░░░░░░] 0% - Admin Configuration
 
-Overall v2.0:  [█████░░░░░] 50% (24/43 requirements)
+Overall v2.0:  [█████░░░░░] 55% (26/43 requirements)
 ```
 
 ## Performance Metrics
@@ -52,9 +52,9 @@ Overall v2.0:  [█████░░░░░] 50% (24/43 requirements)
 - Tests: 212 passing
 
 **v2.0 Current:**
-- New services: 4/5 integrated (WalletService ✓, ReactionService ✓, StreakService ✓, ShopService, RewardService)
+- New services: 5/5 integrated (WalletService ✓, ReactionService ✓, StreakService ✓, ShopService ✓, RewardService)
 - New models: 7/7+ (UserGamificationProfile ✓, Transaction ✓, UserReaction ✓, UserStreak ✓, ContentSet ✓, ShopProduct ✓, UserContentAccess ✓, Reward, RewardCondition)
-- Requirements: 24/43 (all ECON + all REACT + all STREAK complete)
+- Requirements: 26/43 (all ECON + all REACT + all STREAK + SHOP-01/02 complete)
 - Tests: 377 passing (165 new economy/reaction/streak tests)
 
 ## Accumulated Context
@@ -200,8 +200,15 @@ None.
      - Countdown timer for next claim
      - 17 handler tests ✓
 
+**Key Services Created:**
+4. `bot/services/shop.py` - ShopService ✓ (catalog, purchase, delivery)
+   - browse_catalog() with price ascending pagination ✓
+   - purchase_product() with atomic besitos deduction ✓
+   - deliver_content() returning file_ids ✓
+   - VIP pricing with discount calculation ✓
+   - Ownership checking to prevent duplicates ✓
+
 **Key Services to Create:**
-4. `bot/services/shop.py` - ShopService (Phase 22)
 5. `bot/services/reward.py` - RewardService (Phase 23)
 
 **Key Models Created:**
@@ -287,20 +294,30 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-13 — Completed Phase 22 Plan 01: Shop Database Foundation
-**Stopped at:** Plan 22-01 complete - ContentSet, ShopProduct, UserContentAccess models created
-**Next:** Phase 22 Plan 02 - ShopService implementation
+**Last session:** 2026-02-13 — Completed Phase 22 Plan 02: ShopService Implementation
+**Stopped at:** Plan 22-02 complete - ShopService with catalog, purchase, delivery
+**Next:** Phase 22 Plan 03 - Shop catalog handlers
 
-### Wave 6 Summary (Shop System Started)
-- ContentSet model with file_ids JSON array for Telegram content delivery
-- ShopProduct model with besitos_price and VIP discount system
-- UserContentAccess model with unique constraint preventing duplicate purchases
-- ContentType enum: PHOTO_SET, VIDEO, AUDIO, MIXED
-- ContentTier enum: FREE, VIP, PREMIUM, GIFT with emojis
-- All bidirectional relationships verified
+### Wave 6 Summary (Shop System Progress)
+- ContentSet model with file_ids JSON array for Telegram content delivery ✓
+- ShopProduct model with besitos_price and VIP discount system ✓
+- UserContentAccess model with unique constraint preventing duplicate purchases ✓
+- ContentType enum: PHOTO_SET, VIDEO, AUDIO, MIXED ✓
+- ContentTier enum: FREE, VIP, PREMIUM, GIFT with emojis ✓
+- **ShopService created:**
+  - browse_catalog() - Paginated by price ascending ✓
+  - get_product_details() - User-specific pricing ✓
+  - validate_purchase() - Balance, tier, ownership checks ✓
+  - purchase_product() - Atomic besitos + access creation ✓
+  - deliver_content() - Returns file_ids for Telegram ✓
+  - get_purchase_history() - Formatted purchase records ✓
+  - get_user_shop_stats() - Aggregated user statistics ✓
+- VIP pricing with automatic discount calculation ✓
+- Ownership detection with repurchase support ✓
+- WalletService integration for atomic payments ✓
 
 ---
 
-*State updated: 2026-02-13 after Phase 22 Plan 01 completion*
-*Milestone v2.0 (Gamification) Phase 22 IN PROGRESS - Shop Database Foundation complete*
-*New models: ContentSet, ShopProduct, UserContentAccess*
+*State updated: 2026-02-13 after Phase 22 Plan 02 completion*
+*Milestone v2.0 (Gamification) Phase 22 IN PROGRESS - ShopService complete*
+*Next: Shop handlers (Plan 03)*
