@@ -62,6 +62,7 @@ class ServiceContainer:
         self._wallet_service = None
         self._reaction_service = None
         self._streak_service = None
+        self._shop_service = None
 
         logger.debug("🏭 ServiceContainer inicializado (modo lazy)")
 
@@ -492,6 +493,41 @@ class ServiceContainer:
 
         return self._streak_service
 
+    # ===== SHOP SERVICE =====
+
+    @property
+    def shop(self):
+        """
+        Service de tienda (shop) para compra de contenido.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            ShopService: Instancia del service
+
+        Usage:
+            # Browse catalog
+            products, total = await container.shop.browse_catalog(user_role="VIP")
+
+            # Purchase product
+            success, code, result = await container.shop.purchase_product(
+                user_id=123, product_id=456, user_role="VIP"
+            )
+
+            # Get purchase history
+            history, total = await container.shop.get_purchase_history(user_id=123)
+        """
+        if self._shop_service is None:
+            from bot.services.shop import ShopService
+            logger.debug("🔄 Lazy loading: ShopService")
+            # Inject wallet service for payments
+            self._shop_service = ShopService(
+                self._session,
+                wallet_service=self.wallet
+            )
+
+        return self._shop_service
+
     # ===== UTILIDADES =====
 
     def get_loaded_services(self) -> list[str]:
@@ -539,6 +575,8 @@ class ServiceContainer:
             loaded.append("reaction")
         if self._streak_service is not None:
             loaded.append("streak")
+        if self._shop_service is not None:
+            loaded.append("shop")
 
         return loaded
 
