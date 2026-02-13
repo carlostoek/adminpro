@@ -201,6 +201,81 @@ class StreakType(str, Enum):
         return emojis[self]
 
 
+class ContentType(str, Enum):
+    """
+    Tipos de contenido para ContentSet.
+
+    Tipos:
+        PHOTO_SET: Set de fotos
+        VIDEO: Video individual
+        AUDIO: Audio/Nota de voz
+        MIXED: Contenido mixto (fotos + video)
+    """
+
+    PHOTO_SET = "photo_set"
+    VIDEO = "video"
+    AUDIO = "audio"
+    MIXED = "mixed"
+
+    def __str__(self) -> str:
+        """Retorna valor string del enum."""
+        return self.value
+
+    @property
+    def display_name(self) -> str:
+        """Retorna nombre legible del tipo de contenido."""
+        names = {
+            ContentType.PHOTO_SET: "Set de Fotos",
+            ContentType.VIDEO: "Video",
+            ContentType.AUDIO: "Audio",
+            ContentType.MIXED: "Mixto"
+        }
+        return names[self]
+
+
+class ContentTier(str, Enum):
+    """
+    Niveles de tier para contenido y productos.
+
+    Tiers:
+        FREE: Contenido gratuito
+        VIP: Contenido para suscriptores VIP
+        PREMIUM: Contenido exclusivo de alto valor
+        GIFT: Contenido de regalo/promocional
+    """
+
+    FREE = "free"
+    VIP = "vip"
+    PREMIUM = "premium"
+    GIFT = "gift"
+
+    def __str__(self) -> str:
+        """Retorna valor string del enum."""
+        return self.value
+
+    @property
+    def display_name(self) -> str:
+        """Retorna nombre legible del tier."""
+        names = {
+            ContentTier.FREE: "Gratis",
+            ContentTier.VIP: "VIP",
+            ContentTier.PREMIUM: "Premium",
+            ContentTier.GIFT: "Regalo"
+        }
+        return names[self]
+
+    @property
+    def emoji(self) -> str:
+        """Retorna emoji del tier."""
+        emojis = {
+            ContentTier.FREE: "🌸",
+            ContentTier.VIP: "⭐",
+            ContentTier.PREMIUM: "💎",
+            ContentTier.GIFT: "🎁"
+        }
+        return emojis[self]
+
+
 class TransactionType(str, Enum):
     """
     Tipos de transacciones en el sistema de economía.
