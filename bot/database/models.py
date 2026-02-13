@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from bot.database.base import Base
-from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType, TransactionType, StreakType
+from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType, TransactionType, StreakType, ContentType, ContentTier
 
 logger = logging.getLogger(__name__)
 
@@ -912,4 +912,96 @@ class UserStreak(Base):
         return (
             f"<UserStreak(user_id={self.user_id}, type={self.streak_type.value}, "
             f"current={self.current_streak}, longest={self.longest_streak})>"
+        )
+
+
+class ContentSet(Base):
+    """
+    Conjunto de contenido para el sistema de tienda.
+
+    Almacena múltiples archivos (file_ids de Telegram) como un conjunto
+    que puede ser vendido o regalado a través del sistema de tienda.
+
+    Attributes:
+        id: ID único del conjunto (Primary Key)
+        name: Nombre del conjunto (ej: "Pack Especial Febrero")
+        description: Descripción detallada del contenido
+        file_ids: Array de file_ids de Telegram para entrega
+        content_type: Tipo de contenido (photo_set, video, audio, mixed)
+        tier: Nivel de acceso (free, vip, premium, gift)
+        category: Categoría opcional (teaser, welcome, milestone, gift)
+        is_active: Si el conjunto está disponible
+        created_at: Fecha de creación
+        updated_at: Última actualización
+
+    Relaciones:
+        shop_products: Productos de tienda que venden este contenido
+        user_accesses: Registros de acceso de usuarios a este contenido
+    """
+
+    __tablename__ = "content_sets"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Basic info
+    name = Column(String(200), nullable=False)
+    description = Column(String(1000), nullable=True)
+
+    # Content storage (Telegram file_ids)
+    file_ids = Column(JSON, nullable=False, default=list)
+
+    # Classification
+    content_type = Column(
+        Enum(ContentType),
+        nullable=False,
+        default=ContentType.PHOTO_SET
+    )
+    tier = Column(
+        Enum(ContentTier),
+        nullable=False,
+        default=ContentTier.FREE
+    )
+    category = Column(String(50), nullable=True)  # teaser, welcome, milestone, gift
+
+    # State
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Relationships
+    shop_products = relationship(
+        "ShopProduct",
+        back_populates="content_set",
+        cascade="all, delete-orphan"
+    )
+    user_accesses = relationship(
+        "UserContentAccess",
+        back_populates="content_set",
+        cascade="all, delete-orphan"
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Composite index for filtering by tier and active status
+        Index('idx_content_set_tier_active', 'tier', 'is_active'),
+        # Composite index for filtering by type and active status
+        Index('idx_content_set_type_active', 'content_type', 'is_active'),
+    )
+
+    @property
+    def file_count(self) -> int:
+        """Retorna cantidad de archivos en el conjunto."""
+        return len(self.file_ids)
+
+    def __repr__(self) -> str:
+        return (
+            f"<ContentSet(id={self.id}, name='{self.name}', "
+            f"tier={self.tier}, files={self.file_count})>"
         )
