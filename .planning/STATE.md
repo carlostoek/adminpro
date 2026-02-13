@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 **Milestone:** v2.0 Gamification
-**Phase:** 22 - Shop System 🔄 IN PROGRESS
-**Plan:** 22-03 Shop Handlers ✅ COMPLETE
-**Status:** Shop handlers integrated with VIP pricing, purchase flow, and content delivery
+**Phase:** 22 - Shop System ✅ COMPLETE
+**Plan:** 22-04 Shop Integration ✅ COMPLETE
+**Status:** Shop system fully integrated with user menus, router registered, 26 tests passing covering all SHOP requirements
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -22,11 +22,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 Phase 19: [██████████] 100% - Economy Foundation ✅
 Phase 20: [██████████] 100% - Reaction System ✅
 Phase 21: [██████████] 100% - Daily Rewards & Streaks ✅ COMPLETE
-Phase 22: [██████░░░░] 60% - Shop System 🔄 IN PROGRESS
+Phase 22: [██████████] 100% - Shop System ✅ COMPLETE
 Phase 23: [░░░░░░░░░░] 0% - Rewards System
 Phase 24: [░░░░░░░░░░] 0% - Admin Configuration
 
-Overall v2.0:  [█████░░░░░] 55% (26/43 requirements)
+Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
 ```
 
 ## Performance Metrics
@@ -54,8 +54,10 @@ Overall v2.0:  [█████░░░░░] 55% (26/43 requirements)
 **v2.0 Current:**
 - New services: 5/5 integrated (WalletService ✓, ReactionService ✓, StreakService ✓, ShopService ✓, RewardService)
 - Shop handlers: Catalog, detail, purchase, history with Lucien's voice ✓
+- Shop menu integration: 🛍️ Tienda button in VIP and Free menus ✓
+- Shop tests: 26 tests covering SHOP-01 through SHOP-08 ✓
 - New models: 7/7+ (UserGamificationProfile ✓, Transaction ✓, UserReaction ✓, UserStreak ✓, ContentSet ✓, ShopProduct ✓, UserContentAccess ✓, Reward, RewardCondition)
-- Requirements: 26/43 (all ECON + all REACT + all STREAK + SHOP-01/02 complete)
+- Requirements: 34/43 (all ECON + all REACT + all STREAK + all SHOP complete)
 - Tests: 377 passing (165 new economy/reaction/streak tests)
 
 ## Accumulated Context
@@ -340,6 +342,46 @@ None.
 
 ---
 
-*State updated: 2026-02-13 after Phase 22 Plan 03 completion*
-*Milestone v2.0 (Gamification) Phase 22 IN PROGRESS - Shop handlers complete*
-*Next: Shop admin handlers (Plan 04)*
+## Session Continuity
+
+**Last session:** 2026-02-13 — Completed Phase 22 Plan 04: Shop System Integration and Testing
+**Stopped at:** Phase 22 COMPLETE - Shop system fully integrated with 26 tests passing
+**Next:** Phase 23 - Rewards System
+
+### Wave 6 Summary (Shop System Complete)
+- ContentSet model with file_ids JSON array for Telegram content delivery ✓
+- ShopProduct model with besitos_price and VIP discount system ✓
+- UserContentAccess model with unique constraint preventing duplicate purchases ✓
+- ContentType enum: PHOTO_SET, VIDEO, AUDIO, MIXED ✓
+- ContentTier enum: FREE, VIP, PREMIUM, GIFT with emojis ✓
+- **ShopService created:**
+  - browse_catalog() - Paginated by price ascending ✓
+  - get_product_details() - User-specific pricing ✓
+  - validate_purchase() - Balance, tier, ownership checks ✓
+  - purchase_product() - Atomic besitos + access creation ✓
+  - deliver_content() - Returns file_ids for Telegram ✓
+  - get_purchase_history() - Formatted purchase records ✓
+  - get_user_shop_stats() - Aggregated user statistics ✓
+- VIP pricing with automatic discount calculation ✓
+- Ownership detection with repurchase support ✓
+- WalletService integration for atomic payments ✓
+- **Shop Handlers created (Plan 22-03):**
+  - `shop_catalog_handler` - Vertical product list with Prev/Next pagination ✓
+  - `shop_product_detail_handler` - VIP/Free price differentiation with strikethrough ✓
+  - `shop_purchase_handler` - Purchase flow with confirmation ✓
+  - `shop_confirm_purchase_handler` - Execute purchase + content delivery ✓
+  - `shop_history_handler` - Purchase history with pagination ✓
+  - `shop_earn_besitos_handler` - Redirect to daily gift when low balance ✓
+  - Lucien's voice (🎩) - Formal mayordomo tone for all messages ✓
+  - Content delivery - Sends actual Telegram files using file_ids ✓
+- **Shop Integration (Plan 22-04):**
+  - 🛍️ Tienda button added to VIP and Free menus ✓
+  - Shop router registered in user handlers ✓
+  - 26 comprehensive tests covering SHOP-01 through SHOP-08 ✓
+  - All tests passing (pytest) ✓
+
+---
+
+*State updated: 2026-02-13 after Phase 22 Plan 04 completion*
+*Milestone v2.0 (Gamification) Phase 22 COMPLETE - Shop system fully integrated and tested*
+*Next: Phase 23 - Rewards System*
