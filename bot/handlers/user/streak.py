@@ -279,7 +279,7 @@ async def cmd_daily_gift(
 # CALLBACK HANDLER
 # ============================================================================
 
-@streak_router.callback_query(F.data == "streak:claim_daily")
+@streak_router.callback_query(lambda c: c.data == "streak:claim_daily")
 async def handle_claim_daily_gift(
     callback: CallbackQuery,
     state: FSMContext,
@@ -302,6 +302,9 @@ async def handle_claim_daily_gift(
         container: ServiceContainer con servicios
     """
     user_id = callback.from_user.id
+
+    # DEBUG: Confirm handler is being reached
+    logger.info(f"🔥 STREAK HANDLER TRIGGERED - User: {user_id}, Data: {callback.data}")
 
     logger.info(f"🎁 Usuario {user_id} solicitó reclamar regalo diario")
 
