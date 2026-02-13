@@ -179,6 +179,7 @@ Plans:
 **Goal:** Users can browse and purchase content with besitos
 **Requirements:** SHOP-01 through SHOP-08 (8 requirements)
 **Dependencies:** Phase 19 (WalletService), Phase 20 (content access)
+**Plans:** 4 plans
 
 **Success Criteria:**
 1. User can browse shop catalog with prices
@@ -189,6 +190,12 @@ Plans:
 6. Purchased content immediately accessible
 7. User can view purchase history
 8. VIP users see discounted prices where configured
+
+Plans:
+- [ ] 22-01-PLAN.md — Database foundation (ContentSet, ShopProduct, UserContentAccess models)
+- [ ] 22-02-PLAN.md — ShopService core (browse, purchase, deliver, history)
+- [ ] 22-03-PLAN.md — ServiceContainer integration and user handlers
+- [ ] 22-04-PLAN.md — Menu wiring and comprehensive tests
 
 ### Phase 23: Rewards System
 **Goal:** Users automatically receive rewards when meeting conditions
@@ -247,7 +254,7 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24
 | 19. Economy Foundation | v2.0 | 4/4 | Complete | 2026-02-09 |
 | 20. Reaction System | v2.0 | 4/4 | Complete | 2026-02-10 |
 | 21. Daily Rewards & Streaks | v2.0 | 7/7 | Complete | 2026-02-13 |
-| 22. Shop System | v2.0 | 0/0 | Pending | — |
+| 22. Shop System | v2.0 | 0/4 | Pending | — |
 | 23. Rewards System | v2.0 | 0/0 | Pending | — |
 | 24. Admin Configuration | v2.0 | 0/0 | Pending | — |
 
