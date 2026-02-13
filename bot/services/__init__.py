@@ -11,6 +11,7 @@ from bot.services.test_runner import TestRunnerService, TestResult
 from bot.services.wallet import WalletService
 from bot.services.reaction import ReactionService
 from bot.services.streak import StreakService
+from bot.services.shop import ShopService
 
 __all__ = [
     "ServiceContainer",
@@ -27,4 +28,5 @@ __all__ = [
     "WalletService",
     "ReactionService",
     "StreakService",
+    "ShopService",
 ]
