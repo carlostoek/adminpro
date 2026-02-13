@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 22 - Shop System 🔄 IN PROGRESS
-**Plan:** 22-02 ShopService ✅ COMPLETE
-**Status:** ShopService created with catalog browsing, purchase flow, and content delivery
+**Plan:** 22-03 Shop Handlers ✅ COMPLETE
+**Status:** Shop handlers integrated with VIP pricing, purchase flow, and content delivery
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -22,7 +22,7 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 Phase 19: [██████████] 100% - Economy Foundation ✅
 Phase 20: [██████████] 100% - Reaction System ✅
 Phase 21: [██████████] 100% - Daily Rewards & Streaks ✅ COMPLETE
-Phase 22: [████░░░░░░] 40% - Shop System 🔄 IN PROGRESS
+Phase 22: [██████░░░░] 60% - Shop System 🔄 IN PROGRESS
 Phase 23: [░░░░░░░░░░] 0% - Rewards System
 Phase 24: [░░░░░░░░░░] 0% - Admin Configuration
 
@@ -53,6 +53,7 @@ Overall v2.0:  [█████░░░░░] 55% (26/43 requirements)
 
 **v2.0 Current:**
 - New services: 5/5 integrated (WalletService ✓, ReactionService ✓, StreakService ✓, ShopService ✓, RewardService)
+- Shop handlers: Catalog, detail, purchase, history with Lucien's voice ✓
 - New models: 7/7+ (UserGamificationProfile ✓, Transaction ✓, UserReaction ✓, UserStreak ✓, ContentSet ✓, ShopProduct ✓, UserContentAccess ✓, Reward, RewardCondition)
 - Requirements: 26/43 (all ECON + all REACT + all STREAK + SHOP-01/02 complete)
 - Tests: 377 passing (165 new economy/reaction/streak tests)
@@ -207,6 +208,15 @@ None.
    - deliver_content() returning file_ids ✓
    - VIP pricing with discount calculation ✓
    - Ownership checking to prevent duplicates ✓
+   - **Shop Handlers** ✓ (Plan 22-03)
+     - `shop_catalog_handler` - Vertical product list with pagination ✓
+     - `shop_product_detail_handler` - VIP/Free price differentiation ✓
+     - `shop_purchase_handler` - Purchase confirmation flow ✓
+     - `shop_confirm_purchase_handler` - Execute purchase + deliver content ✓
+     - `shop_history_handler` - Purchase history with pagination ✓
+     - `shop_earn_besitos_handler` - Redirect to daily gift ✓
+     - Lucien's voice (🎩) for all messages ✓
+     - Content delivery via Telegram file_ids ✓
 
 **Key Services to Create:**
 5. `bot/services/reward.py` - RewardService (Phase 23)
@@ -315,9 +325,21 @@ None.
 - VIP pricing with automatic discount calculation ✓
 - Ownership detection with repurchase support ✓
 - WalletService integration for atomic payments ✓
+- **Shop Handlers created (Plan 22-03):**
+  - `shop_catalog_handler` - Vertical product list with Prev/Next pagination ✓
+  - `shop_product_detail_handler` - VIP/Free price differentiation with strikethrough ✓
+  - `shop_purchase_handler` - Purchase flow with confirmation ✓
+  - `shop_confirm_purchase_handler` - Execute purchase + content delivery ✓
+  - `shop_history_handler` - Purchase history with pagination ✓
+  - `shop_earn_besitos_handler` - Redirect to daily gift when low balance ✓
+  - Lucien's voice (🎩) - Formal mayordomo tone for all messages ✓
+  - Content delivery - Sends actual Telegram files using file_ids ✓
+- **ServiceContainer integration:**
+  - `container.shop` property with lazy loading ✓
+  - Wallet service injection for payments ✓
 
 ---
 
-*State updated: 2026-02-13 after Phase 22 Plan 02 completion*
-*Milestone v2.0 (Gamification) Phase 22 IN PROGRESS - ShopService complete*
-*Next: Shop handlers (Plan 03)*
+*State updated: 2026-02-13 after Phase 22 Plan 03 completion*
+*Milestone v2.0 (Gamification) Phase 22 IN PROGRESS - Shop handlers complete*
+*Next: Shop admin handlers (Plan 04)*
