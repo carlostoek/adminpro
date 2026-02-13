@@ -1123,3 +1123,119 @@ class ShopProduct(Base):
             f"<ShopProduct(id={self.id}, name='{self.name}', "
             f"price={self.besitos_price}, vip_price={self.vip_price})>"
         )
+
+
+class UserContentAccess(Base):
+    """
+    Registro de acceso de usuario a contenido.
+
+    Este modelo rastrea qué contenido ha recibido cada usuario
+    y cómo lo obtuvo (compra, regalo, recompensa, narrativa).
+
+    Attributes:
+        id: ID único del registro (Primary Key)
+        user_id: ID del usuario (Foreign Key a users)
+        content_set_id: ID del ContentSet (Foreign Key)
+        shop_product_id: ID del ShopProduct (null si fue regalo/recompensa)
+        access_type: Tipo de acceso (shop_purchase, reward_claim, gift, narrative)
+        besitos_paid: Cantidad pagada (null para regalos gratuitos)
+        is_active: Si puede re-descargar el contenido
+        accessed_at: Fecha de primera recepción
+        expires_at: Fecha de expiración (opcional)
+        access_metadata: Datos adicionales JSON
+
+    Relaciones:
+        user: Usuario que tiene acceso
+        content_set: ContentSet al que tiene acceso
+        shop_product: Producto de tienda (si aplica)
+
+    Constraints:
+        - Un usuario solo puede tener un registro por ContentSet
+    """
+
+    __tablename__ = "user_content_access"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User relationship
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Content relationship
+    content_set_id = Column(
+        Integer,
+        ForeignKey("content_sets.id"),
+        nullable=False,
+        index=True
+    )
+
+    # Shop product (null if received via reward/gift)
+    shop_product_id = Column(
+        Integer,
+        ForeignKey("shop_products.id"),
+        nullable=True
+    )
+
+    # Access details
+    access_type = Column(String(50), nullable=False)  # shop_purchase, reward_claim, gift, narrative
+    besitos_paid = Column(Integer, nullable=True)  # null for free rewards
+
+    # State
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    # Timestamps
+    accessed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+
+    # Metadata for extensibility
+    access_metadata = Column(JSON, nullable=True)  # reward_id, gift_from_user_id, etc.
+
+    # Relationships
+    user = relationship("User", uselist=False, lazy="selectin")
+    content_set = relationship(
+        "ContentSet",
+        back_populates="user_accesses",
+        lazy="selectin"
+    )
+    shop_product = relationship(
+        "ShopProduct",
+        back_populates="purchase_records",
+        lazy="selectin"
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Unique constraint: one access record per user/content combination
+        Index('idx_user_content_access_user_content', 'user_id', 'content_set_id', unique=True),
+        # Composite index for user access type queries
+        Index('idx_user_content_access_type', 'user_id', 'access_type'),
+        # Composite index for user access date queries
+        Index('idx_user_content_access_date', 'user_id', 'accessed_at'),
+    )
+
+    @property
+    def is_purchased(self) -> bool:
+        """Retorna True si fue comprado en la tienda."""
+        return self.access_type == "shop_purchase"
+
+    @property
+    def is_reward(self) -> bool:
+        """Retorna True si fue obtenido como recompensa."""
+        return self.access_type == "reward_claim"
+
+    @property
+    def is_expired(self) -> bool:
+        """Retorna True si el acceso ha expirado."""
+        if self.expires_at is None:
+            return False
+        return self.expires_at < datetime.utcnow()
+
+    def __repr__(self) -> str:
+        return (
+            f"<UserContentAccess(id={self.id}, user={self.user_id}, "
+            f"content={self.content_set_id}, type={self.access_type})>"
+        )
