@@ -40,9 +40,20 @@ Sistema de tienda donde usuarios pueden navegar y comprar contenido usando "besi
   - Al tocar producto siendo FREE: "Este artículo incluye un privilegio VIP. Al activar su membresía, se aplicará automáticamente."
 - **Productos VIP-only:** FREE puede ver todo el contenido, pero al intentar comprar recibe mensaje elegante de exclusividad con botón de regresar (sin redirigir a flujo de upgrade)
 
+### Arquitectura de Contenido (ContentSet Centralizado)
+- **Principio:** Un solo sistema centralizado de contenido, sin duplicación entre tienda y recompensas
+- **ContentSet:** Modelo central que almacena:
+  - `file_ids`: Array de Telegram file_ids (JSON)
+  - `content_type`: photo_set, video, audio, mixed
+  - `tier`: free, vip, premium, gift
+  - `category`: teaser, welcome, milestone, gift (opcional)
+  - Relaciones: ShopItem, NarrativeFragment, Reward (mismo contenido, múltiples usos)
+- **UserContentAccess:** Tracking de qué usuario recibió qué contenido, cuándo y por qué contexto (shop_purchase, reward_claim, gift, narrative)
+- **Entrega:** El servicio de contenido envía los file_ids de Telegram directamente al chat del usuario
+
 ### Entrega de contenido
-- **Tipos de productos:** Contenido digital, beneficios/activos virtuales, membresía VIP, combinaciones
-- **Entrega contenido digital:** Ambos - archivo enviado directo al chat privado + acceso al canal VIP
+- **Tipos de productos:** Contenido digital (sets de fotos/videos), beneficios/activos virtuales, membresía VIP, combinaciones
+- **Entrega contenido digital:** Archivos enviados directo al chat privado usando file_ids de Telegram (reutilizando sistema ContentSet)
 - **Recompra:** Doble confirmación si el usuario ya posee el artículo ("Ya lo tiene, ¿desea adquirirlo nuevamente?")
 - **Historial de compras:** Producto + fecha + precio pagado + estado (activo/consumido)
 - **Re-descarga:** Sí, contenido siempre disponible en chat privado indefinidamente
@@ -69,10 +80,25 @@ Sistema de tienda donde usuarios pueden navegar y comprar contenido usando "besi
 - Multiplicador: "✨ Multiplicador"
 - Set de contenido: "🎁 Set de contenido"
 
-**Integración importante (mencionado por usuario):**
-Este módulo tiene relevancia para el sistema de recompensas — los productos de la tienda pueden usarse como condición para desbloquear recompensas. Esto implica que el modelo de productos debe ser referenciable desde el sistema de condiciones de recompensas (Phase 23).
+**Arquitectura ContentSet Centralizado (de análisis de c1):**
+El contenido digital no se duplica entre sistemas. En lugar de eso:
 
-La configuración en cascada debe permitir que, desde la configuración de una recompensa, el admin pueda crear un producto de tienda si lo necesita, sin salir del flujo de configuración de recompensas.
+1. **ContentSet** es la fuente única de verdad para contenido multimedia
+2. **ShopItem** referencia un ContentSet (via `content_set_id`)
+3. **Reward** (Phase 23) también referencia el mismo ContentSet
+4. El mismo set de fotos puede ser:
+   - Producto vendido en tienda (ShopItem)
+   - Recompensa de misión (Reward)
+   - Contenido narrativo (NarrativeFragment)
+
+**Flujo de entrega:**
+1. Usuario compra ShopItem
+2. Sistema crea registro en UserContentAccess
+3. ContentSet envía los file_ids al chat del usuario
+4. El contenido queda disponible para re-descarga indefinida
+
+**Configuración en cascada:**
+Desde el flujo de configuración de recompensas (Phase 24), el admin debe poder crear un ContentSet (si no existe) sin salir del wizard de recompensas. Esto evita el context-switching entre configuraciones.
 
 </specifics>
 
