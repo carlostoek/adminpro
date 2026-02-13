@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 **Milestone:** v2.0 Gamification
-**Phase:** 21 - Daily Rewards & Streaks ✅ COMPLETE
-**Plan:** 21-06 UTC Midnight Background Job ✅ COMPLETE
-**Status:** Phase 21 complete - All 7 STREAK requirements implemented including streak expiration at UTC midnight
+**Phase:** 22 - Shop System 🔄 IN PROGRESS
+**Plan:** 22-01 Shop Database Foundation ✅ COMPLETE
+**Status:** Phase 22 started - Database models created (ContentSet, ShopProduct, UserContentAccess)
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -22,7 +22,7 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 Phase 19: [██████████] 100% - Economy Foundation ✅
 Phase 20: [██████████] 100% - Reaction System ✅
 Phase 21: [██████████] 100% - Daily Rewards & Streaks ✅ COMPLETE
-Phase 22: [░░░░░░░░░░] 0% - Shop System
+Phase 22: [██░░░░░░░░] 20% - Shop System 🔄 IN PROGRESS
 Phase 23: [░░░░░░░░░░] 0% - Rewards System
 Phase 24: [░░░░░░░░░░] 0% - Admin Configuration
 
@@ -53,7 +53,7 @@ Overall v2.0:  [█████░░░░░] 50% (24/43 requirements)
 
 **v2.0 Current:**
 - New services: 4/5 integrated (WalletService ✓, ReactionService ✓, StreakService ✓, ShopService, RewardService)
-- New models: 4/6+ (UserGamificationProfile ✓, Transaction ✓, UserReaction ✓, UserStreak ✓, ShopProduct, Reward, RewardCondition)
+- New models: 7/7+ (UserGamificationProfile ✓, Transaction ✓, UserReaction ✓, UserStreak ✓, ContentSet ✓, ShopProduct ✓, UserContentAccess ✓, Reward, RewardCondition)
 - Requirements: 24/43 (all ECON + all REACT + all STREAK complete)
 - Tests: 377 passing (165 new economy/reaction/streak tests)
 
@@ -214,9 +214,13 @@ None.
 **Key Models Created (continued):**
 4. `UserStreak` - streak data ✓ (DAILY_GIFT and REACTION types)
 
+**Key Models Created (continued):**
+5. `ContentSet` - centralized content storage with file_ids array ✓
+6. `ShopProduct` - catalog items with VIP pricing ✓
+7. `UserContentAccess` - purchase tracking with unique constraint ✓
+
 **Key Models Pending:**
-5. `ShopProduct` - catalog items (Phase 22)
-6. `Reward` / `RewardCondition` - achievement system (Phase 23)
+8. `Reward` / `RewardCondition` - achievement system (Phase 23)
 
 ---
 
@@ -281,7 +285,22 @@ None.
 
 ---
 
-*State updated: 2026-02-13 after Phase 21 Plan 07 completion*
-*Milestone v2.0 (Gamification) Phase 21 COMPLETE - 24/43 requirements*
-*All STREAK requirements satisfied - STREAK-01 through STREAK-07*
-*40 comprehensive streak tests passing (29 unit + 11 integration)*
+## Session Continuity
+
+**Last session:** 2026-02-13 — Completed Phase 22 Plan 01: Shop Database Foundation
+**Stopped at:** Plan 22-01 complete - ContentSet, ShopProduct, UserContentAccess models created
+**Next:** Phase 22 Plan 02 - ShopService implementation
+
+### Wave 6 Summary (Shop System Started)
+- ContentSet model with file_ids JSON array for Telegram content delivery
+- ShopProduct model with besitos_price and VIP discount system
+- UserContentAccess model with unique constraint preventing duplicate purchases
+- ContentType enum: PHOTO_SET, VIDEO, AUDIO, MIXED
+- ContentTier enum: FREE, VIP, PREMIUM, GIFT with emojis
+- All bidirectional relationships verified
+
+---
+
+*State updated: 2026-02-13 after Phase 22 Plan 01 completion*
+*Milestone v2.0 (Gamification) Phase 22 IN PROGRESS - Shop Database Foundation complete*
+*New models: ContentSet, ShopProduct, UserContentAccess*
