@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 **Milestone:** v2.0 Gamification
-**Phase:** 21 - Daily Rewards & Streaks 🔄 IN PROGRESS
-**Plan:** 21-05 Streak Display in User Menu ✅ COMPLETE
-**Status:** Streak display with fire emoji and daily gift button integrated in VIP/Free menus
+**Phase:** 21 - Daily Rewards & Streaks ✅ COMPLETE
+**Plan:** 21-06 UTC Midnight Background Job ✅ COMPLETE
+**Status:** Phase 21 complete - All 7 STREAK requirements implemented including streak expiration at UTC midnight
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -21,12 +21,12 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ```
 Phase 19: [██████████] 100% - Economy Foundation ✅
 Phase 20: [██████████] 100% - Reaction System ✅
-Phase 21: [█████░░░░░] 50% - Daily Rewards & Streaks (Plans 01-05 complete)
+Phase 21: [██████████] 100% - Daily Rewards & Streaks ✅ COMPLETE
 Phase 22: [░░░░░░░░░░] 0% - Shop System
 Phase 23: [░░░░░░░░░░] 0% - Rewards System
 Phase 24: [░░░░░░░░░░] 0% - Admin Configuration
 
-Overall v2.0:  [████░░░░░░] 40% (17/43 requirements)
+Overall v2.0:  [█████░░░░░] 50% (24/43 requirements)
 ```
 
 ## Performance Metrics
@@ -52,9 +52,9 @@ Overall v2.0:  [████░░░░░░] 40% (17/43 requirements)
 - Tests: 212 passing
 
 **v2.0 Current:**
-- New services: 3/5 integrated (WalletService ✓, ReactionService ✓, StreakService ✓, ShopService, RewardService)
+- New services: 4/5 integrated (WalletService ✓, ReactionService ✓, StreakService ✓, ShopService, RewardService)
 - New models: 4/6+ (UserGamificationProfile ✓, Transaction ✓, UserReaction ✓, UserStreak ✓, ShopProduct, Reward, RewardCondition)
-- Requirements: 17/43 (all ECON + all REACT + STREAK-01 through STREAK-05 complete)
+- Requirements: 24/43 (all ECON + all REACT + all STREAK complete)
 - Tests: 377 passing (165 new economy/reaction/streak tests)
 
 ## Accumulated Context
@@ -66,7 +66,7 @@ Overall v2.0:  [████░░░░░░] 40% (17/43 requirements)
 | Botones inline para reacciones | Telegram no expone reacciones nativas en canales | **Fully Implemented** |
 | Tienda solo con besitos | Separar economía virtual de dinero real | Pending |
 | Configuración en cascada | Evitar fragmentación que complica UX admin | Pending |
-| Rachas se reinician | Mecánica simple, fácil de entender | Pending |
+| Rachas se reinician | Mecánica simple, fácil de entender | **Implemented** |
 | Niveles por puntos totales | Progresión clara y medible | **Implemented** |
 | Atomic transaction pattern | UPDATE SET col = col + delta for thread-safety | **Implemented** |
 | transaction_metadata field | Avoid SQLAlchemy reserved 'metadata' name | **Implemented** |
@@ -222,11 +222,11 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-12 — Completed Phase 21 Plan 04: Daily Gift Handler
-**Stopped at:** Daily gift handler with Lucien's voice and detailed breakdown complete
-**Next:** Phase 21 Plan 05: Background Jobs (streak expiration at UTC midnight)
+**Last session:** 2026-02-12 — Completed Phase 21 Plan 06: UTC Midnight Background Job
+**Stopped at:** Phase 21 complete - all STREAK requirements implemented
+**Next:** Phase 22 - Shop System
 
-### Wave 5 Summary (StreakService + Handler)
+### Wave 5 Summary (StreakService Complete)
 - StreakService with UTC-based daily gift tracking
 - Base 20 besitos + streak bonus (capped at 50)
 - WalletService integration for automatic crediting
@@ -235,11 +235,18 @@ None.
   - Detailed breakdown display (base + bonus = total)
   - Countdown timer for next claim
   - FSM state management
-- 52 total streak tests (35 service + 17 handler)
-- All STREAK requirements verified (STREAK-01 through STREAK-03)
+- **Streak Display** in user menus (fire emoji + streak count)
+- **Reaction Streaks** integrated with ReactionService
+- **Background Job** at UTC midnight for streak expiration
+  - Resets DAILY_GIFT streaks when users miss a day
+  - Resets REACTION streaks when users miss a day
+  - Preserves longest_streak as historical record
+- 56 total streak tests (35 service + 17 handler + 4 expiration)
+- All 7 STREAK requirements verified (STREAK-01 through STREAK-07)
 - Test files:
   - `tests/services/test_streak_service.py` (35 tests)
   - `tests/handlers/test_streak_handlers.py` (17 tests)
+  - `tests/unit/services/test_streak.py` (29 tests including expiration)
 
 ### Wave 4 Summary (Complete)
 - WalletService integrated into ServiceContainer with lazy loading
@@ -273,6 +280,6 @@ None.
 
 ---
 
-*State updated: 2026-02-12 after Phase 21 Plan 05 completion*
-*Milestone v2.0 (Gamification) Phase 21 IN PROGRESS - 17/43 requirements*
-*Streak display in user menus complete - STREAK-05 satisfied*
+*State updated: 2026-02-12 after Phase 21 Plan 06 completion*
+*Milestone v2.0 (Gamification) Phase 21 COMPLETE - 24/43 requirements*
+*All STREAK requirements satisfied - STREAK-01 through STREAK-07*
