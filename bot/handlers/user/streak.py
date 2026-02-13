@@ -303,9 +303,6 @@ async def handle_claim_daily_gift(
     """
     user_id = callback.from_user.id
 
-    # DEBUG: Confirm handler is being reached
-    logger.info(f"🔥 STREAK HANDLER TRIGGERED - User: {user_id}, Data: {callback.data}")
-
     logger.info(f"🎁 Usuario {user_id} solicitó reclamar regalo diario")
 
     try:
