@@ -40,14 +40,14 @@ Requirements for gamification milestone. Each maps to roadmap phases.
 
 ### Shop System (SHOP)
 
-- [ ] **SHOP-01**: User can browse shop catalog with besitos prices
-- [ ] **SHOP-02**: Content packages available for besitos purchase
-- [ ] **SHOP-03**: VIP membership extension available for besitos purchase
-- [ ] **SHOP-04**: Purchase validates sufficient balance before transaction
-- [ ] **SHOP-05**: Purchase is atomic (deduct + deliver)
-- [ ] **SHOP-06**: User receives purchased content automatically
-- [ ] **SHOP-07**: Purchase history maintained
-- [ ] **SHOP-08**: VIP users see discounted prices (if configured)
+- [x] **SHOP-01**: User can browse shop catalog with besitos prices
+- [x] **SHOP-02**: Content packages available for besitos purchase
+- [x] **SHOP-03**: VIP membership extension available for besitos purchase
+- [x] **SHOP-04**: Purchase validates sufficient balance before transaction
+- [x] **SHOP-05**: Purchase is atomic (deduct + deliver)
+- [x] **SHOP-06**: User receives purchased content automatically
+- [x] **SHOP-07**: Purchase history maintained
+- [x] **SHOP-08**: VIP users see discounted prices (if configured)
 
 ### Rewards System (REWARD)
 
@@ -135,14 +135,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STREAK-05 | Phase 21 | Pending |
 | STREAK-06 | Phase 21 | Pending |
 | STREAK-07 | Phase 21 | Pending |
-| SHOP-01 | Phase 22 | Pending |
-| SHOP-02 | Phase 22 | Pending |
-| SHOP-03 | Phase 22 | Pending |
-| SHOP-04 | Phase 22 | Pending |
-| SHOP-05 | Phase 22 | Pending |
-| SHOP-06 | Phase 22 | Pending |
-| SHOP-07 | Phase 22 | Pending |
-| SHOP-08 | Phase 22 | Pending |
+| SHOP-01 | Phase 22 | Complete |
+| SHOP-02 | Phase 22 | Complete |
+| SHOP-03 | Phase 22 | Complete |
+| SHOP-04 | Phase 22 | Complete |
+| SHOP-05 | Phase 22 | Complete |
+| SHOP-06 | Phase 22 | Complete |
+| SHOP-07 | Phase 22 | Complete |
+| SHOP-08 | Phase 22 | Complete |
 | REWARD-01 | Phase 23 | Pending |
 | REWARD-02 | Phase 23 | Pending |
 | REWARD-03 | Phase 23 | Pending |
@@ -166,4 +166,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 ---
 
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-08 after research completion*
+*Last updated: 2026-02-13 after Phase 22 completion*

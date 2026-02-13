@@ -175,27 +175,28 @@ Plans:
 - [x] 21-06 — UTC midnight background job for streak expiration
 - [x] 21-07 — Comprehensive streak system tests
 
-### Phase 22: Shop System
+### Phase 22: Shop System ✅
 **Goal:** Users can browse and purchase content with besitos
 **Requirements:** SHOP-01 through SHOP-08 (8 requirements)
 **Dependencies:** Phase 19 (WalletService), Phase 20 (content access)
 **Plans:** 4 plans
+**Status:** Complete — 2026-02-13
 
 **Success Criteria:**
-1. User can browse shop catalog with prices
-2. Content packages available for purchase
-3. VIP membership extension available
-4. System prevents purchase with insufficient balance
-5. Purchase completes atomically (deduct + deliver)
-6. Purchased content immediately accessible
-7. User can view purchase history
-8. VIP users see discounted prices where configured
+1. ✅ User can browse shop catalog with prices
+2. ✅ Content packages available for purchase
+3. ✅ VIP membership extension available
+4. ✅ System prevents purchase with insufficient balance
+5. ✅ Purchase completes atomically (deduct + deliver)
+6. ✅ Purchased content immediately accessible
+7. ✅ User can view purchase history
+8. ✅ VIP users see discounted prices where configured
 
 Plans:
-- [ ] 22-01-PLAN.md — Database foundation (ContentSet, ShopProduct, UserContentAccess models)
-- [ ] 22-02-PLAN.md — ShopService core (browse, purchase, deliver, history)
-- [ ] 22-03-PLAN.md — ServiceContainer integration and user handlers
-- [ ] 22-04-PLAN.md — Menu wiring and comprehensive tests
+- [x] 22-01-PLAN.md — Database foundation (ContentSet, ShopProduct, UserContentAccess models)
+- [x] 22-02-PLAN.md — ShopService core (browse, purchase, deliver, history)
+- [x] 22-03-PLAN.md — ServiceContainer integration and user handlers
+- [x] 22-04-PLAN.md — Menu wiring and comprehensive tests
 
 ### Phase 23: Rewards System
 **Goal:** Users automatically receive rewards when meeting conditions
@@ -254,12 +255,12 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24
 | 19. Economy Foundation | v2.0 | 4/4 | Complete | 2026-02-09 |
 | 20. Reaction System | v2.0 | 4/4 | Complete | 2026-02-10 |
 | 21. Daily Rewards & Streaks | v2.0 | 7/7 | Complete | 2026-02-13 |
-| 22. Shop System | v2.0 | 0/4 | Pending | — |
+| 22. Shop System | v2.0 | 4/4 | Complete | 2026-02-13 |
 | 23. Rewards System | v2.0 | 0/0 | Pending | — |
 | 24. Admin Configuration | v2.0 | 0/0 | Pending | — |
 
-**Overall Progress:** 68/68 plans complete for v1.x (100%) | 24/43 requirements for v2.0 (56%)
+**Overall Progress:** 68/68 plans complete for v1.x (100%) | 32/43 requirements for v2.0 (74%)
 
 ---
 
-*Last updated: 2026-02-13 after Phase 21 completion*
+*Last updated: 2026-02-13 after Phase 22 completion*
