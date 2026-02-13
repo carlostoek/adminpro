@@ -578,6 +578,7 @@ class UserMenuMessages(BaseMessageProvider):
             - Uses create_menu_navigation for consistent "Salir" button
         """
         content_buttons = [
+            [{"text": "🛍️ Tienda", "callback_data": "shop_catalog"}],
             [{"text": "💎 Contenido Premium", "callback_data": "vip:premium"}],
             [{"text": "📦 Mi contenido", "callback_data": "vip:free_content"}],
             [{"text": "📊 Estado de la Membresía", "callback_data": "vip:status"}],
@@ -618,6 +619,7 @@ class UserMenuMessages(BaseMessageProvider):
             - Uses create_menu_navigation for consistent "Salir" button
         """
         content_buttons = [
+            [{"text": "🛍️ Tienda", "callback_data": "shop_catalog"}],
             [{"text": "📦 Mi contenido", "callback_data": "menu:free:content"}],
             [{"text": "🛋️ El Diván", "callback_data": "menu:free:vip"}],
             [{"text": "🔗 Mis redes", "callback_data": "menu:free:social"}],
