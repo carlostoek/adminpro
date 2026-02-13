@@ -85,6 +85,7 @@ skipped: 2
 
 ## Fix Applied
 
+### Fix #1: Callback data mismatch
 **Issue:** Botón del menú no respondía al tocar
 **Root cause:** Mismatch en `callback_data` entre teclado y handler
 
@@ -94,8 +95,23 @@ skipped: 2
 | Handler | `claim_daily_gift` | `streak:claim_daily` (corregido) |
 | Teclado /daily_gift | `claim_daily_gift` | `streak:claim_daily` (corregido) |
 
+### Fix #2: Missing DatabaseMiddleware
+**Issue:** Botón se quedaba "pensando" sin respuesta ni logs
+**Root cause:** `streak_router` no tenía `DatabaseMiddleware` aplicado, necesario para inyectar `ServiceContainer`
+
+**Cambio:**
+```python
+# bot/handlers/user/streak.py
+from bot.middlewares import DatabaseMiddleware
+
+streak_router = Router(name="streak")
+
+# Apply middleware to this router (required for container injection)
+streak_router.callback_query.middleware(DatabaseMiddleware())
+```
+
 **Files modificados:**
-- `bot/handlers/user/streak.py` - Handler filter y keyboard callback_data
+- `bot/handlers/user/streak.py` - Handler filter, keyboard callback_data, middleware
 - `tests/handlers/test_streak_handlers.py` - Test expectation
 
 **Tests:** 17/17 pasando
