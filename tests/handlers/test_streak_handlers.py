@@ -130,7 +130,7 @@ class TestClaimKeyboard:
         button = keyboard.inline_keyboard[0][0]
         assert "Reclamar" in button.text
         assert "🎁" in button.text
-        assert button.callback_data == "claim_daily_gift"
+        assert button.callback_data == "streak:claim_daily"
 
     def test_keyboard_when_not_available(self):
         """Should return None when gift is not available."""

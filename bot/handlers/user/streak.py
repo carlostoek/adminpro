@@ -174,7 +174,7 @@ def get_claim_keyboard(is_available: bool) -> Optional[InlineKeyboardMarkup]:
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text="🎁 Reclamar regalo diario",
-            callback_data="claim_daily_gift"
+            callback_data="streak:claim_daily"
         )]
     ])
     return keyboard
@@ -275,7 +275,7 @@ async def cmd_daily_gift(
 # CALLBACK HANDLER
 # ============================================================================
 
-@streak_router.callback_query(F.data == "claim_daily_gift")
+@streak_router.callback_query(F.data == "streak:claim_daily")
 async def handle_claim_daily_gift(
     callback: CallbackQuery,
     state: FSMContext,
@@ -284,7 +284,7 @@ async def handle_claim_daily_gift(
     """
     Handler para procesar el reclamo del regalo diario.
 
-    Callback data: "claim_daily_gift"
+    Callback data: "streak:claim_daily"
 
     Comportamiento:
     - Procesa el reclamo vía streak_service.claim_daily_gift

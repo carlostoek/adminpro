@@ -10,18 +10,19 @@ source:
   - 21-06-SUMMARY.md
   - 21-07-SUMMARY.md
 started: 2026-02-13T00:00:00Z
-updated: 2026-02-13T00:15:00Z
+updated: 2026-02-13T00:30:00Z
 ---
 
 ## Current Test
 
-[testing complete]
+[testing complete - all issues resolved]
 
 ## Tests
 
 ### 1. Botón "Reclamar regalo diario" visible
 expected: Al abrir el menú de usuario (VIP o Free), se muestra el botón "🎁 Reclamar regalo diario" en la parte superior cuando el regalo está disponible.
 result: pass
+note: "Fix aplicado: callback_data corregido de 'claim_daily_gift' a 'streak:claim_daily'"
 
 ### 2. Comando /daily_gift funciona
 expected: Al enviar /daily_gift, el bot responde con mensaje de Lucien (🎩) mostrando el botón para reclamar o el tiempo restante.
@@ -80,9 +81,26 @@ skipped: 2
 
 ## Gaps
 
-[none]
+[none - all resolved]
+
+## Fix Applied
+
+**Issue:** Botón del menú no respondía al tocar
+**Root cause:** Mismatch en `callback_data` entre teclado y handler
+
+| Componente | Valor anterior | Valor corregido |
+|------------|---------------|-----------------|
+| Teclado menú | `streak:claim_daily` | `streak:claim_daily` (correcto) |
+| Handler | `claim_daily_gift` | `streak:claim_daily` (corregido) |
+| Teclado /daily_gift | `claim_daily_gift` | `streak:claim_daily` (corregido) |
+
+**Files modificados:**
+- `bot/handlers/user/streak.py` - Handler filter y keyboard callback_data
+- `tests/handlers/test_streak_handlers.py` - Test expectation
+
+**Tests:** 17/17 pasando
 
 ## Notes
 
-- Usuario sugiere que la racha se muestre solo a partir del día 3 (no desde día 1)
-- Tests 11 y 12 cubiertos por suite de tests automatizados (40 tests pasando)
+- Sugerencia de mejora: Mostrar racha solo a partir del día 3 (no desde día 1)
+- Tests 11 y 12 cubiertos por suite automatizada (40 tests pasando)
