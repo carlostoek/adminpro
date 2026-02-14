@@ -202,6 +202,7 @@ Plans:
 **Goal:** Users automatically receive rewards when meeting conditions
 **Requirements:** REWARD-01 through REWARD-06 (6 requirements)
 **Dependencies:** Phase 19 (WalletService), Phase 21 (streak data)
+**Plans:** 4 plans
 
 **Success Criteria:**
 1. User can view available rewards with conditions
@@ -210,6 +211,12 @@ Plans:
 4. Rewards support streak, points, level, besitos spent conditions
 5. Multiple conditions use AND logic
 6. Reward value capped at maximum
+
+Plans:
+- [ ] 23-01-PLAN.md — Database foundation (Reward, RewardCondition, UserReward models, enums)
+- [ ] 23-02-PLAN.md — RewardService core (condition evaluation, event-driven checking, claiming)
+- [ ] 23-03-PLAN.md — ServiceContainer integration and user handlers
+- [ ] 23-04-PLAN.md — Comprehensive tests covering all REWARD requirements
 
 ### Phase 24: Admin Configuration
 **Goal:** Admins can configure all gamification parameters
@@ -256,11 +263,11 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24
 | 20. Reaction System | v2.0 | 4/4 | Complete | 2026-02-10 |
 | 21. Daily Rewards & Streaks | v2.0 | 7/7 | Complete | 2026-02-13 |
 | 22. Shop System | v2.0 | 4/4 | Complete | 2026-02-13 |
-| 23. Rewards System | v2.0 | 0/0 | Pending | — |
+| 23. Rewards System | v2.0 | 4/4 | Planned | — |
 | 24. Admin Configuration | v2.0 | 0/0 | Pending | — |
 
 **Overall Progress:** 68/68 plans complete for v1.x (100%) | 32/43 requirements for v2.0 (74%)
 
 ---
 
-*Last updated: 2026-02-13 after Phase 22 completion*
+*Last updated: 2026-02-13 after Phase 23 planning*
