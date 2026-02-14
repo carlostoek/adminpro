@@ -186,7 +186,16 @@ class TestConditionEvaluation:
 
     async def test_evaluate_event_condition_first_purchase(self, reward_service, test_session, test_user):
         """Check UserContentAccess existence for FIRST_PURCHASE."""
-        from bot.database.models import UserContentAccess
+        from bot.database.models import UserContentAccess, ContentSet
+
+        # Create content set first
+        content_set = ContentSet(
+            name="Test Content",
+            file_ids=["file1"],
+            is_active=True
+        )
+        test_session.add(content_set)
+        await test_session.flush()
 
         # No purchases yet
         result = await reward_service._evaluate_event_condition(
@@ -197,7 +206,7 @@ class TestConditionEvaluation:
         # Add a purchase
         access = UserContentAccess(
             user_id=test_user.user_id,
-            content_set_id=1,
+            content_set_id=content_set.id,
             access_type="shop_purchase",
             besitos_paid=100
         )
@@ -428,10 +437,20 @@ class TestRewardConditionsLogic:
 
         assert eligible is True  # AND passed, OR group has at least one pass
 
-    async def test_evaluate_reward_no_conditions(self, reward_service, sample_reward):
+    async def test_evaluate_reward_no_conditions(self, reward_service, test_session, test_user):
         """Empty conditions = eligible."""
+        # Create a reward without conditions
+        reward = Reward(
+            name="No Conditions Reward",
+            reward_type=RewardType.BESITOS,
+            reward_value={"amount": 10},
+            is_active=True
+        )
+        test_session.add(reward)
+        await test_session.flush()
+
         eligible, passed, failed = await reward_service.evaluate_reward_conditions(
-            999999, sample_reward
+            test_user.user_id, reward
         )
 
         assert eligible is True
@@ -474,7 +493,16 @@ class TestEventDrivenChecking:
 
     async def test_check_rewards_on_purchase_event(self, reward_service, test_session, test_user, sample_reward):
         """FIRST_PURCHASE triggered on purchase event."""
-        from bot.database.models import UserContentAccess
+        from bot.database.models import UserContentAccess, ContentSet
+
+        # Create content set first
+        content_set = ContentSet(
+            name="Test Content",
+            file_ids=["file1"],
+            is_active=True
+        )
+        test_session.add(content_set)
+        await test_session.flush()
 
         cond = RewardCondition(
             reward_id=sample_reward.id,
@@ -485,7 +513,7 @@ class TestEventDrivenChecking:
 
         access = UserContentAccess(
             user_id=test_user.user_id,
-            content_set_id=1,
+            content_set_id=content_set.id,
             access_type="shop_purchase",
             besitos_paid=100
         )

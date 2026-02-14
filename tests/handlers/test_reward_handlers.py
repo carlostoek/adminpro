@@ -14,8 +14,26 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aiogram.types import Message, CallbackQuery, User as TelegramUser
 from aiogram.fsm.context import FSMContext
 
+from bot.services.reward import RewardService
 from bot.database.enums import RewardType, RewardStatus
 from bot.database.models import Reward, UserReward
+
+
+@pytest.fixture
+async def reward_service(test_session):
+    """Create a RewardService instance for testing."""
+    mock_wallet = AsyncMock()
+    mock_wallet.earn_besitos = AsyncMock(return_value=(True, "earned", MagicMock()))
+
+    mock_streak = AsyncMock()
+    mock_streak.get_streak_info = AsyncMock(return_value={"current_streak": 5})
+
+    service = RewardService(
+        test_session,
+        wallet_service=mock_wallet,
+        streak_service=mock_streak
+    )
+    return service
 
 
 @pytest.fixture
@@ -390,7 +408,7 @@ class TestVoiceConsistency:
 
         assert "🎩" in notification["text"]
 
-    async def test_reward_claim_success_uses_diana_voice(self, test_session, test_user):
+    async def test_reward_claim_success_uses_diana_voice(self, test_session, test_user, sample_rewards_list):
         """Diana emoji present for success messages."""
         # Success messages for claiming rewards use Diana's voice
         # This would be in the handler implementation

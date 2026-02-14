@@ -277,6 +277,15 @@ class TestREWARD04:
         """
         service = reward_service_with_mocks
 
+        # Create user profile (needed for STREAK_LENGTH condition)
+        from bot.database.models import UserGamificationProfile
+        profile = UserGamificationProfile(
+            user_id=test_user.user_id,
+            total_earned=100,
+            level=1
+        )
+        test_session.add(profile)
+
         # Create reward with STREAK_LENGTH >= 7 condition
         reward = Reward(
             name="Racha de 7 días",
@@ -297,8 +306,6 @@ class TestREWARD04:
         test_session.add(cond)
         await test_session.flush()
 
-        await test_session.refresh(reward, ['conditions'])
-
         # Mock returns streak = 7
         service.streak_service.get_streak_info.return_value = {"current_streak": 7}
 
@@ -308,7 +315,7 @@ class TestREWARD04:
         )
 
         # Assert: Eligible
-        assert eligible is True
+        assert eligible is True, f"Expected eligible=True but got eligible={eligible}, passed={passed}, failed={failed}"
 
     async def test_reward_04_total_points_condition(
         self, reward_service_with_mocks, test_session, test_user

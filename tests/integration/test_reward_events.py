@@ -61,6 +61,14 @@ class TestDailyGiftRewardFlow:
         service = integrated_reward_service
         service.streak_service.get_streak_info.return_value = {"current_streak": 7}
 
+        # Create user profile (required for STREAK_LENGTH condition)
+        profile = UserGamificationProfile(
+            user_id=test_user.user_id,
+            total_earned=100,
+            level=1
+        )
+        test_session.add(profile)
+
         # Create streak reward
         reward = Reward(
             name="Racha de 7 días",
@@ -79,6 +87,7 @@ class TestDailyGiftRewardFlow:
             condition_group=0
         )
         test_session.add(cond)
+        await test_session.flush()
 
         # Add EARN_DAILY transaction (simulating daily gift claim)
         tx = Transaction(
@@ -197,10 +206,19 @@ class TestPurchaseRewardFlow:
 
         await test_session.refresh(reward, ['conditions'])
 
+        # Create content set first
+        content_set = ContentSet(
+            name="Test Content",
+            file_ids=["file1"],
+            is_active=True
+        )
+        test_session.add(content_set)
+        await test_session.flush()
+
         # User makes first purchase
         access = UserContentAccess(
             user_id=test_user.user_id,
-            content_set_id=1,
+            content_set_id=content_set.id,
             access_type="shop_purchase",
             besitos_paid=100
         )
@@ -462,14 +480,12 @@ class TestSecretRewards:
         assert len(available) == 1
         assert available[0][0].name == "Recompensa Normal"
 
-        # User meets conditions (create unlocked UserReward)
-        user_reward = UserReward(
-            user_id=test_user.user_id,
-            reward_id=secret_reward.id,
-            status=RewardStatus.UNLOCKED,
-            unlocked_at=datetime.utcnow()
+        # User meets conditions - get the existing UserReward and update it
+        user_reward = await service._get_or_create_user_reward(
+            test_user.user_id, secret_reward.id
         )
-        test_session.add(user_reward)
+        user_reward.status = RewardStatus.UNLOCKED
+        user_reward.unlocked_at = datetime.utcnow()
         await test_session.flush()
 
         # User views reward list again

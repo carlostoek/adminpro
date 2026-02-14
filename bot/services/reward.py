@@ -137,7 +137,8 @@ class RewardService:
                     UserContentAccess.access_type == "shop_purchase"
                 )
             )
-            return result.scalar_one_or_none() or 0 > 0
+            count = result.scalar_one_or_none() or 0
+            return count > 0
 
         elif condition_type == RewardConditionType.FIRST_DAILY_GIFT:
             # Check if any EARN_DAILY transaction exists
@@ -147,7 +148,8 @@ class RewardService:
                     Transaction.type == TransactionType.EARN_DAILY
                 )
             )
-            return result.scalar_one_or_none() or 0 > 0
+            count = result.scalar_one_or_none() or 0
+            return count > 0
 
         elif condition_type == RewardConditionType.FIRST_REACTION:
             # Check if UserReaction exists for user
@@ -156,7 +158,8 @@ class RewardService:
                     UserReaction.user_id == user_id
                 )
             )
-            return result.scalar_one_or_none() or 0 > 0
+            count = result.scalar_one_or_none() or 0
+            return count > 0
 
         return False
 
@@ -271,8 +274,12 @@ class RewardService:
         Returns:
             Tuple de (eligible: bool, passed_conditions: list, failed_conditions: list)
         """
-        # Get all conditions for reward
-        conditions = list(reward.conditions)
+        # Get all conditions for reward using async query
+        from sqlalchemy import select
+        result = await self.session.execute(
+            select(RewardCondition).where(RewardCondition.reward_id == reward.id)
+        )
+        conditions = list(result.scalars().all())
 
         if not conditions:
             # No conditions means always eligible
@@ -795,9 +802,15 @@ class RewardService:
         if reward is None:
             return {}
 
+        # Get conditions using async query
+        result = await self.session.execute(
+            select(RewardCondition).where(RewardCondition.reward_id == reward_id)
+        )
+        conditions = result.scalars().all()
+
         progress = {}
 
-        for condition in reward.conditions:
+        for condition in conditions:
             # Get current value based on condition type
             current = None
 
