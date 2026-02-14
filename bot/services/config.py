@@ -726,3 +726,63 @@ class ConfigService:
 
         logger.info(f"⚡ max_reactions_per_day updated: {value}")
         return True, "value_updated"
+
+    # ===== REWARD CAP CONFIGURATION =====
+
+    async def get_max_reward_besitos(self) -> int:
+        """Get maximum besitos per reward (REWARD-06).
+
+        Returns:
+            Maximum besitos value (default: 100)
+        """
+        config = await self.get_config()
+        # Return default if not set
+        return getattr(config, 'max_reward_besitos', 100)
+
+    async def get_max_reward_vip_days(self) -> int:
+        """Get maximum VIP extension days per reward (REWARD-06).
+
+        Returns:
+            Maximum VIP days value (default: 30)
+        """
+        config = await self.get_config()
+        # Return default if not set
+        return getattr(config, 'max_reward_vip_days', 30)
+
+    async def set_max_reward_besitos(self, value: int) -> Tuple[bool, str]:
+        """Set maximum besitos per reward.
+
+        Args:
+            value: Must be > 0
+
+        Returns:
+            (success, message)
+        """
+        if value <= 0:
+            return False, "value_must_be_positive"
+
+        config = await self.get_config()
+        config.max_reward_besitos = value
+        await self.session.commit()
+
+        logger.info(f"🎁 max_reward_besitos updated: {value}")
+        return True, "value_updated"
+
+    async def set_max_reward_vip_days(self, value: int) -> Tuple[bool, str]:
+        """Set maximum VIP extension days per reward.
+
+        Args:
+            value: Must be > 0
+
+        Returns:
+            (success, message)
+        """
+        if value <= 0:
+            return False, "value_must_be_positive"
+
+        config = await self.get_config()
+        config.max_reward_vip_days = value
+        await self.session.commit()
+
+        logger.info(f"⭐ max_reward_vip_days updated: {value}")
+        return True, "value_updated"
