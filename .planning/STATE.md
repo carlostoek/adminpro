@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 23 - Rewards System 🔄 IN PROGRESS
-**Plan:** 23-02 RewardService ✅ COMPLETE
-**Status:** RewardService implemented with condition evaluation, event-driven checking, and grouped notifications
+**Plan:** 23-03 Reward Handlers ✅ COMPLETE
+**Status:** RewardService integrated into ServiceContainer with user-facing handlers for viewing and claiming rewards
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -23,7 +23,7 @@ Phase 19: [██████████] 100% - Economy Foundation ✅
 Phase 20: [██████████] 100% - Reaction System ✅
 Phase 21: [██████████] 100% - Daily Rewards & Streaks ✅ COMPLETE
 Phase 22: [██████████] 100% - Shop System ✅ COMPLETE
-Phase 23: [████░░░░░░] 40% - Rewards System 🔄
+Phase 23: [██████░░░░] 60% - Rewards System 🔄
 Phase 24: [░░░░░░░░░░] 0% - Admin Configuration
 
 Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
@@ -397,9 +397,9 @@ None
 
 ## Session Continuity
 
-**Last session:** 2026-02-14 — Completed Phase 23 Plan 02: RewardService Implementation
-**Stopped at:** Plan 23-02 complete - RewardService with condition evaluation and event-driven checking
-**Next:** Phase 23 Plan 03 - Reward Handlers
+**Last session:** 2026-02-14 — Completed Phase 23 Plan 03: Reward Handlers Integration
+**Stopped at:** Plan 23-03 complete - ServiceContainer integration and user handlers
+**Next:** Phase 23 Plan 04 - Admin reward configuration handlers
 
 ### Wave 7 Summary (Rewards System Progress)
 - RewardType enum: BESITOS, CONTENT, BADGE, VIP_EXTENSION ✓
@@ -415,9 +415,23 @@ None
   - Grouped notifications with Lucien's voice (🎩) ✓
   - Reward value capping (REWARD-06) ✓
 - **ConfigService** reward cap methods added ✓
+- **ServiceContainer Integration** (Plan 23-03) ✓
+  - `container.reward` property with lazy loading ✓
+  - Wallet and streak service injection ✓
+- **User Reward Handlers** (Plan 23-03) ✓
+  - `/rewards` command with Lucien's voice (🎩) ✓
+  - Claim handler with Diana's voice (🫦) ✓
+  - Status emojis (🔒✨✅⏰) for reward states ✓
+  - Progress tracking display ✓
+- **Daily Gift Integration** (Plan 23-03) ✓
+  - `check_rewards_on_event` after claim ✓
+  - Grouped notifications for unlocked rewards ✓
+- **Shop Purchase Integration** (Plan 23-03) ✓
+  - `check_rewards_on_event` after purchase ✓
+  - FIRST_PURCHASE and BESITOS_SPENT conditions ✓
 
 ---
 
-*State updated: 2026-02-14 after Phase 23 Plan 01 completion*
-*Milestone v2.0 (Gamification) Phase 23 IN PROGRESS - Rewards system foundation complete*
-*Next: Phase 23 Plan 02 - Reward Service Implementation*
+*State updated: 2026-02-14 after Phase 23 Plan 03 completion*
+*Milestone v2.0 (Gamification) Phase 23 IN PROGRESS - Reward handlers integrated*
+*Next: Phase 23 Plan 04 - Admin reward configuration handlers*
