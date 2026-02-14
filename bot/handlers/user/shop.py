@@ -808,13 +808,68 @@ async def shop_confirm_purchase_handler(
             file_ids = result["file_ids"]
             price_paid = result["price_paid"]
 
-            # Show success message
-            text = _get_purchase_success_message(
+            # Check for unlocked rewards after purchase
+            unlocked_rewards = await container.reward.check_rewards_on_event(
+                user_id=user_id,
+                event_type="purchase_completed",
+                event_data={"product_id": product_id, "price_paid": price_paid}
+            )
+
+            # Build success message
+            base_text = _get_purchase_success_message(
                 name=product.name,
                 price=price_paid,
                 file_count=len(file_ids)
             )
-            await callback.message.edit_text(text=text, parse_mode="HTML")
+
+            # Build keyboard
+            keyboard_buttons = []
+
+            # If rewards unlocked, add grouped notification
+            if unlocked_rewards:
+                notification = container.reward.build_reward_notification(
+                    unlocked_rewards,
+                    event_context="purchase"
+                )
+
+                # Combine messages
+                combined_text = f"""{_get_lucien_header()}
+
+<i>Excelente elección...</i>
+
+✅ <b>Adquisición completada</b>
+
+🎁 <b>{product.name}</b>
+💰 <b>Precio:</b> {price_paid} besitos
+📁 <b>Archivos:</b> {len(file_ids)}
+
+✨ <b>Nuevas Recompensas Desbloqueadas:</b>
+"""
+                for reward_info in unlocked_rewards:
+                    reward = reward_info["reward"]
+                    combined_text += f"• {reward.name}\n"
+
+                combined_text += "\n<i>Su adquisición abre nuevas puertas.</i>"
+
+                # Add claim rewards button
+                keyboard_buttons.append([InlineKeyboardButton(
+                    text="🏆 Reclamar Recompensas",
+                    callback_data="my_rewards"
+                )])
+
+                text = combined_text
+            else:
+                text = base_text
+
+            # Add continue button
+            keyboard_buttons.append([InlineKeyboardButton(
+                text="🛍️ Continuar comprando",
+                callback_data="shop_catalog"
+            )])
+
+            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+
+            await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
 
             # Deliver content
             await deliver_purchased_content(
@@ -827,6 +882,11 @@ async def shop_confirm_purchase_handler(
             await callback.answer("✅ ¡Compra completada!")
 
             logger.info(f"✅ User {user_id} purchased product {product_id}: {product.name}")
+
+            if unlocked_rewards:
+                logger.info(
+                    f"✅ User {user_id} unlocked {len(unlocked_rewards)} rewards from purchase"
+                )
 
         else:
             # Purchase failed
