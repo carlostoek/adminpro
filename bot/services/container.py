@@ -63,6 +63,7 @@ class ServiceContainer:
         self._reaction_service = None
         self._streak_service = None
         self._shop_service = None
+        self._reward_service = None
 
         logger.debug("🏭 ServiceContainer inicializado (modo lazy)")
 
@@ -528,6 +529,44 @@ class ServiceContainer:
 
         return self._shop_service
 
+    # ===== REWARD SERVICE =====
+
+    @property
+    def reward(self):
+        """
+        Service de recompensas y logros.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            RewardService: Instancia del service
+
+        Usage:
+            # Check rewards on event
+            unlocked = await container.reward.check_rewards_on_event(
+                user_id=123, event_type="daily_gift_claimed"
+            )
+
+            # Get available rewards
+            rewards = await container.reward.get_available_rewards(user_id=123)
+
+            # Claim a reward
+            success, msg, details = await container.reward.claim_reward(
+                user_id=123, reward_id=456
+            )
+        """
+        if self._reward_service is None:
+            from bot.services.reward import RewardService
+            logger.debug("🔄 Lazy loading: RewardService")
+            # Inject wallet and streak services
+            self._reward_service = RewardService(
+                self._session,
+                wallet_service=self.wallet,
+                streak_service=self.streak
+            )
+
+        return self._reward_service
+
     # ===== UTILIDADES =====
 
     def get_loaded_services(self) -> list[str]:
@@ -577,6 +616,8 @@ class ServiceContainer:
             loaded.append("streak")
         if self._shop_service is not None:
             loaded.append("shop")
+        if self._reward_service is not None:
+            loaded.append("reward")
 
         return loaded
 
