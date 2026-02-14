@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from bot.database.base import Base
-from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType, TransactionType, StreakType, ContentType, ContentTier
+from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType, TransactionType, StreakType, ContentType, ContentTier, RewardType, RewardConditionType, RewardStatus
 
 logger = logging.getLogger(__name__)
 
@@ -1238,4 +1238,278 @@ class UserContentAccess(Base):
         return (
             f"<UserContentAccess(id={self.id}, user={self.user_id}, "
             f"content={self.content_set_id}, type={self.access_type})>"
+        )
+
+
+class Reward(Base):
+    """
+    Recompensa del sistema de logros.
+
+    Representa una recompensa que los usuarios pueden desbloquear
+    cumpliendo ciertas condiciones. Puede ser de diferentes tipos:
+    besitos, contenido, insignia o extensión VIP.
+
+    Attributes:
+        id: ID único de la recompensa (Primary Key)
+        name: Nombre de la recompensa
+        description: Descripción detallada
+        reward_type: Tipo de recompensa (RewardType enum)
+        reward_value: Datos JSON específicos del tipo de recompensa
+        is_repeatable: Si se puede reclamar múltiples veces
+        is_secret: Si está oculta hasta desbloquearse
+        claim_window_hours: Horas disponibles para reclamar tras desbloqueo
+        is_active: Si está disponible en el sistema
+        sort_order: Orden de visualización
+        created_at: Fecha de creación
+        updated_at: Última actualización
+
+    Relaciones:
+        conditions: Lista de condiciones para desbloquear (RewardCondition)
+        user_rewards: Registros de usuarios con esta recompensa (UserReward)
+
+    Ejemplos de reward_value:
+        - BESITOS: {"amount": 100}
+        - CONTENT: {"content_set_id": 123}
+        - BADGE: {"badge_name": "streak_master", "emoji": "🔥"}
+        - VIP_EXTENSION: {"days": 7}
+    """
+
+    __tablename__ = "rewards"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Basic info
+    name = Column(String(200), nullable=False)
+    description = Column(String(1000), nullable=True)
+
+    # Reward type and value
+    reward_type = Column(
+        Enum(RewardType),
+        nullable=False
+    )
+    reward_value = Column(JSON, nullable=False, default=dict)
+
+    # Behavior flags
+    is_repeatable = Column(Boolean, nullable=False, default=False)
+    is_secret = Column(Boolean, nullable=False, default=False)
+    claim_window_hours = Column(Integer, nullable=False, default=168)  # 7 days
+
+    # State and ordering
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Relationships
+    conditions = relationship(
+        "RewardCondition",
+        back_populates="reward",
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
+    user_rewards = relationship(
+        "UserReward",
+        back_populates="reward",
+        cascade="all, delete-orphan"
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Composite index for active rewards by type
+        Index('idx_reward_active_type', 'is_active', 'reward_type'),
+        # Index for display ordering
+        Index('idx_reward_sort', 'sort_order'),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Reward(id={self.id}, name='{self.name}', "
+            f"type={self.reward_type.value}, active={self.is_active})>"
+        )
+
+
+class RewardCondition(Base):
+    """
+    Condición para desbloquear una recompensa.
+
+    Cada condición representa un requisito que debe cumplirse
+    para que un usuario desbloquee la recompensa asociada.
+
+    Attributes:
+        id: ID único de la condición (Primary Key)
+        reward_id: ID de la recompensa (Foreign Key)
+        condition_type: Tipo de condición (RewardConditionType enum)
+        condition_value: Valor numérico para comparación (opcional)
+        condition_group: Grupo para lógica OR (0 = AND, >0 = OR)
+        sort_order: Orden de evaluación
+        created_at: Fecha de creación
+
+    Relaciones:
+        reward: Recompensa asociada
+
+    Lógica de grupos:
+        - Grupo 0: Todas las condiciones deben cumplirse (AND)
+        - Grupo 1, 2, etc.: Al menos una del grupo debe cumplirse (OR)
+    """
+
+    __tablename__ = "reward_conditions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Reward relationship
+    reward_id = Column(
+        Integer,
+        ForeignKey("rewards.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Condition details
+    condition_type = Column(
+        Enum(RewardConditionType),
+        nullable=False
+    )
+    condition_value = Column(Integer, nullable=True)  # Threshold value
+
+    # Logic grouping
+    condition_group = Column(Integer, nullable=False, default=0)
+    sort_order = Column(Integer, nullable=False, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    reward = relationship(
+        "Reward",
+        back_populates="conditions",
+        lazy="selectin"
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Index for reward conditions lookup
+        Index('idx_condition_reward', 'reward_id'),
+        # Index for condition type queries
+        Index('idx_condition_type', 'condition_type'),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<RewardCondition(id={self.id}, reward={self.reward_id}, "
+            f"type={self.condition_type.value}, group={self.condition_group})>"
+        )
+
+
+class UserReward(Base):
+    """
+    Registro de recompensa de usuario.
+
+    Rastrea el progreso y estado de una recompensa específica
+    para cada usuario. Incluye fechas de desbloqueo, reclamo
+    y conteo para recompensas repetibles.
+
+    Attributes:
+        id: ID único del registro (Primary Key)
+        user_id: ID del usuario (Foreign Key)
+        reward_id: ID de la recompensa (Foreign Key)
+        status: Estado actual (RewardStatus enum)
+        unlocked_at: Fecha de desbloqueo (cuando se cumplieron condiciones)
+        claimed_at: Fecha de reclamo
+        expires_at: Fecha de expiración del reclamo
+        claim_count: Cantidad de veces reclamada (para repetibles)
+        last_claimed_at: Última fecha de reclamo
+        created_at: Fecha de creación del registro
+        updated_at: Última actualización
+
+    Relaciones:
+        reward: Recompensa asociada
+
+    Constraints:
+        - Un usuario solo puede tener un registro por recompensa
+    """
+
+    __tablename__ = "user_rewards"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User relationship
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Reward relationship
+    reward_id = Column(
+        Integer,
+        ForeignKey("rewards.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Status tracking
+    status = Column(
+        Enum(RewardStatus),
+        nullable=False,
+        default=RewardStatus.LOCKED
+    )
+
+    # Timestamps
+    unlocked_at = Column(DateTime, nullable=True)
+    claimed_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+
+    # Repeatable tracking
+    claim_count = Column(Integer, nullable=False, default=0)
+    last_claimed_at = Column(DateTime, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Relationships
+    reward = relationship(
+        "Reward",
+        back_populates="user_rewards",
+        lazy="selectin"
+    )
+
+    # Indexes and constraints
+    __table_args__ = (
+        # Unique constraint: one record per user-reward pair
+        Index('idx_user_reward_user_reward', 'user_id', 'reward_id', unique=True),
+        # Composite index for "my rewards" queries
+        Index('idx_user_reward_user_status', 'user_id', 'status'),
+        # Index for expiration processing
+        Index('idx_user_reward_unlocked', 'unlocked_at'),
+        # Index for finding expired rewards
+        Index('idx_user_reward_expires', 'expires_at'),
+    )
+
+    @property
+    def is_claimable(self) -> bool:
+        """Retorna True si la recompensa puede ser reclamada."""
+        if self.status != RewardStatus.UNLOCKED:
+            return False
+        if self.expires_at and self.expires_at < datetime.utcnow():
+            return False
+        return True
+
+    def __repr__(self) -> str:
+        return (
+            f"<UserReward(id={self.id}, user={self.user_id}, "
+            f"reward={self.reward_id}, status={self.status.value})>"
         )
