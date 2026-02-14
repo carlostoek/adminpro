@@ -310,16 +310,69 @@ async def handle_claim_daily_gift(
         success, result = await container.streak.claim_daily_gift(user_id)
 
         if success and result.get("success"):
-            # Éxito - mostrar desglose detallado
-            text = _get_claim_success_message(
+            # Check for unlocked rewards after claiming daily gift
+            unlocked_rewards = await container.reward.check_rewards_on_event(
+                user_id=user_id,
+                event_type="daily_gift_claimed"
+            )
+
+            # Build base success message
+            base_text = _get_claim_success_message(
                 streak=result.get("new_streak", 1),
                 base=result.get("base_amount", 20),
                 bonus=result.get("streak_bonus", 0),
                 total=result.get("total", 20)
             )
 
+            # Build keyboard
+            keyboard_buttons = []
+
+            # If rewards unlocked, add grouped notification
+            if unlocked_rewards:
+                notification = container.reward.build_reward_notification(
+                    unlocked_rewards,
+                    event_context="daily_gift"
+                )
+
+                # Combine messages
+                combined_text = f"""{_get_lucien_header()}
+<i>Ah... Diana ha notado su constancia.</i>
+
+🔥 <b>Racha actual:</b> {result.get('new_streak', 1)} días
+💰 <b>Base:</b> {result.get('base_amount', 20)} besitos
+✨ <b>Bonus por racha:</b> +{result.get('streak_bonus', 0)} besitos
+─────────────────
+💎 <b>Total recibido:</b> {result.get('total', 20)} besitos
+
+✨ <b>Nuevas Recompensas Desbloqueadas:</b>
+"""
+                for reward_info in unlocked_rewards:
+                    reward = reward_info["reward"]
+                    combined_text += f"• {reward.name}\n"
+
+                combined_text += "\n<i>Su constancia tiene su recompensa.</i>"
+
+                # Add claim rewards button
+                keyboard_buttons.append([InlineKeyboardButton(
+                    text="🏆 Reclamar Recompensas",
+                    callback_data="my_rewards"
+                )])
+
+                text = combined_text
+            else:
+                text = base_text
+
+            # Add view all rewards button
+            keyboard_buttons.append([InlineKeyboardButton(
+                text="📜 Ver Todas las Recompensas",
+                callback_data="my_rewards"
+            )])
+
+            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons) if keyboard_buttons else None
+
             await callback.message.edit_text(
                 text=text,
+                reply_markup=keyboard,
                 parse_mode="HTML"
             )
 
@@ -339,6 +392,11 @@ async def handle_claim_daily_gift(
                 f"bonus={result.get('streak_bonus')}, "
                 f"streak={result.get('new_streak')})"
             )
+
+            if unlocked_rewards:
+                logger.info(
+                    f"✅ User {user_id} unlocked {len(unlocked_rewards)} rewards from daily gift"
+                )
 
         elif result.get("error") == "already_claimed":
             # Ya reclamado - mostrar cuenta regresiva
