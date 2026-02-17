@@ -238,6 +238,7 @@ class AdminMainMessages(BaseMessageProvider):
             [{"text": "🛍️ Tienda", "callback_data": "admin:shop"}],
             [{"text": "🔔 Intereses", "callback_data": "admin:interests"}],
             [{"text": "👥 Gestión de Usuarios", "callback_data": "admin:users"}],
+            [{"text": "👤 Buscar Usuario", "callback_data": "admin:user:lookup"}],
             [{"text": "⚙️ Calibración del Reino", "callback_data": "admin:config"}],
             [{"text": "💰 Planes de Suscripción", "callback_data": "admin:pricing"}],
             [{"text": "📈 Observaciones del Reino", "callback_data": "admin:stats"}],
