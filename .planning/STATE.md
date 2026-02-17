@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 24 - Admin Configuration 🔄 IN PROGRESS
-**Plan:** 24-01 Economy Config Handlers ✅ COMPLETE
-**Status:** Admin handlers for economy configuration implemented - 4 values configurable via Telegram UI
+**Plan:** 24-03 Reward Management Handlers
+**Status:** Shop management handlers complete - Starting reward configuration
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -24,7 +24,7 @@ Phase 20: [██████████] 100% - Reaction System ✅
 Phase 21: [██████████] 100% - Daily Rewards & Streaks ✅ COMPLETE
 Phase 22: [██████████] 100% - Shop System ✅ COMPLETE
 Phase 23: [██████████] 100% - Rewards System ✅ COMPLETE
-Phase 24: [██░░░░░░░░] 20% - Admin Configuration 🔄
+Phase 24: [████░░░░░░] 40% - Admin Configuration 🔄
 
 Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
 ```
@@ -116,8 +116,9 @@ Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
 | Plan | Status | Description |
 |------|--------|-------------|
 | 24-01 | ✅ COMPLETE | Economy Configuration Handlers - 4 values configurable via FSM flow |
+| 24-02 | ✅ COMPLETE | Shop Management Handlers - Product creation FSM with 6-step wizard |
 
-**Phase 24 Status:** 🔄 IN PROGRESS - 1/5 plans complete
+**Phase 24 Status:** 🔄 IN PROGRESS - 2/5 plans complete
 
 ### Pending Todos
 
