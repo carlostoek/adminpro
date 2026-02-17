@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 **Milestone:** v2.0 Gamification
-**Phase:** 23 - Rewards System 🔄 IN PROGRESS
-**Plan:** 23-04 Reward Tests ✅ COMPLETE
-**Status:** Comprehensive tests created for Rewards System - 70 tests passing, all 6 REWARD requirements verified
+**Phase:** 24 - Admin Configuration 🔄 IN PROGRESS
+**Plan:** 24-01 Economy Config Handlers ✅ COMPLETE
+**Status:** Admin handlers for economy configuration implemented - 4 values configurable via Telegram UI
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -23,8 +23,8 @@ Phase 19: [██████████] 100% - Economy Foundation ✅
 Phase 20: [██████████] 100% - Reaction System ✅
 Phase 21: [██████████] 100% - Daily Rewards & Streaks ✅ COMPLETE
 Phase 22: [██████████] 100% - Shop System ✅ COMPLETE
-Phase 23: [████████░░] 80% - Rewards System 🔄
-Phase 24: [░░░░░░░░░░] 0% - Admin Configuration
+Phase 23: [██████████] 100% - Rewards System ✅ COMPLETE
+Phase 24: [██░░░░░░░░] 20% - Admin Configuration 🔄
 
 Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
 ```
@@ -73,6 +73,7 @@ Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
 | Niveles por puntos totales | Progresión clara y medible | **Implemented** |
 | Atomic transaction pattern | UPDATE SET col = col + delta for thread-safety | **Implemented** |
 | transaction_metadata field | Avoid SQLAlchemy reserved 'metadata' name | **Implemented** |
+| FSM for economy config | Consistent with existing admin handlers pattern | **Implemented** |
 | Safe formula evaluation | Regex validation + restricted eval for level formulas | **Implemented** |
 | Admin credit/debit | EARN_ADMIN/SPEND_ADMIN with audit metadata | **Implemented** |
 | Economy config in BotConfig | level_formula, besitos_per_reaction, etc. | **Implemented** |
@@ -109,6 +110,14 @@ Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
 | 22 | Shop System | 8 | ShopService, purchase flow |
 | 23 | Rewards System | 6 | RewardService, conditions |
 | 24 | Admin Configuration | 8 | Cascading admin UI |
+
+### Phase 24 Progress
+
+| Plan | Status | Description |
+|------|--------|-------------|
+| 24-01 | ✅ COMPLETE | Economy Configuration Handlers - 4 values configurable via FSM flow |
+
+**Phase 24 Status:** 🔄 IN PROGRESS - 1/5 plans complete
 
 ### Pending Todos
 
@@ -397,9 +406,9 @@ None
 
 ## Session Continuity
 
-**Last session:** 2026-02-14 — Completed Phase 23 Plan 04: Rewards System Tests
-**Stopped at:** Plan 23-04 complete - 70 comprehensive reward tests passing
-**Next:** Phase 23 Plan 05 - Admin reward configuration handlers
+**Last session:** 2026-02-17 — Completed Phase 24 Plan 01: Economy Configuration Handlers
+**Stopped at:** Plan 24-01 complete - Economy config handlers with FSM flow
+**Next:** Phase 24 Plan 02 - Reward configuration handlers
 
 ### Wave 7 Summary (Rewards System Complete)
 - RewardType enum: BESITOS, CONTENT, BADGE, VIP_EXTENSION ✓
