@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 **Milestone:** v2.0 Gamification
 **Phase:** 24 - Admin Configuration 🔄 IN PROGRESS
 **Plan:** 24-05 User Gamification Profile Viewer
-**Status:** User gamification profile viewer complete - Admin can search and view complete user profiles
+**Status:** v2.0 milestone complete
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
