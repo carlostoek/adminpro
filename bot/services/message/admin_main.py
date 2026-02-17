@@ -236,6 +236,7 @@ class AdminMainMessages(BaseMessageProvider):
             [{"text": "📺 Vestíbulo de Acceso", "callback_data": "admin:free"}],
             [{"text": "📦 Paquetes de Contenido", "callback_data": "admin:content"}],
             [{"text": "🛍️ Tienda", "callback_data": "admin:shop"}],
+            [{"text": "🏆 Recompensas", "callback_data": "admin:rewards"}],
             [{"text": "🔔 Intereses", "callback_data": "admin:interests"}],
             [{"text": "👥 Gestión de Usuarios", "callback_data": "admin:users"}],
             [{"text": "👤 Buscar Usuario", "callback_data": "admin:user:lookup"}],
