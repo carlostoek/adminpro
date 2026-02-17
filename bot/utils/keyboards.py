@@ -261,6 +261,7 @@ def config_menu_keyboard() -> InlineKeyboardMarkup:
     - Estado del Reino
     - Reacciones del Círculo (VIP)
     - Reacciones del Vestíbulo (Free)
+    - Economía (Besitos)
     - Volver al menú principal
 
     Returns:
@@ -270,6 +271,7 @@ def config_menu_keyboard() -> InlineKeyboardMarkup:
         [{"text": "📊 Estado del Reino", "callback_data": "config:status"}],
         [{"text": "👑 Reacciones del Círculo", "callback_data": "config:reactions:vip"}],
         [{"text": "📺 Reacciones del Vestíbulo", "callback_data": "config:reactions:free"}],
+        [{"text": "💰 Economía", "callback_data": "admin:economy_config"}],
         [{"text": "🔙 Volver al Menú Principal", "callback_data": "admin:main"}],
     ])
 
