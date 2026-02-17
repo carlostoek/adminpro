@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 24 - Admin Configuration 🔄 IN PROGRESS
-**Plan:** 24-03 Reward Management Handlers
-**Status:** Shop management handlers complete - Starting reward configuration
+**Plan:** 24-05 User Gamification Profile Viewer
+**Status:** User gamification profile viewer complete - Admin can search and view complete user profiles
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -24,7 +24,7 @@ Phase 20: [██████████] 100% - Reaction System ✅
 Phase 21: [██████████] 100% - Daily Rewards & Streaks ✅ COMPLETE
 Phase 22: [██████████] 100% - Shop System ✅ COMPLETE
 Phase 23: [██████████] 100% - Rewards System ✅ COMPLETE
-Phase 24: [████░░░░░░] 40% - Admin Configuration 🔄
+Phase 24: [██████░░░░] 60% - Admin Configuration 🔄
 
 Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
 ```
@@ -117,8 +117,11 @@ Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
 |------|--------|-------------|
 | 24-01 | ✅ COMPLETE | Economy Configuration Handlers - 4 values configurable via FSM flow |
 | 24-02 | ✅ COMPLETE | Shop Management Handlers - Product creation FSM with 6-step wizard |
+| 24-03 | ✅ COMPLETE | Reward Management Handlers - Reward creation with conditions wizard |
+| 24-04 | ✅ COMPLETE | Economy Stats Handlers - Global and per-user economy statistics |
+| 24-05 | ✅ COMPLETE | User Gamification Profile Viewer - Search and view complete user profiles |
 
-**Phase 24 Status:** 🔄 IN PROGRESS - 2/5 plans complete
+**Phase 24 Status:** 🔄 IN PROGRESS - 5/5 plans complete
 
 ### Pending Todos
 
@@ -450,6 +453,22 @@ None
 
 ---
 
-*State updated: 2026-02-14 after Phase 23 Plan 04 completion*
-*Milestone v2.0 (Gamification) Phase 23 IN PROGRESS - Reward system fully tested*
-*Next: Phase 23 Plan 05 - Admin reward configuration handlers*
+### Wave 8 Summary (Admin Configuration Progress)
+- **Economy Config Handlers (24-01)** - FSM flow for 4 economy values ✓
+- **Shop Management Handlers (24-02)** - 6-step product creation wizard ✓
+- **Reward Management Handlers (24-03)** - Reward creation with conditions ✓
+- **Economy Stats Handlers (24-04)** - Global and per-user statistics ✓
+- **User Gamification Profile Viewer (24-05)** - Complete user profile with:
+  - Search by ID or username
+  - Economy profile (balance, earned, spent, level)
+  - Streak information (daily gift, reaction)
+  - Rewards status (unlocked, locked, claimed)
+  - Shop purchases with pagination
+  - Transaction history with pagination
+  - All using Lucien's voice (🎩)
+
+---
+
+*State updated: 2026-02-17 after Phase 24 Plan 05 completion*
+*Milestone v2.0 (Gamification) Phase 24 IN PROGRESS - Admin configuration complete*
+*Next: Phase 25 - Final integration and testing*
