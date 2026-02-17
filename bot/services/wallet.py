@@ -453,19 +453,16 @@ class WalletService:
 
         Variable:
             - total_earned: Total de besitos ganados
+
+        Note:
+            This method uses a safe parser instead of eval() to prevent
+            code injection attacks. Only the supported operations above
+            are allowed.
         """
         if not formula:
             formula = "floor(sqrt(total_earned / 100)) + 1"
 
         try:
-            # Create safe evaluation environment
-            # Only allow specific math functions and operators
-            safe_dict = {
-                'sqrt': math.sqrt,
-                'floor': math.floor,
-                'total_earned': total_earned
-            }
-
             # Validate formula contains only allowed characters
             # Allowed: letters, numbers, spaces, operators, parentheses, dots
             if not re.match(r'^[\w\s+\-*/().]+$', formula):
@@ -473,8 +470,8 @@ class WalletService:
                 # Fallback to default
                 formula = "floor(sqrt(total_earned / 100)) + 1"
 
-            # Evaluate formula safely
-            level = eval(formula, {"__builtins__": {}}, safe_dict)
+            # Parse and evaluate formula safely without eval()
+            level = self._safe_formula_eval(formula, total_earned)
 
             # Ensure minimum level of 1
             return max(1, int(level))
@@ -483,6 +480,148 @@ class WalletService:
             self.logger.error(f"❌ Error evaluando fórmula '{formula}': {e}")
             # Fallback: linear formula
             return max(1, 1 + (total_earned // 100))
+
+    def _safe_formula_eval(self, formula: str, total_earned: int) -> float:
+        """
+        Safely evaluates a level formula without using eval().
+
+        Supports: sqrt, floor, +, -, *, /, parentheses, and total_earned variable.
+
+        Args:
+            formula: Formula string to evaluate
+            total_earned: Value of the total_earned variable
+
+        Returns:
+            float: Result of the formula evaluation
+
+        Raises:
+            ValueError: If formula contains unsupported operations
+        """
+        # Tokenize the formula
+        tokens = self._tokenize_formula(formula)
+
+        # Convert to RPN (Reverse Polish Notation) using Shunting Yard algorithm
+        rpn = self._shunting_yard(tokens)
+
+        # Evaluate RPN
+        return self._eval_rpn(rpn, total_earned)
+
+    def _tokenize_formula(self, formula: str) -> List[str]:
+        """Tokenize a formula string into tokens."""
+        tokens = []
+        current_token = ""
+
+        for char in formula.replace(" ", ""):
+            if char.isalnum() or char == "_":
+                current_token += char
+            else:
+                if current_token:
+                    tokens.append(current_token)
+                    current_token = ""
+                if char in "+-*/()":
+                    tokens.append(char)
+                elif char == ".":
+                    # Handle decimal numbers
+                    if current_token and self._is_number(current_token + "."):
+                        current_token += char
+                    else:
+                        if current_token:
+                            tokens.append(current_token)
+                            current_token = ""
+                        current_token = char
+
+        if current_token:
+            tokens.append(current_token)
+
+        return tokens
+
+    def _shunting_yard(self, tokens: List[str]) -> List[str]:
+        """Convert infix tokens to RPN using Shunting Yard algorithm."""
+        output = []
+        operators = []
+
+        # Operator precedence (higher = binds tighter)
+        precedence = {"+": 1, "-": 1, "*": 2, "/": 2}
+        # Functions have highest precedence
+        functions = {"sqrt", "floor"}
+
+        for token in tokens:
+            if token == "total_earned" or self._is_number(token):
+                output.append(token)
+            elif token in functions:
+                # Push function to operator stack
+                operators.append(token)
+            elif token in "+-*/":
+                while (operators and
+                       operators[-1] in "+-*/" and
+                       precedence[operators[-1]] >= precedence[token]):
+                    output.append(operators.pop())
+                operators.append(token)
+            elif token == "(":
+                operators.append(token)
+            elif token == ")":
+                # Pop until matching "("
+                while operators and operators[-1] != "(":
+                    output.append(operators.pop())
+                # Pop the "("
+                if operators and operators[-1] == "(":
+                    operators.pop()
+                # If there's a function on top, pop it to output
+                if operators and operators[-1] in functions:
+                    output.append(operators.pop())
+
+        while operators:
+            output.append(operators.pop())
+
+        return output
+
+    def _is_number(self, token: str) -> bool:
+        """Check if a token is a number."""
+        try:
+            float(token)
+            return True
+        except ValueError:
+            return False
+
+    def _eval_rpn(self, rpn: List[str], total_earned: int) -> float:
+        """Evaluate RPN expression."""
+        stack = []
+
+        for token in rpn:
+            if self._is_number(token):
+                stack.append(float(token))
+            elif token == "total_earned":
+                stack.append(float(total_earned))
+            elif token == "sqrt":
+                if not stack:
+                    raise ValueError("sqrt requires an argument")
+                arg = stack.pop()
+                stack.append(math.sqrt(arg))
+            elif token == "floor":
+                if not stack:
+                    raise ValueError("floor requires an argument")
+                arg = stack.pop()
+                stack.append(math.floor(arg))
+            elif token in "+-*/":
+                if len(stack) < 2:
+                    raise ValueError(f"Operator {token} requires two arguments")
+                b = stack.pop()
+                a = stack.pop()
+                if token == "+":
+                    stack.append(a + b)
+                elif token == "-":
+                    stack.append(a - b)
+                elif token == "*":
+                    stack.append(a * b)
+                elif token == "/":
+                    if b == 0:
+                        raise ValueError("Division by zero")
+                    stack.append(a / b)
+
+        if len(stack) != 1:
+            raise ValueError("Invalid formula")
+
+        return stack[0]
 
     async def get_user_level(self, user_id: int, formula: Optional[str] = None) -> int:
         """

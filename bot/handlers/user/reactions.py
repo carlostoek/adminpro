@@ -78,6 +78,26 @@ async def handle_reaction_callback(
     # Handle result
     if success:
         await _handle_success(callback, data, emoji)
+
+        # Check for rewards on reaction_added event
+        try:
+            unlocked = await container.reward.check_rewards_on_event(
+                user_id=user_id,
+                event_type="reaction_added"
+            )
+            if unlocked:
+                # Build and send reward notification
+                notification = container.reward.build_reward_notification(
+                    unlocked,
+                    event_context="reaction_added"
+                )
+                if notification["text"]:
+                    await callback.message.answer(
+                        notification["text"],
+                        parse_mode="HTML"
+                    )
+        except Exception as e:
+            logger.error(f"Error checking rewards on reaction: {e}")
     else:
         await _handle_failure(callback, code, data)
 
@@ -258,6 +278,26 @@ async def handle_short_reaction_callback(
 
     if success:
         await _handle_success(callback, data, emoji)
+
+        # Check for rewards on reaction_added event
+        try:
+            unlocked = await container.reward.check_rewards_on_event(
+                user_id=user_id,
+                event_type="reaction_added"
+            )
+            if unlocked:
+                # Build and send reward notification
+                notification = container.reward.build_reward_notification(
+                    unlocked,
+                    event_context="reaction_added"
+                )
+                if notification["text"]:
+                    await callback.message.answer(
+                        notification["text"],
+                        parse_mode="HTML"
+                    )
+        except Exception as e:
+            logger.error(f"Error checking rewards on reaction: {e}")
     else:
         await _handle_failure(callback, code, data)
 

@@ -698,8 +698,76 @@ class RewardService:
 
         elif reward.reward_type == RewardType.VIP_EXTENSION:
             days = capped_value.get("days", 0)
-            # TODO: Integrate with subscription service to extend VIP
-            reward_result = {"days": days, "note": "VIP extension pending integration"}
+            # Integrate with subscription service to extend VIP
+            try:
+                from bot.services.subscription import SubscriptionService
+                subscription_service = SubscriptionService(self.session, None)
+
+                # Check if user is already VIP
+                existing_subscriber = await subscription_service.get_vip_subscriber(user_id)
+
+                if existing_subscriber:
+                    # Extend existing subscription
+                    extension = timedelta(days=days)
+
+                    # If expired, start from now; otherwise extend from current expiry
+                    if existing_subscriber.is_expired():
+                        existing_subscriber.expiry_date = datetime.utcnow() + extension
+                        existing_subscriber.status = "active"
+                    else:
+                        existing_subscriber.expiry_date += extension
+
+                    await self.session.flush()
+                    reward_result = {
+                        "days": days,
+                        "new_expiry": existing_subscriber.expiry_date.isoformat(),
+                        "extended": True
+                    }
+                    logger.info(
+                        f"✅ User {user_id} VIP extended by {days} days "
+                        f"(new expiry: {existing_subscriber.expiry_date})"
+                    )
+                else:
+                    # Create new VIP subscription
+                    # First create a system token for this reward-based VIP
+                    from bot.database.models import InvitationToken
+                    system_token = InvitationToken(
+                        token=f"REWARD_{user_id}_{datetime.utcnow().timestamp()}",
+                        generated_by=0,  # SYSTEM
+                        duration_hours=days * 24,
+                        used=True,
+                        used_by=user_id,
+                        used_at=datetime.utcnow()
+                    )
+                    self.session.add(system_token)
+                    await self.session.flush()
+
+                    expiry_date = datetime.utcnow() + timedelta(days=days)
+
+                    from bot.database.models import VIPSubscriber
+                    subscriber = VIPSubscriber(
+                        user_id=user_id,
+                        join_date=datetime.utcnow(),
+                        expiry_date=expiry_date,
+                        status="active",
+                        token_id=system_token.id
+                    )
+                    self.session.add(subscriber)
+                    await self.session.flush()
+
+                    reward_result = {
+                        "days": days,
+                        "expiry": expiry_date.isoformat(),
+                        "new_subscription": True
+                    }
+                    logger.info(
+                        f"✅ User {user_id} new VIP subscription created "
+                        f"({days} days, expires: {expiry_date})"
+                    )
+
+            except Exception as e:
+                logger.error(f"❌ Error extending VIP for user {user_id}: {e}")
+                return False, f"vip_extension_error: {str(e)}", {}
 
         # Update UserReward
         user_reward.status = RewardStatus.CLAIMED
