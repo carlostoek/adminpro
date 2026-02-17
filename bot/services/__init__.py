@@ -12,6 +12,7 @@ from bot.services.wallet import WalletService
 from bot.services.reaction import ReactionService
 from bot.services.streak import StreakService
 from bot.services.shop import ShopService
+from bot.services.reward import RewardService
 
 __all__ = [
     "ServiceContainer",
@@ -29,4 +30,5 @@ __all__ = [
     "ReactionService",
     "StreakService",
     "ShopService",
+    "RewardService",
 ]

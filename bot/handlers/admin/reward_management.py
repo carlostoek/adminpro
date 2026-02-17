@@ -926,5 +926,4 @@ async def callback_group_selected(callback: CallbackQuery, state: FSMContext, se
     await callback.answer("✅ Condición agregada")
 
 
-# Register router with admin router
-admin_router.include_router(reward_router)
+# Router is registered in bot/handlers/admin/__init__.py

@@ -258,6 +258,7 @@ class AdminMainMessages(BaseMessageProvider):
         """
         return create_inline_keyboard([
             [{"text": "📊 Estado del Reino", "callback_data": "config:status"}],
+            [{"text": "💰 Economía", "callback_data": "admin:economy_config"}],
             [{"text": "👑 Reacciones del Círculo", "callback_data": "config:reactions:vip"}],
             [{"text": "📺 Reacciones del Vestíbulo", "callback_data": "config:reactions:free"}],
             [{"text": "🔙 Volver al Menú Principal", "callback_data": "admin:main"}],
