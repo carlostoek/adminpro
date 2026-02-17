@@ -227,3 +227,11 @@ class UserManagementStates(StatesGroup):
 
     # Confirmando eliminación de usuario
     deleting_user = State()
+
+
+class EconomyConfigState(StatesGroup):
+    """States for economy configuration flow."""
+    waiting_for_reaction_value = State()
+    waiting_for_daily_value = State()
+    waiting_for_streak_value = State()
+    waiting_for_limit_value = State()
