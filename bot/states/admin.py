@@ -235,3 +235,50 @@ class EconomyConfigState(StatesGroup):
     waiting_for_daily_value = State()
     waiting_for_streak_value = State()
     waiting_for_limit_value = State()
+
+
+class ShopCreateState(StatesGroup):
+    """
+    States for shop product creation flow.
+
+    Flujo de creación de producto:
+    1. Admin selecciona "Crear Producto"
+    2. Bot entra en waiting_for_name
+    3. Admin envía nombre del producto
+    4. Bot entra en waiting_for_description
+    5. Admin envía descripción (opcional)
+    6. Bot entra en waiting_for_price
+    7. Admin envía precio en besitos
+    8. Bot entra en waiting_for_tier
+    9. Admin selecciona tier con botones: [FREE] [VIP] [PREMIUM]
+    10. Bot entra en waiting_for_content_set
+    11. Admin selecciona ContentSet de la lista
+    12. Bot muestra resumen y entra en waiting_for_confirmation
+    13. Admin confirma o cancela
+    14. Bot crea producto y sale del estado
+
+    Validación:
+    - Nombre: No vacío, máximo 200 caracteres
+    - Descripción: Opcional, máximo 1000 caracteres
+    - Precio: Número entero positivo
+    - Tier: Selección via botones (FREE, VIP, PREMIUM)
+    - ContentSet: Debe existir y estar activo
+    """
+
+    # Paso 1: Esperando nombre del producto
+    waiting_for_name = State()
+
+    # Paso 2: Esperando descripción
+    waiting_for_description = State()
+
+    # Paso 3: Esperando precio en besitos
+    waiting_for_price = State()
+
+    # Paso 4: Esperando selección de tier
+    waiting_for_tier = State()
+
+    # Paso 5: Esperando selección de ContentSet
+    waiting_for_content_set = State()
+
+    # Paso 6: Esperando confirmación final
+    waiting_for_confirmation = State()
