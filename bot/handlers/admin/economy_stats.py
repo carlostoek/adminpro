@@ -6,18 +6,20 @@ Handler para visualización de estadísticas de economía y gamificación.
 import logging
 from datetime import datetime
 
-from aiogram import F
+from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.handlers.admin.main import admin_router
 from bot.services.container import ServiceContainer
 from bot.utils.keyboards import create_inline_keyboard
 
 logger = logging.getLogger(__name__)
 
+# Router para handlers de economy stats
+economy_stats_router = Router(name="economy_stats")
 
-@admin_router.callback_query(F.data == "admin:economy_stats")
+
+@economy_stats_router.callback_query(F.data == "admin:economy_stats")
 async def callback_economy_stats(callback: CallbackQuery, session: AsyncSession):
     """
     Handler del callback para mostrar métricas de economía.
@@ -117,7 +119,7 @@ Por favor, intente nuevamente en unos momentos."""
     await callback.answer()
 
 
-@admin_router.callback_query(F.data == "admin:economy:top_users")
+@economy_stats_router.callback_query(F.data == "admin:economy:top_users")
 async def callback_economy_top_users(callback: CallbackQuery, session: AsyncSession):
     """
     Handler para mostrar top usuarios (ganadores, gastadores, balances).
@@ -195,7 +197,7 @@ Ha ocurrido una perturbación al consultar los top usuarios."""
     await callback.answer()
 
 
-@admin_router.callback_query(F.data == "admin:economy:levels")
+@economy_stats_router.callback_query(F.data == "admin:economy:levels")
 async def callback_economy_levels(callback: CallbackQuery, session: AsyncSession):
     """
     Handler para mostrar distribución de usuarios por nivel.
