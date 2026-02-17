@@ -731,9 +731,12 @@ class RewardService:
                     # Create new VIP subscription
                     # First create a system token for this reward-based VIP
                     from bot.database.models import InvitationToken
+                    import uuid
+                    # Use short unique token (16 chars max) with RWD prefix
+                    short_token = f"R{str(uuid.uuid4().int)[:15]}"
                     system_token = InvitationToken(
-                        token=f"REWARD_{user_id}_{datetime.utcnow().timestamp()}",
-                        generated_by=0,  # SYSTEM
+                        token=short_token,
+                        generated_by=0,  # SYSTEM (0 = auto-generated, not manual)
                         duration_hours=days * 24,
                         used=True,
                         used_by=user_id,
