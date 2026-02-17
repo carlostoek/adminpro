@@ -282,3 +282,32 @@ class ShopCreateState(StatesGroup):
 
     # Paso 6: Esperando confirmación final
     waiting_for_confirmation = State()
+
+
+class RewardCreateState(StatesGroup):
+    """States for reward creation flow."""
+    waiting_for_name = State()
+    waiting_for_description = State()
+    waiting_for_type = State()
+    waiting_for_besitos_amount = State()
+    waiting_for_content_set = State()
+    waiting_for_badge_name = State()
+    waiting_for_badge_emoji = State()
+    waiting_for_vip_days = State()
+    waiting_for_behavior = State()
+    waiting_for_repeatable = State()
+    waiting_for_secret = State()
+    waiting_for_claim_window = State()
+    waiting_for_conditions = State()
+
+
+class RewardConditionState(StatesGroup):
+    """States for condition creation flow."""
+    waiting_for_type = State()
+    waiting_for_value = State()
+    waiting_for_group = State()
+
+
+class UserLookupState(StatesGroup):
+    """States for user lookup flow."""
+    waiting_for_user = State()
