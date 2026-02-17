@@ -19,13 +19,15 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.handlers.admin.main import admin_router
 from bot.services.container import ServiceContainer
 from bot.utils.keyboards import create_inline_keyboard
 from bot.database.enums import ContentTier
 from bot.database.models import ShopProduct, ContentSet
 
 logger = logging.getLogger(__name__)
+
+# Create router for shop management
+shop_router = Router(name="shop_management")
 
 # Constants
 PRODUCTS_PER_PAGE = 5
@@ -37,7 +39,7 @@ TIER_EMOJIS = {
 }
 
 
-@admin_router.callback_query(F.data == "admin:shop")
+@shop_router.callback_query(F.data == "admin:shop")
 async def callback_admin_shop(callback: CallbackQuery, session: AsyncSession):
     """
     Handler del menú principal de gestión de tienda.
@@ -79,7 +81,7 @@ async def callback_admin_shop(callback: CallbackQuery, session: AsyncSession):
     await callback.answer()
 
 
-@admin_router.callback_query(F.data == "admin:shop:list")
+@shop_router.callback_query(F.data == "admin:shop:list")
 async def callback_shop_list(callback: CallbackQuery, session: AsyncSession):
     """
     Handler para listar productos con paginación.
@@ -96,7 +98,7 @@ async def callback_shop_list(callback: CallbackQuery, session: AsyncSession):
     await _show_product_list(callback, session, page=1)
 
 
-@admin_router.callback_query(F.data.startswith("admin:shop:list:page:"))
+@shop_router.callback_query(F.data.startswith("admin:shop:list:page:"))
 async def callback_shop_list_page(callback: CallbackQuery, session: AsyncSession):
     """
     Handler para navegación de paginación de productos.
@@ -225,7 +227,7 @@ async def _show_product_list(callback: CallbackQuery, session: AsyncSession, pag
     await callback.answer()
 
 
-@admin_router.callback_query(F.data.startswith("admin:shop:details:"))
+@shop_router.callback_query(F.data.startswith("admin:shop:details:"))
 async def callback_shop_details(callback: CallbackQuery, session: AsyncSession):
     """
     Handler para ver detalles de un producto.
@@ -294,7 +296,7 @@ async def callback_shop_details(callback: CallbackQuery, session: AsyncSession):
     await callback.answer()
 
 
-@admin_router.callback_query(F.data.startswith("admin:shop:toggle:"))
+@shop_router.callback_query(F.data.startswith("admin:shop:toggle:"))
 async def callback_shop_toggle(callback: CallbackQuery, session: AsyncSession):
     """
     Handler para activar/desactivar un producto.
@@ -347,7 +349,7 @@ async def callback_shop_toggle(callback: CallbackQuery, session: AsyncSession):
 from bot.states.admin import ShopCreateState
 
 
-@admin_router.callback_query(F.data == "admin:shop:create:start")
+@shop_router.callback_query(F.data == "admin:shop:create:start")
 async def callback_shop_create_start(
     callback: CallbackQuery,
     state: FSMContext,
@@ -403,7 +405,7 @@ async def callback_shop_create_start(
     await callback.answer()
 
 
-@admin_router.message(ShopCreateState.waiting_for_name)
+@shop_router.message(ShopCreateState.waiting_for_name)
 async def process_product_name(message: Message, state: FSMContext):
     """
     Procesa el nombre del producto.
@@ -450,7 +452,7 @@ async def process_product_name(message: Message, state: FSMContext):
     )
 
 
-@admin_router.message(ShopCreateState.waiting_for_description)
+@shop_router.message(ShopCreateState.waiting_for_description)
 async def process_product_description(message: Message, state: FSMContext):
     """
     Procesa la descripción del producto.
@@ -489,7 +491,7 @@ async def process_product_description(message: Message, state: FSMContext):
     )
 
 
-@admin_router.message(ShopCreateState.waiting_for_price)
+@shop_router.message(ShopCreateState.waiting_for_price)
 async def process_product_price(message: Message, state: FSMContext):
     """
     Procesa el precio del producto.
@@ -537,7 +539,7 @@ async def process_product_price(message: Message, state: FSMContext):
     )
 
 
-@admin_router.callback_query(
+@shop_router.callback_query(
     F.data.startswith("tier:"),
     ShopCreateState.waiting_for_tier
 )
@@ -618,7 +620,7 @@ async def process_product_tier(
     await callback.answer()
 
 
-@admin_router.callback_query(
+@shop_router.callback_query(
     F.data.startswith("content_set:"),
     ShopCreateState.waiting_for_content_set
 )
@@ -693,7 +695,7 @@ async def process_product_content_set(
     await callback.answer()
 
 
-@admin_router.callback_query(
+@shop_router.callback_query(
     F.data == "shop:create:confirm",
     ShopCreateState.waiting_for_confirmation
 )

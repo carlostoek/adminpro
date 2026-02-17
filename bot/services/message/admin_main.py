@@ -235,6 +235,7 @@ class AdminMainMessages(BaseMessageProvider):
             [{"text": "👑 Círculo Exclusivo VIP", "callback_data": "admin:vip"}],
             [{"text": "📺 Vestíbulo de Acceso", "callback_data": "admin:free"}],
             [{"text": "📦 Paquetes de Contenido", "callback_data": "admin:content"}],
+            [{"text": "🛍️ Tienda", "callback_data": "admin:shop"}],
             [{"text": "🔔 Intereses", "callback_data": "admin:interests"}],
             [{"text": "👥 Gestión de Usuarios", "callback_data": "admin:users"}],
             [{"text": "⚙️ Calibración del Reino", "callback_data": "admin:config"}],
