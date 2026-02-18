@@ -267,6 +267,11 @@ class RewardService:
         """
         Evalúa todas las condiciones de una recompensa para un usuario.
 
+        Lógica de evaluación:
+        - Grupo 0: TODAS las condiciones deben pasar (AND)
+        - Grupos 1, 2, etc.: al menos UNA condición del grupo debe pasar (OR)
+        - Para desbloquear: grupo 0 pasa AND todos los grupos OR tienen al menos 1 pasada
+
         Args:
             user_id: ID del usuario
             reward: Recompensa a evaluar
@@ -296,7 +301,11 @@ class RewardService:
                 groups[group] = []
             groups[group].append(condition)
 
+        # Track if each OR group has at least one passing condition
+        or_group_results: Dict[int, bool] = {}
+
         # Evaluate group 0 (AND logic - all must pass)
+        group_0_passed = True
         if 0 in groups:
             for condition in groups[0]:
                 passed, details = await self.evaluate_single_condition(
@@ -306,37 +315,52 @@ class RewardService:
                     passed_conditions.append(details)
                 else:
                     failed_conditions.append(details)
+                    group_0_passed = False
 
         # Evaluate groups 1+ (OR logic - at least one in each group must pass)
+        all_or_groups_passed = True
         for group_id in sorted(groups.keys()):
             if group_id == 0:
                 continue
 
             group_conditions = groups[group_id]
-            group_passed = False
+
+            # Empty OR group passes automatically (neutral)
+            if not group_conditions:
+                or_group_results[group_id] = True
+                continue
+
+            group_has_passing = False
+            group_passed_conditions = []
+            group_failed_conditions = []
 
             for condition in group_conditions:
                 passed, details = await self.evaluate_single_condition(
                     user_id, condition
                 )
                 if passed:
-                    passed_conditions.append(details)
-                    group_passed = True
+                    group_has_passing = True
+                    group_passed_conditions.append(details)
                 else:
-                    failed_conditions.append(details)
+                    group_failed_conditions.append(details)
 
-            # For OR groups, if at least one passed, remove failed ones from this group
-            # from the failed_conditions list
-            if group_passed:
-                failed_conditions = [
-                    f for f in failed_conditions
-                    if f["condition_id"] not in {c.id for c in group_conditions}
-                ]
+            # Store result for this OR group
+            or_group_results[group_id] = group_has_passing
+
+            if group_has_passing:
+                # At least one passed - add passed conditions to the main list
+                # Also add failed conditions for reporting (they're still failed even if group passed)
+                passed_conditions.extend(group_passed_conditions)
+                failed_conditions.extend(group_failed_conditions)
             else:
-                # None passed in this OR group - mark all as failed
-                pass
+                # None passed in this OR group - the entire reward is not eligible
+                all_or_groups_passed = False
+                # Add all failed conditions from this group
+                failed_conditions.extend(group_failed_conditions)
 
-        eligible = len(failed_conditions) == 0
+        # Eligible if: group 0 passed AND all OR groups have at least one passing condition
+        eligible = group_0_passed and all_or_groups_passed
+
         return eligible, passed_conditions, failed_conditions
 
     # ===== EVENT-DRIVEN CHECKING =====

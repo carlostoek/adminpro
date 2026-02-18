@@ -457,6 +457,321 @@ class TestRewardConditionsLogic:
         assert len(passed) == 0
         assert len(failed) == 0
 
+    async def test_evaluate_reward_only_group_0_pure_and(self, reward_service, test_session, test_user):
+        """Reward with only group 0 (pure AND) - all must pass."""
+        profile = UserGamificationProfile(
+            user_id=test_user.user_id,
+            total_earned=500,
+            level=3,
+            total_spent=100
+        )
+        test_session.add(profile)
+
+        reward = Reward(
+            name="Pure AND Reward",
+            reward_type=RewardType.BESITOS,
+            reward_value={"amount": 50},
+            is_active=True
+        )
+        test_session.add(reward)
+        await test_session.flush()
+
+        # Add 3 conditions in group 0 (all must pass)
+        cond1 = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.TOTAL_POINTS,
+            condition_value=300,  # User has 500 - passes
+            condition_group=0
+        )
+        cond2 = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.LEVEL_REACHED,
+            condition_value=2,  # User is level 3 - passes
+            condition_group=0
+        )
+        cond3 = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.BESITOS_SPENT,
+            condition_value=200,  # User spent 100 - fails
+            condition_group=0
+        )
+        test_session.add_all([cond1, cond2, cond3])
+        await test_session.flush()
+
+        await test_session.refresh(reward, ['conditions'])
+
+        eligible, passed, failed = await reward_service.evaluate_reward_conditions(
+            test_user.user_id, reward
+        )
+
+        assert eligible is False  # One condition failed
+        assert len(passed) == 2
+        assert len(failed) == 1
+
+    async def test_evaluate_reward_groups_0_and_1_and_plus_or(self, reward_service, test_session, test_user):
+        """Reward with groups 0 and 1 (AND + OR) - group 0 all pass, group 1 at least one."""
+        profile = UserGamificationProfile(
+            user_id=test_user.user_id,
+            total_earned=1000,
+            level=5
+        )
+        test_session.add(profile)
+
+        reward = Reward(
+            name="AND + OR Reward",
+            reward_type=RewardType.BESITOS,
+            reward_value={"amount": 50},
+            is_active=True
+        )
+        test_session.add(reward)
+        await test_session.flush()
+
+        # Group 0: AND condition (must pass)
+        cond_and = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.TOTAL_POINTS,
+            condition_value=500,  # User has 1000 - passes
+            condition_group=0
+        )
+
+        # Group 1: OR conditions (at least one must pass)
+        cond_or1 = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.LEVEL_REACHED,
+            condition_value=10,  # User is level 5 - fails
+            condition_group=1
+        )
+        cond_or2 = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.LEVEL_REACHED,
+            condition_value=3,  # User is level 5 - passes
+            condition_group=1
+        )
+        test_session.add_all([cond_and, cond_or1, cond_or2])
+        await test_session.flush()
+
+        await test_session.refresh(reward, ['conditions'])
+
+        eligible, passed, failed = await reward_service.evaluate_reward_conditions(
+            test_user.user_id, reward
+        )
+
+        assert eligible is True  # AND passed, OR group has at least one pass
+        assert len(passed) == 2  # cond_and and cond_or2
+        assert len(failed) == 1  # cond_or1
+
+    async def test_evaluate_reward_only_group_1_pure_or(self, reward_service, test_session, test_user):
+        """Reward with only group 1 (pure OR) - at least one must pass."""
+        profile = UserGamificationProfile(
+            user_id=test_user.user_id,
+            total_earned=100,
+            level=2
+        )
+        test_session.add(profile)
+
+        reward = Reward(
+            name="Pure OR Reward",
+            reward_type=RewardType.BESITOS,
+            reward_value={"amount": 50},
+            is_active=True
+        )
+        test_session.add(reward)
+        await test_session.flush()
+
+        # Group 1: OR conditions (at least one must pass)
+        cond1 = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.TOTAL_POINTS,
+            condition_value=500,  # User has 100 - fails
+            condition_group=1
+        )
+        cond2 = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.LEVEL_REACHED,
+            condition_value=5,  # User is level 2 - fails
+            condition_group=1
+        )
+        cond3 = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.LEVEL_REACHED,
+            condition_value=1,  # User is level 2 - passes
+            condition_group=1
+        )
+        test_session.add_all([cond1, cond2, cond3])
+        await test_session.flush()
+
+        await test_session.refresh(reward, ['conditions'])
+
+        eligible, passed, failed = await reward_service.evaluate_reward_conditions(
+            test_user.user_id, reward
+        )
+
+        assert eligible is True  # At least one in OR group passed
+        assert len(passed) == 1  # Only cond3
+        assert len(failed) == 2  # cond1 and cond2
+
+    async def test_evaluate_reward_or_group_all_failed(self, reward_service, test_session, test_user):
+        """Edge case: OR group with all conditions failed - reward not eligible."""
+        profile = UserGamificationProfile(
+            user_id=test_user.user_id,
+            total_earned=100,
+            level=2
+        )
+        test_session.add(profile)
+
+        reward = Reward(
+            name="OR All Failed Reward",
+            reward_type=RewardType.BESITOS,
+            reward_value={"amount": 50},
+            is_active=True
+        )
+        test_session.add(reward)
+        await test_session.flush()
+
+        # Group 0: AND condition (passes)
+        cond_and = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.TOTAL_POINTS,
+            condition_value=50,  # User has 100 - passes
+            condition_group=0
+        )
+
+        # Group 1: OR conditions (all fail)
+        cond_or1 = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.LEVEL_REACHED,
+            condition_value=5,  # User is level 2 - fails
+            condition_group=1
+        )
+        cond_or2 = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.LEVEL_REACHED,
+            condition_value=10,  # User is level 2 - fails
+            condition_group=1
+        )
+        test_session.add_all([cond_and, cond_or1, cond_or2])
+        await test_session.flush()
+
+        await test_session.refresh(reward, ['conditions'])
+
+        eligible, passed, failed = await reward_service.evaluate_reward_conditions(
+            test_user.user_id, reward
+        )
+
+        assert eligible is False  # OR group has no passing condition
+        assert len(passed) == 1  # Only cond_and from group 0
+        assert len(failed) == 2  # Both OR conditions failed
+
+    async def test_evaluate_reward_empty_or_group_passes_automatically(self, reward_service, test_session, test_user):
+        """Empty OR group should pass automatically (neutral)."""
+        profile = UserGamificationProfile(
+            user_id=test_user.user_id,
+            total_earned=1000,
+            level=5
+        )
+        test_session.add(profile)
+
+        reward = Reward(
+            name="Empty OR Group Reward",
+            reward_type=RewardType.BESITOS,
+            reward_value={"amount": 50},
+            is_active=True
+        )
+        test_session.add(reward)
+        await test_session.flush()
+
+        # Group 0: AND condition (passes)
+        cond_and = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.TOTAL_POINTS,
+            condition_value=500,  # User has 1000 - passes
+            condition_group=0
+        )
+
+        # Group 1: Empty OR group (no conditions - should pass automatically)
+        # Note: We intentionally don't add any conditions for group 1
+
+        test_session.add(cond_and)
+        await test_session.flush()
+
+        await test_session.refresh(reward, ['conditions'])
+
+        eligible, passed, failed = await reward_service.evaluate_reward_conditions(
+            test_user.user_id, reward
+        )
+
+        assert eligible is True  # Group 0 passed, empty OR group passes automatically
+        assert len(passed) == 1  # Only cond_and from group 0
+        assert len(failed) == 0  # No failures
+
+    async def test_evaluate_reward_multiple_or_groups_all_must_have_one(self, reward_service, test_session, test_user):
+        """Multiple OR groups - each group must have at least one passing condition."""
+        profile = UserGamificationProfile(
+            user_id=test_user.user_id,
+            total_earned=1000,
+            level=5,
+            total_spent=200
+        )
+        test_session.add(profile)
+
+        reward = Reward(
+            name="Multiple OR Groups Reward",
+            reward_type=RewardType.BESITOS,
+            reward_value={"amount": 50},
+            is_active=True
+        )
+        test_session.add(reward)
+        await test_session.flush()
+
+        # Group 0: AND condition (passes)
+        cond_and = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.TOTAL_POINTS,
+            condition_value=500,  # User has 1000 - passes
+            condition_group=0
+        )
+
+        # Group 1: OR conditions (at least one passes)
+        cond_or1_a = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.LEVEL_REACHED,
+            condition_value=10,  # User is level 5 - fails
+            condition_group=1
+        )
+        cond_or1_b = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.LEVEL_REACHED,
+            condition_value=3,  # User is level 5 - passes
+            condition_group=1
+        )
+
+        # Group 2: OR conditions (none pass - this should make reward ineligible)
+        cond_or2_a = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.BESITOS_SPENT,
+            condition_value=500,  # User spent 200 - fails
+            condition_group=2
+        )
+        cond_or2_b = RewardCondition(
+            reward_id=reward.id,
+            condition_type=RewardConditionType.BESITOS_SPENT,
+            condition_value=1000,  # User spent 200 - fails
+            condition_group=2
+        )
+
+        test_session.add_all([cond_and, cond_or1_a, cond_or1_b, cond_or2_a, cond_or2_b])
+        await test_session.flush()
+
+        await test_session.refresh(reward, ['conditions'])
+
+        eligible, passed, failed = await reward_service.evaluate_reward_conditions(
+            test_user.user_id, reward
+        )
+
+        assert eligible is False  # Group 2 has no passing condition
+        assert len(passed) == 2  # cond_and and cond_or1_b
+        assert len(failed) == 3  # cond_or1_a, cond_or2_a, cond_or2_b
+
 
 class TestEventDrivenChecking:
     """Test event-driven reward checking."""

@@ -23,8 +23,11 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.container import ServiceContainer
-from bot.database.enums import ContentTier, ContentType
+from bot.database.enums import ContentTier, ContentType, TransactionType
+from bot.database.models import ShopProduct, UserContentAccess
 from bot.middlewares import DatabaseMiddleware
+from datetime import datetime
+from sqlalchemy import update as sa_update, delete as sa_delete
 
 logger = logging.getLogger(__name__)
 
@@ -774,13 +777,43 @@ async def shop_purchase_handler(
         await callback.answer("❌ Error al procesar la compra", show_alert=True)
 
 
+def _get_delivery_error_with_refund_message(product_name: str) -> str:
+    """
+    Mensaje de error en entrega con notificación de reembolso.
+
+    Args:
+        product_name: Nombre del producto
+
+    Returns:
+        Mensaje con voz de Lucien informando del reembolso
+    """
+    return f"""{_get_lucien_header()}
+
+<i>Ha ocurrido un inconveniente técnico al entregar su contenido.</i>
+
+🎁 <b>{product_name}</b>
+
+💰 <b>Su saldo ha sido restaurado completamente.</b>
+
+<i>Por favor, inténtelo nuevamente más tarde o contacte a Diana si el problema persiste.</i>"""
+
+
 @shop_router.callback_query(F.data.startswith("shop_confirm:"))
 async def shop_confirm_purchase_handler(
     callback: CallbackQuery,
     state: FSMContext,
     container: ServiceContainer
 ) -> None:
-    """Execute confirmed purchase."""
+    """
+    Execute confirmed purchase with atomic delivery and automatic refund.
+
+    Flow:
+    1. Validate purchase (product exists, user has balance, etc.)
+    2. Spend besitos (atomic operation)
+    3. Create access record
+    4. Deliver content
+    5. If delivery fails: refund besitos automatically
+    """
     user_id = callback.from_user.id
 
     try:
@@ -793,47 +826,208 @@ async def shop_confirm_purchase_handler(
         user_role_obj = await container.role_detection.get_user_role(user_id)
         user_role = user_role_obj.value
 
-        # Execute purchase
-        success, status, result = await container.shop.purchase_product(
+        # Step 1: Validate purchase (without spending)
+        can_purchase, reason, details = await container.shop.validate_purchase(
             user_id=user_id,
             product_id=product_id,
-            user_role=user_role,
-            force_repurchase=force_repurchase
+            user_role=user_role
         )
 
-        if success and result:
-            # Purchase successful - deliver content
-            product = result["product"]
-            content_set = result["content_set"]
-            file_ids = result["file_ids"]
-            price_paid = result["price_paid"]
+        if not can_purchase:
+            # Handle validation errors
+            error_reason = "No se pudo completar la compra"
+            if reason == "insufficient_funds":
+                error_reason = "Fondos insuficientes"
+            elif reason == "already_owned":
+                error_reason = "Ya posee este contenido"
+            elif reason == "vip_only":
+                error_reason = "Contenido exclusivo VIP"
+            elif reason == "product_not_found":
+                error_reason = "Producto no encontrado"
+            elif reason == "product_inactive":
+                error_reason = "Producto no disponible"
 
-            # Check for unlocked rewards after purchase
-            unlocked_rewards = await container.reward.check_rewards_on_event(
+            text = _get_purchase_error_message(error_reason)
+            await callback.message.edit_text(text=text, parse_mode="HTML")
+            await callback.answer("❌ Compra fallida", show_alert=True)
+            return
+
+        product = details["product"]
+        price_to_pay = details["price_to_pay"]
+        is_owned = details["is_owned"]
+
+        # Check for duplicate purchase
+        if is_owned and not force_repurchase:
+            text = _get_repurchase_confirmation_message(product.name)
+            keyboard = get_repurchase_confirmation_keyboard(product_id)
+            await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+            await callback.answer()
+            return
+
+        # Step 2: Spend besitos (atomic)
+        spend_success, spend_msg, transaction = await container.wallet.spend_besitos(
+            user_id=user_id,
+            amount=price_to_pay,
+            transaction_type=TransactionType.SPEND_SHOP,
+            reason=f"Purchase product #{product_id}: {product.name}",
+            metadata={
+                "product_id": product_id,
+                "content_set_id": product.content_set_id,
+                "is_repurchase": is_owned
+            }
+        )
+
+        if not spend_success:
+            logger.warning(f"Purchase failed for user {user_id}: {spend_msg}")
+            error_reason = "Error en el procesamiento de pago"
+            if spend_msg == "insufficient_funds":
+                error_reason = "Fondos insuficientes"
+            elif spend_msg == "no_profile":
+                error_reason = "Perfil no encontrado"
+
+            text = _get_purchase_error_message(error_reason)
+            await callback.message.edit_text(text=text, parse_mode="HTML")
+            await callback.answer("❌ Compra fallida", show_alert=True)
+            return
+
+        # Step 3: Create access record (database operation)
+        access_record = UserContentAccess(
+            user_id=user_id,
+            content_set_id=product.content_set_id,
+            shop_product_id=product.id,
+            access_type="shop_purchase",
+            besitos_paid=price_to_pay,
+            is_active=True,
+            accessed_at=datetime.utcnow(),
+            access_metadata={
+                "product_name": product.name,
+                "is_repurchase": is_owned
+            }
+        )
+        container.shop.session.add(access_record)
+
+        # Update purchase count
+        await container.shop.session.execute(
+            sa_update(ShopProduct)
+            .where(ShopProduct.id == product_id)
+            .values(purchase_count=ShopProduct.purchase_count + 1)
+        )
+        await container.shop.session.flush()
+
+        # Get file_ids for delivery
+        file_ids = product.content_set.file_ids if product.content_set else []
+        content_type = product.content_set.content_type.value if product.content_set else "mixed"
+
+        # Step 4: Deliver content (outside DB transaction)
+        delivery_success = True
+        delivery_error = None
+        try:
+            await deliver_purchased_content(
+                bot=callback.bot,
                 user_id=user_id,
-                event_type="purchase_completed",
-                event_data={"product_id": product_id, "price_paid": price_paid}
+                file_ids=file_ids,
+                content_type=content_type
             )
+        except Exception as e:
+            delivery_success = False
+            delivery_error = e
+            logger.error(f"❌ Content delivery failed for user {user_id}, product {product_id}: {e}", exc_info=True)
 
-            # Build success message
-            base_text = _get_purchase_success_message(
-                name=product.name,
-                price=price_paid,
-                file_count=len(file_ids)
-            )
-
-            # Build keyboard
-            keyboard_buttons = []
-
-            # If rewards unlocked, add grouped notification
-            if unlocked_rewards:
-                notification = container.reward.build_reward_notification(
-                    unlocked_rewards,
-                    event_context="purchase"
+        # Step 5: If delivery failed, refund automatically
+        if not delivery_success:
+            try:
+                # Refund besitos using admin_credit (system refund)
+                refund_success, refund_msg, refund_tx = await container.wallet.admin_credit(
+                    user_id=user_id,
+                    amount=price_to_pay,
+                    reason="reembolso_automatico_fallo_entrega",
+                    admin_id=0  # System admin ID
                 )
 
-                # Combine messages
-                combined_text = f"""{_get_lucien_header()}
+                if refund_success:
+                    logger.error(
+                        f"🔄 Automatic refund executed for user {user_id}: {price_to_pay} besitos "
+                        f"(product {product_id}, reason: delivery failure)"
+                    )
+                else:
+                    logger.critical(
+                        f"🚨 REFUND FAILED for user {user_id}: {price_to_pay} besitos "
+                        f"(product {product_id}, refund error: {refund_msg}). "
+                        f"Manual intervention required!"
+                    )
+
+            except Exception as refund_error:
+                logger.critical(
+                    f"🚨 REFUND EXCEPTION for user {user_id}: {price_to_pay} besitos "
+                    f"(product {product_id}, error: {refund_error}). "
+                    f"Manual intervention required!"
+                )
+
+            # Step 5b: Rollback database changes (atomic transaction cleanup)
+            try:
+                # Delete the UserContentAccess record created for this purchase
+                await container.shop.session.execute(
+                    sa_delete(UserContentAccess)
+                    .where(
+                        UserContentAccess.user_id == user_id,
+                        UserContentAccess.shop_product_id == product_id,
+                        UserContentAccess.access_type == "shop_purchase"
+                    )
+                )
+
+                # Revert the purchase_count increment on the product
+                await container.shop.session.execute(
+                    sa_update(ShopProduct)
+                    .where(ShopProduct.id == product_id)
+                    .values(purchase_count=ShopProduct.purchase_count - 1)
+                )
+
+                await container.shop.session.flush()
+                logger.info(
+                    f"🗑️ Rolled back purchase record for user {user_id}, product {product_id} "
+                    f"(UserContentAccess deleted, purchase_count reverted)"
+                )
+            except Exception as rollback_error:
+                logger.critical(
+                    f"🚨 ROLLBACK FAILED for user {user_id}, product {product_id}: {rollback_error}. "
+                    f"Database may be in inconsistent state!"
+                )
+
+            # Notify user of error and refund
+            text = _get_delivery_error_with_refund_message(product.name)
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(
+                    text="🛍️ Volver a la tienda",
+                    callback_data="shop_catalog"
+                )]
+            ])
+            await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+            await callback.answer("❌ Error en entrega - Saldo restaurado", show_alert=True)
+            return
+
+        # Delivery successful - continue with rewards and success message
+        price_paid = price_to_pay
+
+        # Check for unlocked rewards after purchase
+        unlocked_rewards = await container.reward.check_rewards_on_event(
+            user_id=user_id,
+            event_type="purchase_completed",
+            event_data={"product_id": product_id, "price_paid": price_paid}
+        )
+
+        # Build success message
+        base_text = _get_purchase_success_message(
+            name=product.name,
+            price=price_paid,
+            file_count=len(file_ids)
+        )
+
+        # Build keyboard
+        keyboard_buttons = []
+
+        # If rewards unlocked, add grouped notification
+        if unlocked_rewards:
+            combined_text = f"""{_get_lucien_header()}
 
 <i>Excelente elección...</i>
 
@@ -845,64 +1039,40 @@ async def shop_confirm_purchase_handler(
 
 ✨ <b>Nuevas Recompensas Desbloqueadas:</b>
 """
-                for reward_info in unlocked_rewards:
-                    reward = reward_info["reward"]
-                    combined_text += f"• {reward.name}\n"
+            for reward_info in unlocked_rewards:
+                reward = reward_info["reward"]
+                combined_text += f"• {reward.name}\n"
 
-                combined_text += "\n<i>Su adquisición abre nuevas puertas.</i>"
+            combined_text += "\n<i>Su adquisición abre nuevas puertas.</i>"
 
-                # Add claim rewards button
-                keyboard_buttons.append([InlineKeyboardButton(
-                    text="🏆 Reclamar Recompensas",
-                    callback_data="my_rewards"
-                )])
-
-                text = combined_text
-            else:
-                text = base_text
-
-            # Add continue button
+            # Add claim rewards button
             keyboard_buttons.append([InlineKeyboardButton(
-                text="🛍️ Continuar comprando",
-                callback_data="shop_catalog"
+                text="🏆 Reclamar Recompensas",
+                callback_data="my_rewards"
             )])
 
-            keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-
-            await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
-
-            # Deliver content
-            await deliver_purchased_content(
-                bot=callback.bot,
-                user_id=user_id,
-                file_ids=file_ids,
-                content_type=content_set.content_type.value if content_set else "mixed"
-            )
-
-            await callback.answer("✅ ¡Compra completada!")
-
-            logger.info(f"✅ User {user_id} purchased product {product_id}: {product.name}")
-
-            if unlocked_rewards:
-                logger.info(
-                    f"✅ User {user_id} unlocked {len(unlocked_rewards)} rewards from purchase"
-                )
-
+            text = combined_text
         else:
-            # Purchase failed
-            error_reason = "No se pudo completar la compra"
-            if status == "insufficient_funds":
-                error_reason = "Fondos insuficientes"
-            elif status == "already_owned":
-                error_reason = "Ya posee este contenido"
-            elif status == "vip_only":
-                error_reason = "Contenido exclusivo VIP"
-            elif status == "payment_failed":
-                error_reason = "Error en el procesamiento de pago"
+            text = base_text
 
-            text = _get_purchase_error_message(error_reason)
-            await callback.message.edit_text(text=text, parse_mode="HTML")
-            await callback.answer("❌ Compra fallida", show_alert=True)
+        # Add continue button
+        keyboard_buttons.append([InlineKeyboardButton(
+            text="🛍️ Continuar comprando",
+            callback_data="shop_catalog"
+        )])
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+
+        await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+
+        await callback.answer("✅ ¡Compra completada!")
+
+        logger.info(f"✅ User {user_id} purchased product {product_id}: {product.name}")
+
+        if unlocked_rewards:
+            logger.info(
+                f"✅ User {user_id} unlocked {len(unlocked_rewards)} rewards from purchase"
+            )
 
     except Exception as e:
         logger.error(f"❌ Error confirmando compra: {e}", exc_info=True)

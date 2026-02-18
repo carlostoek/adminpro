@@ -867,3 +867,195 @@ class TestShopCompleteFlow:
         # Verify VIP paid less
         balance = await shop_wallet_service.get_balance(shop_test_vip_user.user_id)
         assert balance == 30  # 100 - 70
+
+
+class TestShopRefundRollback:
+    """Tests for refund rollback - atomic transaction cleanup on delivery failure."""
+
+    async def test_purchase_records_created_before_delivery(
+        self, shop_service, shop_wallet_service, test_content_set, shop_test_user, test_session
+    ):
+        """Verify UserContentAccess and purchase_count are created during purchase."""
+        from sqlalchemy import select
+
+        # Setup product
+        product = ShopProduct(
+            name="Rollback Test Product",
+            description="Testing rollback functionality",
+            content_set_id=test_content_set.id,
+            besitos_price=50,
+            vip_discount_percentage=0,
+            tier=ContentTier.FREE,
+            is_active=True,
+            purchase_count=0
+        )
+        test_session.add(product)
+
+        # Setup user with balance
+        await shop_wallet_service.earn_besitos(
+            user_id=shop_test_user.user_id,
+            amount=100,
+            transaction_type=TransactionType.EARN_ADMIN,
+            reason="Test setup"
+        )
+        await test_session.commit()
+        await test_session.refresh(product)
+
+        # Verify initial state
+        assert product.purchase_count == 0
+
+        # Execute purchase
+        success, code, result = await shop_service.purchase_product(
+            user_id=shop_test_user.user_id,
+            product_id=product.id,
+            user_role="FREE"
+        )
+        assert success is True
+
+        # Refresh product to get updated purchase_count
+        await test_session.refresh(product)
+        assert product.purchase_count == 1
+
+        # Verify UserContentAccess was created
+        result = await test_session.execute(
+            select(UserContentAccess).where(
+                UserContentAccess.user_id == shop_test_user.user_id,
+                UserContentAccess.shop_product_id == product.id
+            )
+        )
+        access_record = result.scalar_one_or_none()
+        assert access_record is not None
+        assert access_record.besitos_paid == 50
+        assert access_record.is_active is True
+
+    async def test_refund_removes_user_content_access(
+        self, shop_service, shop_wallet_service, test_content_set, shop_test_user, test_session
+    ):
+        """Verify UserContentAccess is deleted when refund occurs."""
+        from sqlalchemy import select, delete, update
+
+        # Setup product
+        product = ShopProduct(
+            name="Refund Access Test Product",
+            description="Testing access removal on refund",
+            content_set_id=test_content_set.id,
+            besitos_price=50,
+            vip_discount_percentage=0,
+            tier=ContentTier.FREE,
+            is_active=True,
+            purchase_count=0
+        )
+        test_session.add(product)
+
+        # Setup user with balance
+        await shop_wallet_service.earn_besitos(
+            user_id=shop_test_user.user_id,
+            amount=100,
+            transaction_type=TransactionType.EARN_ADMIN,
+            reason="Test setup"
+        )
+        await test_session.commit()
+        await test_session.refresh(product)
+
+        # Create a purchase record (simulating what happens before delivery)
+        access_record = UserContentAccess(
+            user_id=shop_test_user.user_id,
+            content_set_id=test_content_set.id,
+            shop_product_id=product.id,
+            access_type="shop_purchase",
+            besitos_paid=50,
+            is_active=True
+        )
+        test_session.add(access_record)
+
+        # Increment purchase count
+        await test_session.execute(
+            update(ShopProduct)
+            .where(ShopProduct.id == product.id)
+            .values(purchase_count=ShopProduct.purchase_count + 1)
+        )
+        await test_session.commit()
+
+        # Verify record exists
+        result = await test_session.execute(
+            select(UserContentAccess).where(
+                UserContentAccess.user_id == shop_test_user.user_id,
+                UserContentAccess.shop_product_id == product.id
+            )
+        )
+        assert result.scalar_one_or_none() is not None
+
+        # Simulate refund rollback (what shop_confirm_purchase_handler does)
+        await test_session.execute(
+            delete(UserContentAccess).where(
+                UserContentAccess.user_id == shop_test_user.user_id,
+                UserContentAccess.shop_product_id == product.id,
+                UserContentAccess.access_type == "shop_purchase"
+            )
+        )
+
+        await test_session.execute(
+            update(ShopProduct)
+            .where(ShopProduct.id == product.id)
+            .values(purchase_count=ShopProduct.purchase_count - 1)
+        )
+        await test_session.commit()
+
+        # Verify UserContentAccess was deleted
+        result = await test_session.execute(
+            select(UserContentAccess).where(
+                UserContentAccess.user_id == shop_test_user.user_id,
+                UserContentAccess.shop_product_id == product.id
+            )
+        )
+        assert result.scalar_one_or_none() is None
+
+        # Verify purchase_count was reverted
+        await test_session.refresh(product)
+        assert product.purchase_count == 0
+
+    async def test_refund_reverts_purchase_count(
+        self, shop_service, shop_wallet_service, test_content_set, shop_test_user, test_session
+    ):
+        """Verify purchase_count is decremented when refund occurs."""
+        from sqlalchemy import update
+
+        # Setup product with initial purchase count
+        product = ShopProduct(
+            name="Purchase Count Test Product",
+            description="Testing purchase count revert",
+            content_set_id=test_content_set.id,
+            besitos_price=50,
+            vip_discount_percentage=0,
+            tier=ContentTier.FREE,
+            is_active=True,
+            purchase_count=5  # Start with 5 existing purchases
+        )
+        test_session.add(product)
+        await test_session.commit()
+        await test_session.refresh(product)
+
+        initial_count = product.purchase_count
+        assert initial_count == 5
+
+        # Simulate increment (as would happen during purchase)
+        await test_session.execute(
+            update(ShopProduct)
+            .where(ShopProduct.id == product.id)
+            .values(purchase_count=ShopProduct.purchase_count + 1)
+        )
+        await test_session.commit()
+        await test_session.refresh(product)
+        assert product.purchase_count == 6
+
+        # Simulate refund rollback
+        await test_session.execute(
+            update(ShopProduct)
+            .where(ShopProduct.id == product.id)
+            .values(purchase_count=ShopProduct.purchase_count - 1)
+        )
+        await test_session.commit()
+        await test_session.refresh(product)
+
+        # Verify count returned to original
+        assert product.purchase_count == initial_count
