@@ -203,6 +203,21 @@ class WalletService:
                 f"✅ User {user_id} earned {amount} besitos ({transaction_type.value}): {reason}"
             )
 
+            # Recalculate and update cached level
+            # Get current total_earned from profile (or use amount if new profile)
+            profile = await self.get_profile(user_id)
+            if profile is not None:
+                new_level = self._evaluate_level_formula(profile.total_earned, None)
+                if new_level != profile.level:
+                    await self.session.execute(
+                        update(UserGamificationProfile)
+                        .where(UserGamificationProfile.user_id == user_id)
+                        .values(level=new_level)
+                    )
+                    self.logger.info(
+                        f"✅ User {user_id} level updated: {profile.level} -> {new_level}"
+                    )
+
             return True, "earned", transaction
 
         except Exception as e:

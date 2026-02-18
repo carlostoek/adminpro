@@ -825,8 +825,9 @@ class UserReaction(Base):
 
     # Indexes for efficient queries
     __table_args__ = (
-        # Unique constraint: one reaction per user/content combination
-        Index('idx_user_content', 'user_id', 'content_id', unique=True),
+        # Unique constraint: one reaction per user/content/emoji combination
+        # This allows a user to react with different emojis to the same content
+        Index('idx_user_content_emoji', 'user_id', 'content_id', 'emoji', unique=True),
         # Index for "user's recent reactions" queries (rate limiting)
         Index('idx_user_reactions_recent', 'user_id', 'created_at'),
         # Index for "reactions to content" queries

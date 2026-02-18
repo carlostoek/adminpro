@@ -24,6 +24,7 @@ __pycache__/
 alembic/versions/*.py
 # But allow the initial migration (explicitly committed)
 !alembic/versions/20260129_050441_initial_schema_with_all_models.py
+!alembic/versions/20260217_000001_fix_reaction_unique_constraint_add_emoji.py
 
 # IDE
 .vscode/

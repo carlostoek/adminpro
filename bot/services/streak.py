@@ -16,7 +16,7 @@ import logging
 from datetime import datetime, date, timedelta
 from typing import Optional, Tuple, Dict, Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models import UserStreak
@@ -171,10 +171,11 @@ class StreakService:
             if now >= next_claim:
                 return True, "available"
 
-            # Calculate remaining time
+            # Calculate remaining time using total_seconds() for >24h support
             remaining = next_claim - now
-            hours = remaining.seconds // 3600
-            minutes = (remaining.seconds % 3600) // 60
+            remaining_seconds = remaining.total_seconds()
+            hours = int(remaining_seconds // 3600)
+            minutes = int((remaining_seconds % 3600) // 60)
 
             return False, f"next_claim_in_{hours}h_{minutes}m"
 
@@ -204,6 +205,10 @@ class StreakService:
         """
         Procesa el reclamo del regalo diario.
 
+        Usa UPDATE atómico con condición WHERE para prevenir race conditions
+        en reclamos concurrentes. Si el UPDATE no afecta filas, el usuario
+        ya reclamó hoy.
+
         Args:
             user_id: ID del usuario
 
@@ -219,53 +224,130 @@ class StreakService:
                     - longest_streak: int
                     - error: str (opcional, si falló)
         """
-        # Check if can claim
+        from bot.database.models import UserStreak
+
+        # First check if can claim to get proper error message (e.g., "next_claim_in_Xh_Ym")
         can_claim, status = await self.can_claim_daily_gift(user_id)
 
         if not can_claim:
+            # Return error with proper message from can_claim_daily_gift
+            # Get streak info for current streak values in error response
+            streak_info = await self._get_streak_for_claim(user_id)
+            longest_streak = streak_info[3] if streak_info else 0
+
             return False, {
                 "success": False,
-                "error": status,
+                "error": status,  # Contains "next_claim_in_Xh_Ym" or other status
                 "base_amount": 0,
                 "streak_bonus": 0,
                 "total": 0,
-                "new_streak": 0,
-                "longest_streak": 0
+                "new_streak": 0,  # Default for failed claim
+                "longest_streak": longest_streak
             }
 
-        # Get or create streak record
-        streak = await self._get_or_create_streak(user_id, StreakType.DAILY_GIFT)
+        # Get streak info first (for calculations)
+        streak_info = await self._get_streak_for_claim(user_id)
 
-        # Calculate streak
-        today = self._get_utc_date()
-
-        if streak.last_claim_date is None:
-            # First claim ever
+        if streak_info is None:
+            # No streak record exists yet - need to create one
+            streak = await self._get_or_create_streak(user_id, StreakType.DAILY_GIFT)
             new_streak = 1
         else:
-            last_claim = self._get_utc_date(streak.last_claim_date)
-            yesterday = today - timedelta(days=1)
+            streak_id, current_streak, last_claim_date, longest_streak = streak_info
 
-            if last_claim == yesterday:
-                # Consecutive day - increment streak
-                new_streak = streak.current_streak + 1
-            elif last_claim == today:
-                # Same day (shouldn't happen due to can_claim check)
+            # Calculate new streak value
+            today = self._get_utc_date()
+
+            if last_claim_date is None:
+                new_streak = 1
+            else:
+                last_claim = self._get_utc_date(last_claim_date)
+                yesterday = today - timedelta(days=1)
+
+                if last_claim == yesterday:
+                    new_streak = current_streak + 1
+                elif last_claim == today:
+                    # Should not happen due to can_claim check above, but handle anyway
+                    return False, {
+                        "success": False,
+                        "error": status,  # Use status from can_claim_daily_gift
+                        "base_amount": 0,
+                        "streak_bonus": 0,
+                        "total": 0,
+                        "new_streak": current_streak,
+                        "longest_streak": longest_streak
+                    }
+                else:
+                    new_streak = 1
+
+        # Calculate besitos before atomic update
+        base, bonus, total = self.calculate_streak_bonus(new_streak)
+        now = datetime.utcnow()
+        today_start = datetime.combine(self._get_utc_date(), datetime.min.time())
+
+        # ATOMIC UPDATE: Only succeeds if user hasn't claimed today
+        # This prevents race conditions from concurrent requests
+        if streak_info is not None:
+            # Update existing streak atomically
+            result = await self.session.execute(
+                update(UserStreak)
+                .where(
+                    UserStreak.user_id == user_id,
+                    UserStreak.streak_type == StreakType.DAILY_GIFT,
+                    # Atomic condition: last_claim_date must be before today
+                    (
+                        (UserStreak.last_claim_date < today_start) |
+                        (UserStreak.last_claim_date.is_(None))
+                    )
+                )
+                .values(
+                    current_streak=new_streak,
+                    last_claim_date=now,
+                    longest_streak=UserStreak.longest_streak if new_streak <= streak_info[3] else new_streak,
+                    updated_at=now
+                )
+            )
+
+            if result.rowcount == 0:
+                # Another concurrent request claimed first
                 return False, {
                     "success": False,
                     "error": "already_claimed",
                     "base_amount": 0,
                     "streak_bonus": 0,
                     "total": 0,
-                    "new_streak": streak.current_streak,
-                    "longest_streak": streak.longest_streak
+                    "new_streak": new_streak,
+                    "longest_streak": streak_info[3]
                 }
-            else:
-                # Missed a day - reset to 1
-                new_streak = 1
+        else:
+            # New streak - was created by _get_or_create_streak above
+            # Need to update it atomically
+            result = await self.session.execute(
+                update(UserStreak)
+                .where(
+                    UserStreak.user_id == user_id,
+                    UserStreak.streak_type == StreakType.DAILY_GIFT,
+                    UserStreak.last_claim_date.is_(None)
+                )
+                .values(
+                    current_streak=1,
+                    last_claim_date=now,
+                    longest_streak=1,
+                    updated_at=now
+                )
+            )
 
-        # Calculate besitos
-        base, bonus, total = self.calculate_streak_bonus(new_streak)
+            if result.rowcount == 0:
+                # Another concurrent request claimed first
+                return False, {
+                    "success": False,
+                    "error": "already_claimed",
+                    "base_amount": 0,
+                    "streak_bonus": 0,
+                    "total": 0,
+                    "new_streak": 0,
+                    "longest_streak": 0
+                }
 
         # Credit besitos via wallet service
         if self.wallet_service is not None:
@@ -292,18 +374,14 @@ class StreakService:
                     "streak_bonus": bonus,
                     "total": total,
                     "new_streak": new_streak,
-                    "longest_streak": streak.longest_streak
+                    "longest_streak": max(streak_info[3] if streak_info else 0, new_streak)
                 }
 
-        # Update streak record
-        streak.current_streak = new_streak
-        streak.last_claim_date = datetime.utcnow()
-
-        # Update longest streak if applicable
-        if new_streak > streak.longest_streak:
-            streak.longest_streak = new_streak
-
-        await self.session.flush()
+        # Refresh streak data for return
+        longest = max(
+            (streak_info[3] if streak_info else 0),
+            new_streak
+        )
 
         self.logger.info(
             f"✅ User {user_id} claimed daily gift: {total} besitos "
@@ -316,8 +394,42 @@ class StreakService:
             "streak_bonus": bonus,
             "total": total,
             "new_streak": new_streak,
-            "longest_streak": streak.longest_streak
+            "longest_streak": longest
         }
+
+    async def _get_streak_for_claim(
+        self,
+        user_id: int
+    ) -> Optional[Tuple[int, int, Optional[datetime], int]]:
+        """
+        Obtiene datos de racha para procesar reclamo.
+
+        Args:
+            user_id: ID del usuario
+
+        Returns:
+            Optional tuple: (id, current_streak, last_claim_date, longest_streak)
+            o None si no existe racha
+        """
+        from bot.database.models import UserStreak
+
+        result = await self.session.execute(
+            select(
+                UserStreak.id,
+                UserStreak.current_streak,
+                UserStreak.last_claim_date,
+                UserStreak.longest_streak
+            ).where(
+                UserStreak.user_id == user_id,
+                UserStreak.streak_type == StreakType.DAILY_GIFT
+            )
+        )
+        row = result.one_or_none()
+
+        if row is None:
+            return None
+
+        return (row.id, row.current_streak, row.last_claim_date, row.longest_streak)
 
     async def get_streak_info(
         self,
