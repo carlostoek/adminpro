@@ -154,6 +154,46 @@ class TokenStats:
         return data
 
 
+@dataclass
+class EconomyStats:
+    """Estadísticas de economía y gamificación."""
+
+    # Totals
+    total_besitos_circulation: int  # Sum of all balances
+    total_besitos_earned_lifetime: int  # Sum of total_earned
+    total_besitos_spent_lifetime: int  # Sum of total_spent
+
+    # Users
+    total_users_with_profile: int
+    active_users_this_week: int  # Users with transactions in last 7 days
+    active_users_this_month: int
+
+    # Averages
+    avg_balance: float
+    avg_total_earned: float
+
+    # Transactions
+    transactions_today: int
+    transactions_this_week: int
+    transactions_this_month: int
+    transactions_by_type: Dict[str, int]  # Count by TransactionType
+
+    # Top users
+    top_earners: List[Dict]  # [{user_id, total_earned, level}]
+    top_spenders: List[Dict]  # [{user_id, total_spent, level}]
+    top_balances: List[Dict]  # [{user_id, balance, level}]
+
+    # Levels distribution
+    level_distribution: Dict[int, int]  # {level: count}
+
+    calculated_at: datetime
+
+    def to_dict(self) -> Dict:
+        data = asdict(self)
+        data['calculated_at'] = self.calculated_at.isoformat()
+        return data
+
+
 class StatsService:
     """
     Service para calcular métricas y estadísticas del sistema.
@@ -705,6 +745,224 @@ class StatsService:
             )
         )
         return result.scalar() or 0
+
+    # ===== ECONOMY STATS =====
+
+    async def get_economy_stats(self, force_refresh: bool = False) -> EconomyStats:
+        """
+        Obtiene estadísticas de economía y gamificación.
+
+        Args:
+            force_refresh: Si True, ignora cache
+
+        Returns:
+            EconomyStats con métricas de economía
+        """
+        cache_key = "economy_stats"
+
+        if not force_refresh:
+            cached = self._get_from_cache(cache_key)
+            if cached:
+                return cached
+
+        logger.info("📊 Calculando estadísticas de economía...")
+
+        # Import models
+        from bot.database.models import UserGamificationProfile, Transaction, User
+
+        # Totals
+        total_circulation = await self._calculate_total_besitos_circulation()
+        total_earned = await self._calculate_total_besitos_earned()
+        total_spent = await self._calculate_total_besitos_spent()
+
+        # Users
+        total_profiles = await self._count_gamification_profiles()
+        active_week = await self._count_active_users(days=7)
+        active_month = await self._count_active_users(days=30)
+
+        # Averages
+        avg_balance = await self._calculate_avg_balance()
+        avg_earned = await self._calculate_avg_total_earned()
+
+        # Transactions
+        tx_today = await self._count_transactions_in_period(days=1)
+        tx_week = await self._count_transactions_in_period(days=7)
+        tx_month = await self._count_transactions_in_period(days=30)
+        tx_by_type = await self._count_transactions_by_type()
+
+        # Top users
+        top_earners = await self._get_top_earners(limit=5)
+        top_spenders = await self._get_top_spenders(limit=5)
+        top_balances = await self._get_top_balances(limit=5)
+
+        # Level distribution
+        level_dist = await self._get_level_distribution()
+
+        stats = EconomyStats(
+            total_besitos_circulation=total_circulation,
+            total_besitos_earned_lifetime=total_earned,
+            total_besitos_spent_lifetime=total_spent,
+            total_users_with_profile=total_profiles,
+            active_users_this_week=active_week,
+            active_users_this_month=active_month,
+            avg_balance=avg_balance,
+            avg_total_earned=avg_earned,
+            transactions_today=tx_today,
+            transactions_this_week=tx_week,
+            transactions_this_month=tx_month,
+            transactions_by_type=tx_by_type,
+            top_earners=top_earners,
+            top_spenders=top_spenders,
+            top_balances=top_balances,
+            level_distribution=level_dist,
+            calculated_at=datetime.utcnow()
+        )
+
+        self._set_cache(cache_key, stats)
+
+        logger.info(f"✅ Economy stats calculadas: {total_circulation} besitos en circulación")
+
+        return stats
+
+    # ===== ECONOMY STATS HELPERS =====
+
+    async def _calculate_total_besitos_circulation(self) -> int:
+        """Suma de todos los balances de usuarios."""
+        from bot.database.models import UserGamificationProfile
+        result = await self.session.execute(
+            select(func.sum(UserGamificationProfile.balance))
+        )
+        return result.scalar() or 0
+
+    async def _calculate_total_besitos_earned(self) -> int:
+        """Suma de total_earned lifetime."""
+        from bot.database.models import UserGamificationProfile
+        result = await self.session.execute(
+            select(func.sum(UserGamificationProfile.total_earned))
+        )
+        return result.scalar() or 0
+
+    async def _calculate_total_besitos_spent(self) -> int:
+        """Suma de total_spent lifetime."""
+        from bot.database.models import UserGamificationProfile
+        result = await self.session.execute(
+            select(func.sum(UserGamificationProfile.total_spent))
+        )
+        return result.scalar() or 0
+
+    async def _count_gamification_profiles(self) -> int:
+        """Cantidad de usuarios con perfil de gamificación."""
+        from bot.database.models import UserGamificationProfile
+        result = await self.session.execute(
+            select(func.count(UserGamificationProfile.id))
+        )
+        return result.scalar() or 0
+
+    async def _count_active_users(self, days: int) -> int:
+        """Usuarios con transacciones en los últimos X días."""
+        from bot.database.models import Transaction
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        result = await self.session.execute(
+            select(func.count(func.distinct(Transaction.user_id)))
+            .where(Transaction.created_at >= cutoff_date)
+        )
+        return result.scalar() or 0
+
+    async def _calculate_avg_balance(self) -> float:
+        """Balance promedio por usuario."""
+        from bot.database.models import UserGamificationProfile
+        result = await self.session.execute(
+            select(func.avg(UserGamificationProfile.balance))
+        )
+        return round(result.scalar() or 0, 2)
+
+    async def _calculate_avg_total_earned(self) -> float:
+        """Total earned promedio por usuario."""
+        from bot.database.models import UserGamificationProfile
+        result = await self.session.execute(
+            select(func.avg(UserGamificationProfile.total_earned))
+        )
+        return round(result.scalar() or 0, 2)
+
+    async def _count_transactions_in_period(self, days: int) -> int:
+        """Cantidad de transacciones en período."""
+        from bot.database.models import Transaction
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        result = await self.session.execute(
+            select(func.count(Transaction.id))
+            .where(Transaction.created_at >= cutoff_date)
+        )
+        return result.scalar() or 0
+
+    async def _count_transactions_by_type(self) -> Dict[str, int]:
+        """Conteo de transacciones por tipo."""
+        from bot.database.models import Transaction
+        result = await self.session.execute(
+            select(Transaction.type, func.count(Transaction.id))
+            .group_by(Transaction.type)
+        )
+        return {row[0].value: row[1] for row in result.all()}
+
+    async def _get_top_earners(self, limit: int = 5) -> List[Dict]:
+        """Top usuarios por total_earned."""
+        from bot.database.models import UserGamificationProfile
+        result = await self.session.execute(
+            select(
+                UserGamificationProfile.user_id,
+                UserGamificationProfile.total_earned,
+                UserGamificationProfile.level
+            )
+            .order_by(UserGamificationProfile.total_earned.desc())
+            .limit(limit)
+        )
+        return [
+            {"user_id": row[0], "total_earned": row[1], "level": row[2]}
+            for row in result
+        ]
+
+    async def _get_top_spenders(self, limit: int = 5) -> List[Dict]:
+        """Top usuarios por total_spent."""
+        from bot.database.models import UserGamificationProfile
+        result = await self.session.execute(
+            select(
+                UserGamificationProfile.user_id,
+                UserGamificationProfile.total_spent,
+                UserGamificationProfile.level
+            )
+            .order_by(UserGamificationProfile.total_spent.desc())
+            .limit(limit)
+        )
+        return [
+            {"user_id": row[0], "total_spent": row[1], "level": row[2]}
+            for row in result
+        ]
+
+    async def _get_top_balances(self, limit: int = 5) -> List[Dict]:
+        """Top usuarios por balance actual."""
+        from bot.database.models import UserGamificationProfile
+        result = await self.session.execute(
+            select(
+                UserGamificationProfile.user_id,
+                UserGamificationProfile.balance,
+                UserGamificationProfile.level
+            )
+            .order_by(UserGamificationProfile.balance.desc())
+            .limit(limit)
+        )
+        return [
+            {"user_id": row[0], "balance": row[1], "level": row[2]}
+            for row in result
+        ]
+
+    async def _get_level_distribution(self) -> Dict[int, int]:
+        """Distribución de usuarios por nivel."""
+        from bot.database.models import UserGamificationProfile
+        result = await self.session.execute(
+            select(UserGamificationProfile.level, func.count(UserGamificationProfile.id))
+            .group_by(UserGamificationProfile.level)
+            .order_by(UserGamificationProfile.level)
+        )
+        return {row[0]: row[1] for row in result}
 
     # ===== HELPER QUERIES - REVENUE =====
 

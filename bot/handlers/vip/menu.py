@@ -14,7 +14,7 @@ from typing import Dict, Any
 
 from aiogram.types import Message
 
-from bot.database.enums import ContentCategory
+from bot.database.enums import ContentCategory, StreakType
 
 logger = logging.getLogger(__name__)
 
@@ -86,12 +86,29 @@ async def show_vip_menu(message: Message, data: Dict[str, Any], user_id: int = N
     if container:
         session_ctx = container.message.get_session_context(container)
 
+    # Get streak info for daily gift display
+    streak_info = None
+    if container:
+        try:
+            streak_data = await container.streak.get_streak_info(
+                target_user_id,
+                StreakType.DAILY_GIFT
+            )
+            streak_info = {
+                "current_streak": streak_data.get("current_streak", 0),
+                "can_claim": streak_data.get("can_claim", False),
+                "next_claim_time": streak_data.get("next_claim_time")
+            }
+        except Exception as e:
+            logger.warning(f"Could not get streak info for {target_user_id}: {e}")
+
     # Generate Lucien-voiced menu message
     text, keyboard = container.message.user.menu.vip_menu_greeting(
         user_name=target_user_first_name,
         vip_expires_at=vip_expires_at,
         user_id=target_user_id,
-        session_history=session_ctx
+        session_history=session_ctx,
+        streak_info=streak_info
     )
 
     # Use edit_text when in edit_mode (for callback handlers), otherwise send new message

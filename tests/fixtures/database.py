@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy import text
 
 from bot.database.base import Base
-from bot.database.models import BotConfig, InvitationToken, User, SubscriptionPlan
+from bot.database.models import BotConfig, InvitationToken, User, SubscriptionPlan, UserStreak
 from bot.database.enums import UserRole
 
 

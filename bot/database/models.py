@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from bot.database.base import Base
-from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType
+from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType, TransactionType, StreakType, ContentType, ContentTier, RewardType, RewardConditionType, RewardStatus
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +68,19 @@ class BotConfig(Base):
     social_tiktok = Column(String(200), nullable=True)     # TikTok handle or URL
     social_x = Column(String(200), nullable=True)          # X/Twitter handle or URL
     free_channel_invite_link = Column(String(500), nullable=True)  # Stored invite link for Free channel
+
+    # Economy Configuration (Phase 19 - Wave 3)
+    level_formula = Column(String(255), default="floor(sqrt(total_earned / 100)) + 1")
+    besitos_per_reaction = Column(Integer, default=5)
+    besitos_daily_gift = Column(Integer, default=50)
+    besitos_daily_streak_bonus = Column(Integer, default=10)
+    max_reactions_per_day = Column(Integer, default=20)
+
+    # Streak Configuration (Phase 21)
+    besitos_daily_base = Column(Integer, default=20)  # Base besitos for daily claim
+    besitos_streak_bonus_per_day = Column(Integer, default=2)  # Bonus per streak day
+    besitos_streak_bonus_max = Column(Integer, default=50)  # Maximum streak bonus
+    streak_display_format = Column(String(50), default="🔥 {days} days")  # Display format
 
     def __repr__(self):
         return (
@@ -565,3 +578,938 @@ class ContentPackage(Base):
         Index('idx_content_category_active', 'category', 'is_active'),
         Index('idx_content_type_active', 'type', 'is_active'),
     )
+
+
+class UserGamificationProfile(Base):
+    """
+    Perfil de gamificación de usuario (sistema de economía).
+
+    Almacena el balance de besitos, estadísticas lifetime y nivel
+    del usuario en el sistema de gamificación.
+
+    Attributes:
+        id: ID único del perfil (Primary Key)
+        user_id: ID del usuario (Foreign Key, único)
+        balance: Besitos disponibles actualmente
+        total_earned: Total de besitos ganados (lifetime)
+        total_spent: Total de besitos gastados (lifetime)
+        level: Nivel actual (cached, recalculable)
+        created_at: Fecha de creación del perfil
+        updated_at: Última actualización
+
+    Relaciones:
+        user: Usuario asociado (1:1)
+
+    Notas:
+        - El balance puede calcularse como: total_earned - total_spent
+        - El nivel se cachea para queries rápidas de leaderboard
+        - Se crea automáticamente al registrar un nuevo usuario
+    """
+
+    __tablename__ = "user_gamification_profiles"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User relationship (1:1)
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+    user = relationship("User", uselist=False, lazy="selectin")
+
+    # Economy fields
+    balance = Column(Integer, nullable=False, default=0)
+    total_earned = Column(Integer, nullable=False, default=0)
+    total_spent = Column(Integer, nullable=False, default=0)
+    level = Column(Integer, nullable=False, default=1, index=True)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Index for leaderboard queries (ordered by level)
+        Index('idx_gamification_level_balance', 'level', 'balance'),
+    )
+
+    def calculate_level(self, formula: str = "linear") -> int:
+        """
+        Calcula el nivel basado en total_earned.
+
+        Args:
+            formula: Fórmula de progresión ("linear" o "exponential")
+
+        Returns:
+            Nivel calculado (mínimo 1)
+
+        Fórmulas:
+            linear: level = 1 + (total_earned // 100)
+            exponential: level = 1 + floor(sqrt(total_earned / 50))
+        """
+        if formula == "linear":
+            # Cada 100 besitos = 1 nivel
+            return max(1, 1 + (self.total_earned // 100))
+        elif formula == "exponential":
+            # Progresión más lenta al inicio, más rápida después
+            import math
+            return max(1, 1 + int(math.sqrt(self.total_earned / 50)))
+        else:
+            # Default: linear
+            return max(1, 1 + (self.total_earned // 100))
+
+    def update_level(self, formula: str = "linear") -> int:
+        """
+        Actualiza el nivel cacheado y retorna el nuevo valor.
+
+        Args:
+            formula: Fórmula de progresión
+
+        Returns:
+            Nuevo nivel calculado
+        """
+        self.level = self.calculate_level(formula)
+        return self.level
+
+    @property
+    def next_level_threshold(self) -> int:
+        """
+        Retorna besitos necesarios para el siguiente nivel.
+
+        Returns:
+            Cantidad de besitos necesarios para subir de nivel
+        """
+        return (self.level * 100) - self.total_earned
+
+    def __repr__(self) -> str:
+        return (
+            f"<UserGamificationProfile(user_id={self.user_id}, "
+            f"balance={self.balance}, level={self.level})>"
+        )
+
+
+class Transaction(Base):
+    """
+    Registro de transacciones del sistema de economía.
+
+    Audit trail completo de todos los movimientos de besitos.
+    Cada cambio de balance genera una transacción registrada.
+
+    Attributes:
+        id: ID único de la transacción (Primary Key)
+        user_id: ID del usuario afectado
+        amount: Cantidad de besitos (positivo = ganancia, negativo = gasto)
+        type: Tipo de transacción (TransactionType enum)
+        reason: Descripción legible de la transacción
+        metadata: Datos adicionales en JSON (admin_id, shop_item_id, etc.)
+        created_at: Fecha y hora de la transacción
+
+    Notas:
+        - amount > 0: Usuario recibió besitos (EARN_*)
+        - amount < 0: Usuario gastó besitos (SPEND_*)
+        - metadata permite trazabilidad completa
+        - Las transacciones NUNCA se borran (append-only)
+    """
+
+    __tablename__ = "transactions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User affected
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Transaction details
+    amount = Column(Integer, nullable=False)  # Positive = earn, negative = spend
+    type = Column(
+        Enum(TransactionType),
+        nullable=False,
+        index=True
+    )
+    reason = Column(String(255), nullable=False)  # Human readable description
+    transaction_metadata = Column(JSON, nullable=True)  # Extra data: {"admin_id": 123, "shop_item_id": 456}
+
+    # Timestamp
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Composite index for user transaction history (most recent first)
+        Index('idx_transaction_user_created', 'user_id', 'created_at'),
+        # Composite index for analytics by type
+        Index('idx_transaction_type_created', 'type', 'created_at'),
+        # Composite index for filtering by user and type
+        Index('idx_transaction_user_type', 'user_id', 'type'),
+    )
+
+    @property
+    def is_earn(self) -> bool:
+        """Retorna True si es una transacción de ganancia."""
+        return self.amount > 0
+
+    @property
+    def is_spend(self) -> bool:
+        """Retorna True si es una transacción de gasto."""
+        return self.amount < 0
+
+    @property
+    def formatted_amount(self) -> str:
+        """Retorna la cantidad formateada con signo."""
+        if self.amount > 0:
+            return f"+{self.amount}"
+        return str(self.amount)
+
+    def __repr__(self) -> str:
+        return (
+            f"<Transaction(id={self.id}, user_id={self.user_id}, "
+            f"amount={self.amount}, type={self.type.value})>"
+        )
+
+
+class UserReaction(Base):
+    """
+    Registro de reacciones de usuario a contenido de canales.
+
+    Cada reacción:
+    - Se vincula a un usuario y un mensaje de canal específico
+    - Usa un emoji específico (no duplicados por usuario/contenido/emoji)
+    - Registra timestamp para rate limiting y análisis
+
+    Attributes:
+        id: ID único de la reacción
+        user_id: ID del usuario que reaccionó
+        content_id: ID del mensaje de canal al que se reaccionó
+        emoji: Emoji usado para la reacción (ej: "❤️", "🔥")
+        channel_id: ID del canal donde está el contenido
+        created_at: Timestamp de la reacción
+
+    Constraints:
+        - Un usuario solo puede reaccionar una vez con cada emoji a un contenido
+        - Rate limiting: 30 segundos entre reacciones del mismo usuario
+        - Límite diario: configurable (default 20 reacciones/día)
+    """
+
+    __tablename__ = "user_reactions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User who reacted
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Content being reacted to (Telegram message ID in channel)
+    content_id = Column(BigInteger, nullable=False, index=True)
+    channel_id = Column(String(50), nullable=False, index=True)
+
+    # Reaction details
+    emoji = Column(String(10), nullable=False)  # Emoji used
+
+    # Timestamp
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Unique constraint: one reaction per user/content combination
+        Index('idx_user_content', 'user_id', 'content_id', unique=True),
+        # Index for "user's recent reactions" queries (rate limiting)
+        Index('idx_user_reactions_recent', 'user_id', 'created_at'),
+        # Index for "reactions to content" queries
+        Index('idx_content_reactions', 'channel_id', 'content_id', 'emoji'),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<UserReaction(id={self.id}, user_id={self.user_id}, "
+            f"content_id={self.content_id}, emoji={self.emoji})>"
+        )
+
+
+class UserStreak(Base):
+    """
+    Modelo de rachas de usuario para el sistema de gamificación.
+
+    Almacena el estado de rachas de usuarios para:
+    - Regalo diario: Días consecutivos reclamando el regalo diario
+    - Reacciones: Días consecutivos con al menos una reacción
+
+    Attributes:
+        id: ID único de la racha (Primary Key)
+        user_id: ID del usuario (Foreign Key a users.user_id)
+        streak_type: Tipo de racha (DAILY_GIFT o REACTION)
+        current_streak: Días consecutivos actuales
+        longest_streak: Récord máximo de días consecutivos
+        last_claim_date: Fecha UTC del último reclamo (para DAILY_GIFT)
+        last_reaction_date: Fecha UTC de la última reacción (para REACTION)
+        created_at: Fecha de creación del registro
+        updated_at: Última actualización
+
+    Constraints:
+        - Un usuario solo puede tener una racha de cada tipo
+        - Índice compuesto para leaderboards por tipo de racha
+    """
+
+    __tablename__ = "user_streaks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User relationship
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Streak type
+    streak_type = Column(
+        Enum(StreakType),
+        nullable=False,
+        index=True
+    )
+
+    # Streak counters
+    current_streak = Column(Integer, nullable=False, default=0)
+    longest_streak = Column(Integer, nullable=False, default=0)
+
+    # Last activity dates
+    last_claim_date = Column(DateTime, nullable=True)  # For DAILY_GIFT
+    last_reaction_date = Column(DateTime, nullable=True)  # For REACTION
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Unique constraint: one streak per user per type
+        Index('idx_user_streak_type', 'user_id', 'streak_type', unique=True),
+        # Composite index for leaderboards (ordered by current streak)
+        Index('idx_streak_type_current', 'streak_type', 'current_streak'),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<UserStreak(user_id={self.user_id}, type={self.streak_type.value}, "
+            f"current={self.current_streak}, longest={self.longest_streak})>"
+        )
+
+
+class ContentSet(Base):
+    """
+    Conjunto de contenido para el sistema de tienda.
+
+    Almacena múltiples archivos (file_ids de Telegram) como un conjunto
+    que puede ser vendido o regalado a través del sistema de tienda.
+
+    Attributes:
+        id: ID único del conjunto (Primary Key)
+        name: Nombre del conjunto (ej: "Pack Especial Febrero")
+        description: Descripción detallada del contenido
+        file_ids: Array de file_ids de Telegram para entrega
+        content_type: Tipo de contenido (photo_set, video, audio, mixed)
+        tier: Nivel de acceso (free, vip, premium, gift)
+        category: Categoría opcional (teaser, welcome, milestone, gift)
+        is_active: Si el conjunto está disponible
+        created_at: Fecha de creación
+        updated_at: Última actualización
+
+    Relaciones:
+        shop_products: Productos de tienda que venden este contenido
+        user_accesses: Registros de acceso de usuarios a este contenido
+    """
+
+    __tablename__ = "content_sets"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Basic info
+    name = Column(String(200), nullable=False)
+    description = Column(String(1000), nullable=True)
+
+    # Content storage (Telegram file_ids)
+    file_ids = Column(JSON, nullable=False, default=list)
+
+    # Classification
+    content_type = Column(
+        Enum(ContentType),
+        nullable=False,
+        default=ContentType.PHOTO_SET
+    )
+    tier = Column(
+        Enum(ContentTier),
+        nullable=False,
+        default=ContentTier.FREE
+    )
+    category = Column(String(50), nullable=True)  # teaser, welcome, milestone, gift
+
+    # State
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Relationships
+    shop_products = relationship(
+        "ShopProduct",
+        back_populates="content_set",
+        cascade="all, delete-orphan"
+    )
+    user_accesses = relationship(
+        "UserContentAccess",
+        back_populates="content_set",
+        cascade="all, delete-orphan"
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Composite index for filtering by tier and active status
+        Index('idx_content_set_tier_active', 'tier', 'is_active'),
+        # Composite index for filtering by type and active status
+        Index('idx_content_set_type_active', 'content_type', 'is_active'),
+    )
+
+    @property
+    def file_count(self) -> int:
+        """Retorna cantidad de archivos en el conjunto."""
+        return len(self.file_ids)
+
+    def __repr__(self) -> str:
+        return (
+            f"<ContentSet(id={self.id}, name='{self.name}', "
+            f"tier={self.tier}, files={self.file_count})>"
+        )
+
+
+class ShopProduct(Base):
+    """
+    Producto de la tienda del sistema.
+
+    Representa un item vendible en la tienda que está vinculado
+    a un ContentSet. Incluye precios para usuarios FREE y VIP
+    (con sistema de descuentos).
+
+    Attributes:
+        id: ID único del producto (Primary Key)
+        name: Nombre del producto en la tienda
+        description: Descripción de marketing
+        content_set_id: ID del ContentSet asociado
+        besitos_price: Precio en besitos para usuarios FREE
+        vip_discount_percentage: Porcentaje de descuento VIP (0-100)
+        vip_besitos_price: Precio VIP manual (opcional, auto-calculado si null)
+        tier: Quién puede comprar este producto
+        is_active: Si está disponible para compra
+        sort_order: Orden en el catálogo
+        purchase_count: Contador de compras (analytics)
+        created_at: Fecha de creación
+        updated_at: Última actualización
+
+    Relaciones:
+        content_set: ContentSet vinculado
+        purchase_records: Registros de compra de usuarios
+    """
+
+    __tablename__ = "shop_products"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Basic info
+    name = Column(String(200), nullable=False)
+    description = Column(String(1000), nullable=True)
+
+    # Content relationship
+    content_set_id = Column(
+        Integer,
+        ForeignKey("content_sets.id"),
+        nullable=False
+    )
+
+    # Pricing
+    besitos_price = Column(Integer, nullable=False)
+    vip_discount_percentage = Column(Integer, nullable=False, default=0)
+    vip_besitos_price = Column(Integer, nullable=True)
+
+    # Access control
+    tier = Column(
+        Enum(ContentTier),
+        nullable=False,
+        default=ContentTier.FREE
+    )
+
+    # State and ordering
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+
+    # Analytics
+    purchase_count = Column(Integer, nullable=False, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Relationships
+    content_set = relationship(
+        "ContentSet",
+        back_populates="shop_products",
+        lazy="selectin"
+    )
+    purchase_records = relationship(
+        "UserContentAccess",
+        back_populates="shop_product",
+        cascade="all, delete-orphan"
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Composite index for active products by tier
+        Index('idx_shop_product_active_tier', 'is_active', 'tier'),
+        # Index for price sorting
+        Index('idx_shop_product_price', 'besitos_price'),
+        # Index for catalog ordering
+        Index('idx_shop_product_sort', 'sort_order'),
+    )
+
+    @property
+    def vip_price(self) -> int:
+        """
+        Retorna precio VIP calculado.
+
+        Si vip_besitos_price está seteado, lo retorna.
+        Si no, calcula besitos_price * (100 - vip_discount_percentage) // 100.
+        """
+        if self.vip_besitos_price is not None:
+            return self.vip_besitos_price
+        discount = self.besitos_price * self.vip_discount_percentage // 100
+        return self.besitos_price - discount
+
+    @property
+    def has_vip_discount(self) -> bool:
+        """Retorna True si tiene descuento VIP."""
+        return self.vip_discount_percentage > 0
+
+    def __repr__(self) -> str:
+        return (
+            f"<ShopProduct(id={self.id}, name='{self.name}', "
+            f"price={self.besitos_price}, vip_price={self.vip_price})>"
+        )
+
+
+class UserContentAccess(Base):
+    """
+    Registro de acceso de usuario a contenido.
+
+    Este modelo rastrea qué contenido ha recibido cada usuario
+    y cómo lo obtuvo (compra, regalo, recompensa, narrativa).
+
+    Attributes:
+        id: ID único del registro (Primary Key)
+        user_id: ID del usuario (Foreign Key a users)
+        content_set_id: ID del ContentSet (Foreign Key)
+        shop_product_id: ID del ShopProduct (null si fue regalo/recompensa)
+        access_type: Tipo de acceso (shop_purchase, reward_claim, gift, narrative)
+        besitos_paid: Cantidad pagada (null para regalos gratuitos)
+        is_active: Si puede re-descargar el contenido
+        accessed_at: Fecha de primera recepción
+        expires_at: Fecha de expiración (opcional)
+        access_metadata: Datos adicionales JSON
+
+    Relaciones:
+        user: Usuario que tiene acceso
+        content_set: ContentSet al que tiene acceso
+        shop_product: Producto de tienda (si aplica)
+
+    Constraints:
+        - Un usuario solo puede tener un registro por ContentSet
+    """
+
+    __tablename__ = "user_content_access"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User relationship
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Content relationship
+    content_set_id = Column(
+        Integer,
+        ForeignKey("content_sets.id"),
+        nullable=False,
+        index=True
+    )
+
+    # Shop product (null if received via reward/gift)
+    shop_product_id = Column(
+        Integer,
+        ForeignKey("shop_products.id"),
+        nullable=True
+    )
+
+    # Access details
+    access_type = Column(String(50), nullable=False)  # shop_purchase, reward_claim, gift, narrative
+    besitos_paid = Column(Integer, nullable=True)  # null for free rewards
+
+    # State
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    # Timestamps
+    accessed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+
+    # Metadata for extensibility
+    access_metadata = Column(JSON, nullable=True)  # reward_id, gift_from_user_id, etc.
+
+    # Relationships
+    user = relationship("User", uselist=False, lazy="selectin")
+    content_set = relationship(
+        "ContentSet",
+        back_populates="user_accesses",
+        lazy="selectin"
+    )
+    shop_product = relationship(
+        "ShopProduct",
+        back_populates="purchase_records",
+        lazy="selectin"
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Unique constraint: one access record per user/content combination
+        Index('idx_user_content_access_user_content', 'user_id', 'content_set_id', unique=True),
+        # Composite index for user access type queries
+        Index('idx_user_content_access_type', 'user_id', 'access_type'),
+        # Composite index for user access date queries
+        Index('idx_user_content_access_date', 'user_id', 'accessed_at'),
+    )
+
+    @property
+    def is_purchased(self) -> bool:
+        """Retorna True si fue comprado en la tienda."""
+        return self.access_type == "shop_purchase"
+
+    @property
+    def is_reward(self) -> bool:
+        """Retorna True si fue obtenido como recompensa."""
+        return self.access_type == "reward_claim"
+
+    @property
+    def is_expired(self) -> bool:
+        """Retorna True si el acceso ha expirado."""
+        if self.expires_at is None:
+            return False
+        return self.expires_at < datetime.utcnow()
+
+    def __repr__(self) -> str:
+        return (
+            f"<UserContentAccess(id={self.id}, user={self.user_id}, "
+            f"content={self.content_set_id}, type={self.access_type})>"
+        )
+
+
+class Reward(Base):
+    """
+    Recompensa del sistema de logros.
+
+    Representa una recompensa que los usuarios pueden desbloquear
+    cumpliendo ciertas condiciones. Puede ser de diferentes tipos:
+    besitos, contenido, insignia o extensión VIP.
+
+    Attributes:
+        id: ID único de la recompensa (Primary Key)
+        name: Nombre de la recompensa
+        description: Descripción detallada
+        reward_type: Tipo de recompensa (RewardType enum)
+        reward_value: Datos JSON específicos del tipo de recompensa
+        is_repeatable: Si se puede reclamar múltiples veces
+        is_secret: Si está oculta hasta desbloquearse
+        claim_window_hours: Horas disponibles para reclamar tras desbloqueo
+        is_active: Si está disponible en el sistema
+        sort_order: Orden de visualización
+        created_at: Fecha de creación
+        updated_at: Última actualización
+
+    Relaciones:
+        conditions: Lista de condiciones para desbloquear (RewardCondition)
+        user_rewards: Registros de usuarios con esta recompensa (UserReward)
+
+    Ejemplos de reward_value:
+        - BESITOS: {"amount": 100}
+        - CONTENT: {"content_set_id": 123}
+        - BADGE: {"badge_name": "streak_master", "emoji": "🔥"}
+        - VIP_EXTENSION: {"days": 7}
+    """
+
+    __tablename__ = "rewards"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Basic info
+    name = Column(String(200), nullable=False)
+    description = Column(String(1000), nullable=True)
+
+    # Reward type and value
+    reward_type = Column(
+        Enum(RewardType),
+        nullable=False
+    )
+    reward_value = Column(JSON, nullable=False, default=dict)
+
+    # Behavior flags
+    is_repeatable = Column(Boolean, nullable=False, default=False)
+    is_secret = Column(Boolean, nullable=False, default=False)
+    claim_window_hours = Column(Integer, nullable=False, default=168)  # 7 days
+
+    # State and ordering
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Relationships
+    conditions = relationship(
+        "RewardCondition",
+        back_populates="reward",
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
+    user_rewards = relationship(
+        "UserReward",
+        back_populates="reward",
+        cascade="all, delete-orphan"
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Composite index for active rewards by type
+        Index('idx_reward_active_type', 'is_active', 'reward_type'),
+        # Index for display ordering
+        Index('idx_reward_sort', 'sort_order'),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Reward(id={self.id}, name='{self.name}', "
+            f"type={self.reward_type.value}, active={self.is_active})>"
+        )
+
+
+class RewardCondition(Base):
+    """
+    Condición para desbloquear una recompensa.
+
+    Cada condición representa un requisito que debe cumplirse
+    para que un usuario desbloquee la recompensa asociada.
+
+    Attributes:
+        id: ID único de la condición (Primary Key)
+        reward_id: ID de la recompensa (Foreign Key)
+        condition_type: Tipo de condición (RewardConditionType enum)
+        condition_value: Valor numérico para comparación (opcional)
+        condition_group: Grupo para lógica OR (0 = AND, >0 = OR)
+        sort_order: Orden de evaluación
+        created_at: Fecha de creación
+
+    Relaciones:
+        reward: Recompensa asociada
+
+    Lógica de grupos:
+        - Grupo 0: Todas las condiciones deben cumplirse (AND)
+        - Grupo 1, 2, etc.: Al menos una del grupo debe cumplirse (OR)
+    """
+
+    __tablename__ = "reward_conditions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Reward relationship
+    reward_id = Column(
+        Integer,
+        ForeignKey("rewards.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Condition details
+    condition_type = Column(
+        Enum(RewardConditionType),
+        nullable=False
+    )
+    condition_value = Column(Integer, nullable=True)  # Threshold value
+
+    # Logic grouping
+    condition_group = Column(Integer, nullable=False, default=0)
+    sort_order = Column(Integer, nullable=False, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    reward = relationship(
+        "Reward",
+        back_populates="conditions",
+        lazy="selectin"
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Index for reward conditions lookup
+        Index('idx_condition_reward', 'reward_id'),
+        # Index for condition type queries
+        Index('idx_condition_type', 'condition_type'),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<RewardCondition(id={self.id}, reward={self.reward_id}, "
+            f"type={self.condition_type.value}, group={self.condition_group})>"
+        )
+
+
+class UserReward(Base):
+    """
+    Registro de recompensa de usuario.
+
+    Rastrea el progreso y estado de una recompensa específica
+    para cada usuario. Incluye fechas de desbloqueo, reclamo
+    y conteo para recompensas repetibles.
+
+    Attributes:
+        id: ID único del registro (Primary Key)
+        user_id: ID del usuario (Foreign Key)
+        reward_id: ID de la recompensa (Foreign Key)
+        status: Estado actual (RewardStatus enum)
+        unlocked_at: Fecha de desbloqueo (cuando se cumplieron condiciones)
+        claimed_at: Fecha de reclamo
+        expires_at: Fecha de expiración del reclamo
+        claim_count: Cantidad de veces reclamada (para repetibles)
+        last_claimed_at: Última fecha de reclamo
+        created_at: Fecha de creación del registro
+        updated_at: Última actualización
+
+    Relaciones:
+        reward: Recompensa asociada
+
+    Constraints:
+        - Un usuario solo puede tener un registro por recompensa
+    """
+
+    __tablename__ = "user_rewards"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User relationship
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Reward relationship
+    reward_id = Column(
+        Integer,
+        ForeignKey("rewards.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Status tracking
+    status = Column(
+        Enum(RewardStatus),
+        nullable=False,
+        default=RewardStatus.LOCKED
+    )
+
+    # Timestamps
+    unlocked_at = Column(DateTime, nullable=True)
+    claimed_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+
+    # Repeatable tracking
+    claim_count = Column(Integer, nullable=False, default=0)
+    last_claimed_at = Column(DateTime, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow
+    )
+
+    # Relationships
+    reward = relationship(
+        "Reward",
+        back_populates="user_rewards",
+        lazy="selectin"
+    )
+
+    # Indexes and constraints
+    __table_args__ = (
+        # Unique constraint: one record per user-reward pair
+        Index('idx_user_reward_user_reward', 'user_id', 'reward_id', unique=True),
+        # Composite index for "my rewards" queries
+        Index('idx_user_reward_user_status', 'user_id', 'status'),
+        # Index for expiration processing
+        Index('idx_user_reward_unlocked', 'unlocked_at'),
+        # Index for finding expired rewards
+        Index('idx_user_reward_expires', 'expires_at'),
+    )
+
+    @property
+    def is_claimable(self) -> bool:
+        """Retorna True si la recompensa puede ser reclamada."""
+        if self.status != RewardStatus.UNLOCKED:
+            return False
+        if self.expires_at and self.expires_at < datetime.utcnow():
+            return False
+        return True
+
+    def __repr__(self) -> str:
+        return (
+            f"<UserReward(id={self.id}, user={self.user_id}, "
+            f"reward={self.reward_id}, status={self.status.value})>"
+        )

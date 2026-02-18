@@ -261,6 +261,9 @@ async def callback_broadcast_confirm(
 
     container = ServiceContainer(session, callback.bot)
 
+    # Nota: send_to_channel ahora incluye botones de reacción por defecto (add_reactions=True)
+    # Esto satisface REACT-01: Channel messages display inline reaction buttons
+
     # Determinar canales destino
     channels_to_send = []
 

@@ -34,6 +34,11 @@ alembic/versions/*.py
 # Logs
 *.log
 
+# Security Reports (CONFIDENTIAL - DO NOT COMMIT)
+docs/security/audit-reports/
+docs/security/*.md
+!docs/security/README.md
+
 # OS
 .DS_Store
 Thumbs.db
