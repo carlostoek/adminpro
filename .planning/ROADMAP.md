@@ -156,6 +156,7 @@ Plans:
 **Goal:** Users can claim daily rewards with streak bonuses
 **Requirements:** STREAK-01 through STREAK-07 (7 requirements)
 **Dependencies:** Phase 19 (WalletService)
+**Plans:** 4 plans
 **Status:** Complete — 2026-02-13
 
 **Success Criteria:**
@@ -167,7 +168,7 @@ Plans:
 6. ✅ Reaction streak tracks separately
 7. ✅ Background job runs at UTC midnight for streak expiration
 
-**Plans:**
+Plans:
 - [x] 21-01 — UserStreak database model with StreakType enum
 - [x] 21-02 — StreakService core logic (claim, bonus calculation, UTC boundaries)
 - [x] 21-03 — Reaction streak tracking integration
@@ -220,7 +221,7 @@ Plans:
 - [x] 23-03-PLAN.md — ServiceContainer integration and user handlers
 - [x] 23-04-PLAN.md — Comprehensive tests covering all REWARD requirements
 
-### Phase 24: Admin Configuration
+### Phase 24: Admin Configuration 🔄
 **Goal:** Admins can configure all gamification parameters
 **Requirements:** ADMIN-01 through ADMIN-08 (8 requirements)
 **Dependencies:** All previous phases
@@ -233,6 +234,12 @@ Plans:
 5. Admin can create conditions inline from reward flow
 6. Admin dashboard displays economy metrics
 7. Admin can view user's complete gamification profile
+
+**Gap Closure Plans:**
+- [ ] 24-06-PLAN.md — ContentSet CRUD handlers (fixes product creation blocker)
+- [ ] 24-07-PLAN.md — Reward delete error fix (TelegramBadRequest handling)
+- [ ] 24-08-PLAN.md — Economy stats menu button (missing navigation)
+- [ ] 24-09-PLAN.md — TransactionType enum fix (EARN_SHOP_REFUND missing)
 
 </details>
 
@@ -266,10 +273,10 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24
 | 21. Daily Rewards & Streaks | v2.0 | 7/7 | Complete | 2026-02-13 |
 | 22. Shop System | v2.0 | 4/4 | Complete | 2026-02-13 |
 | 23. Rewards System | v2.0 | 4/4 | Complete | 2026-02-14 |
-| 24. Admin Configuration | v2.0 | 5/5 | Complete | 2026-02-17 |
+| 24. Admin Configuration | v2.0 | 5/9 | Gap Closure | 2026-02-19 |
 
-**Overall Progress:** All phases complete — 68 v1.x plans + 29 v2.0 plans = 97 total (100%)
+**Overall Progress:** 97 plans complete + 4 gap closure plans = 101 total
 
 ---
 
-*Last updated: 2026-02-17 after v2.0 milestone completion*
+*Last updated: 2026-02-19 after gap closure planning*
