@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 24 - Admin Configuration 🔄 IN PROGRESS
-**Plan:** 24-08 Economy Stats Menu Button
+**Plan:** 24-06 ContentSet Management Handlers
 **Status:** v2.0 milestone complete
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
@@ -121,11 +121,12 @@ Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
 | 24-03 | ✅ COMPLETE | Reward Management Handlers - Reward creation with conditions wizard |
 | 24-04 | ✅ COMPLETE | Economy Stats Handlers - Global and per-user economy statistics |
 | 24-05 | ✅ COMPLETE | User Gamification Profile Viewer - Search and view complete user profiles |
+| 24-06 | ✅ COMPLETE | ContentSet Management Handlers - CRUD with FSM wizard for product creation |
 | 24-07 | ✅ COMPLETE | Fix Reward Delete Confirmation Dialog - TelegramBadRequest error handling |
 | 24-08 | ✅ COMPLETE | Economy Stats Menu Button - Added missing button to admin main menu |
 | 24-09 | ✅ COMPLETE | Add EARN_SHOP_REFUND to TransactionType enum - Fix AttributeError in transaction history |
 
-**Phase 24 Status:** 🔄 IN PROGRESS - 8/8 plans complete
+**Phase 24 Status:** 🔄 IN PROGRESS - 9/9 plans complete
 
 ### Pending Todos
 
@@ -462,17 +463,15 @@ None
 - **Shop Management Handlers (24-02)** - 6-step product creation wizard ✓
 - **Reward Management Handlers (24-03)** - Reward creation with conditions ✓
 - **Economy Stats Handlers (24-04)** - Global and per-user statistics ✓
-- **User Gamification Profile Viewer (24-05)** - Complete user profile with:
-  - Search by ID or username
-  - Economy profile (balance, earned, spent, level)
-  - Streak information (daily gift, reaction)
-  - Rewards status (unlocked, locked, claimed)
-  - Shop purchases with pagination
-  - Transaction history with pagination
-  - All using Lucien's voice (🎩)
+- **User Gamification Profile Viewer (24-05)** - Complete user profile with search, economy, streaks, rewards ✓
+- **ContentSet Management Handlers (24-06)** - CRUD with 6-step FSM wizard:
+  - ContentSet creation with file upload via forwarded messages
+  - List with pagination, detail view, toggle active, delete
+  - Support for photo, video, audio, voice extraction
+  - Lucien's voice (🎩) throughout
 
 ---
 
-*State updated: 2026-02-19 after Phase 24 Plan 09 completion*
+*State updated: 2026-02-20 after Phase 24 Plan 06 completion*
 *Milestone v2.0 (Gamification) Phase 24 IN PROGRESS - Admin configuration complete*
 *Next: Phase 25 - Final integration and testing*
