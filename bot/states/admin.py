@@ -311,3 +311,40 @@ class RewardConditionState(StatesGroup):
 class UserLookupState(StatesGroup):
     """States for user lookup flow."""
     waiting_for_user = State()
+
+
+class ContentSetCreateState(StatesGroup):
+    """
+    States for ContentSet creation flow.
+
+    Flujo de creación de ContentSet:
+    1. Admin selecciona "Gestionar ContentSets" → "Crear ContentSet"
+    2. Bot entra en waiting_for_name
+    3. Admin envía nombre del ContentSet
+    4. Bot entra en waiting_for_description
+    5. Admin envía descripción (opcional, /skip)
+    6. Bot entra en waiting_for_content_type
+    7. Admin selecciona tipo: [Fotos] [Video] [Audio] [Mixto]
+    8. Bot entra en waiting_for_tier
+    9. Admin selecciona tier: [FREE] [VIP] [PREMIUM] [GIFT]
+    10. Bot entera en waiting_for_files
+    11. Admin forwards one or more messages with media
+    12. Admin sends /done to finish uploading
+    13. Bot entra en waiting_for_confirmation
+    14. Admin confirma o cancela
+    15. Bot crea ContentSet y sale del estado
+
+    Estados:
+    - waiting_for_name: Nombre del ContentSet (requerido)
+    - waiting_for_description: Descripción (opcional)
+    - waiting_for_content_type: Tipo de contenido via botones
+    - waiting_for_tier: Tier via botones
+    - waiting_for_files: Recolectando file_ids de mensajes forwarded
+    - waiting_for_confirmation: Confirmación final
+    """
+    waiting_for_name = State()
+    waiting_for_description = State()
+    waiting_for_content_type = State()
+    waiting_for_tier = State()
+    waiting_for_files = State()
+    waiting_for_confirmation = State()
