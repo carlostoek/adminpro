@@ -17,6 +17,7 @@ import logging
 from typing import Optional
 
 from aiogram import Router, F
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select, func
@@ -709,7 +710,15 @@ async def callback_reward_delete(callback: CallbackQuery, session: AsyncSession)
         [{"text": "❌ No, cancelar", "callback_data": f"admin:reward:details:{reward.id}"}],
     ])
 
-    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    try:
+        await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    except TelegramBadRequest as e:
+        if "message is not modified" in str(e).lower():
+            # Message content identical, just answer callback
+            pass
+        else:
+            # Re-raise other Telegram errors
+            raise
     await callback.answer()
 
 

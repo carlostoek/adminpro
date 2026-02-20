@@ -243,6 +243,7 @@ class AdminMainMessages(BaseMessageProvider):
             [{"text": "⚙️ Calibración del Reino", "callback_data": "admin:config"}],
             [{"text": "💰 Planes de Suscripción", "callback_data": "admin:pricing"}],
             [{"text": "📈 Observaciones del Reino", "callback_data": "admin:stats"}],
+            [{"text": "📊 Métricas Economía", "callback_data": "admin:economy_stats"}],
         ])
 
     def _config_menu_keyboard(self) -> InlineKeyboardMarkup:
