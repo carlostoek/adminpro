@@ -11,7 +11,7 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Milestone:** v2.0 Gamification
 **Phase:** 24 - Admin Configuration 🔄 IN PROGRESS
-**Plan:** 24-05 User Gamification Profile Viewer
+**Plan:** 24-08 Economy Stats Menu Button
 **Status:** v2.0 milestone complete
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
@@ -120,8 +120,9 @@ Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
 | 24-03 | ✅ COMPLETE | Reward Management Handlers - Reward creation with conditions wizard |
 | 24-04 | ✅ COMPLETE | Economy Stats Handlers - Global and per-user economy statistics |
 | 24-05 | ✅ COMPLETE | User Gamification Profile Viewer - Search and view complete user profiles |
+| 24-08 | ✅ COMPLETE | Economy Stats Menu Button - Added missing button to admin main menu |
 
-**Phase 24 Status:** 🔄 IN PROGRESS - 5/5 plans complete
+**Phase 24 Status:** 🔄 IN PROGRESS - 6/6 plans complete
 
 ### Pending Todos
 
@@ -469,6 +470,6 @@ None
 
 ---
 
-*State updated: 2026-02-17 after Phase 24 Plan 05 completion*
+*State updated: 2026-02-19 after Phase 24 Plan 08 completion*
 *Milestone v2.0 (Gamification) Phase 24 IN PROGRESS - Admin configuration complete*
 *Next: Phase 25 - Final integration and testing*
