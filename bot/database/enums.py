@@ -290,6 +290,7 @@ class TransactionType(str, Enum):
         EARN_STREAK: Ganancia por mantener racha
         EARN_REWARD: Ganancia por completar logro/recompensa
         EARN_ADMIN: Ganancia otorgada por administrador
+        EARN_SHOP_REFUND: Reembolso de compra en tienda
         SPEND_SHOP: Gasto en tienda
         SPEND_ADMIN: Gasto por ajuste de administrador
     """
@@ -299,6 +300,7 @@ class TransactionType(str, Enum):
     EARN_STREAK = "EARN_STREAK"
     EARN_REWARD = "EARN_REWARD"
     EARN_ADMIN = "EARN_ADMIN"
+    EARN_SHOP_REFUND = "EARN_SHOP_REFUND"
     SPEND_SHOP = "SPEND_SHOP"
     SPEND_ADMIN = "SPEND_ADMIN"
 
@@ -315,6 +317,7 @@ class TransactionType(str, Enum):
             TransactionType.EARN_STREAK: "Racha",
             TransactionType.EARN_REWARD: "Recompensa",
             TransactionType.EARN_ADMIN: "Otorgado por Admin",
+            TransactionType.EARN_SHOP_REFUND: "Reembolso de Tienda",
             TransactionType.SPEND_SHOP: "Compra en Tienda",
             TransactionType.SPEND_ADMIN: "Ajuste por Admin"
         }
