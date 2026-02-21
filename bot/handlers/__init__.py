@@ -12,6 +12,7 @@ from aiogram import Dispatcher
 
 from bot.handlers.admin import admin_router
 from bot.handlers.user import user_router, free_join_router, vip_entry_router
+from bot.handlers.user.reactions import router as reaction_router
 from bot.handlers.vip import vip_callbacks_router
 from bot.handlers.free import free_callbacks_router
 
@@ -39,6 +40,7 @@ def register_all_handlers(dispatcher: Dispatcher) -> None:
     dispatcher.include_router(vip_entry_router)  # VIP entry flow (Phase 13)
     dispatcher.include_router(vip_callbacks_router)  # VIP menu callbacks
     dispatcher.include_router(free_callbacks_router)  # Free menu callbacks
+    dispatcher.include_router(reaction_router)  # Reaction system (Phase 20)
 
     logger.info("Handlers registrados correctamente")
 

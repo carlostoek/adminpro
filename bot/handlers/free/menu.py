@@ -16,6 +16,8 @@ from typing import Dict, Any
 
 from aiogram.types import Message
 
+from bot.database.enums import StreakType
+
 logger = logging.getLogger(__name__)
 
 
@@ -87,12 +89,28 @@ async def show_free_menu(message: Message, data: Dict[str, Any], user_id: int = 
         except Exception as e:
             logger.warning(f"No se pudo obtener contexto de sesión para {target_user_id}: {e}")
 
+        # Get streak info for daily gift display
+        streak_info = None
+        try:
+            streak_data = await container.streak.get_streak_info(
+                target_user_id,
+                StreakType.DAILY_GIFT
+            )
+            streak_info = {
+                "current_streak": streak_data.get("current_streak", 0),
+                "can_claim": streak_data.get("can_claim", False),
+                "next_claim_time": streak_data.get("next_claim_time")
+            }
+        except Exception as e:
+            logger.warning(f"Could not get streak info for {target_user_id}: {e}")
+
         # Generar mensaje y teclado usando UserMenuProvider
         text, keyboard = container.message.user.menu.free_menu_greeting(
             user_name=target_user_first_name or "visitante",
             free_queue_position=free_queue_position,
             user_id=target_user_id,
-            session_history=session_ctx
+            session_history=session_ctx,
+            streak_info=streak_info
         )
 
         # Use edit_text when in edit_mode (for callback handlers), otherwise send new message

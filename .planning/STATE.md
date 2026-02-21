@@ -2,128 +2,126 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-01)
+See: .planning/PROJECT.md (updated 2026-02-08)
 
 **Core value:** Consistencia absoluta en la voz de Lucien: cada mensaje del bot debe sonar elegante, misterioso y natural viniendo del mayordomo, sin importar que handler o flujo lo invoque.
-**Current focus:** Planning v1.3 (Redis Caching) - Run `/gsd:new-milestone` to start
+**Current focus:** v2.0 Gamification - Economy Foundation (Phase 19)
 
 ## Current Position
 
-
-Phase: 18 of 18 (Admin Test Runner & Performance Profiling)
-Plan: 4 of 4 in current phase
-Status: Complete - Phase 18 finished
-Last activity: 2026-02-07 — Completed quick task 011: Corregir vulnerabilidades ALTA-004 y ALTA-006
+**Milestone:** v2.0 Gamification
+**Phase:** 24 - Admin Configuration 🔄 IN PROGRESS
+**Plan:** 24-05 User Gamification Profile Viewer
+**Status:** v2.0 milestone complete
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
-Phase: v1.2 complete (Phases 14-18 shipped 2026-01-30)
-Status: ✅ SHIPPED - Production-ready deployment infrastructure
-Last activity: 2026-02-01 — Milestone v1.2 archived
+### Progress Bar
 
-Progress: [████████████████████] 100% (v1.2) | Ready for v1.3 planning
+```
+Phase 19: [██████████] 100% - Economy Foundation ✅
+Phase 20: [██████████] 100% - Reaction System ✅
+Phase 21: [██████████] 100% - Daily Rewards & Streaks ✅ COMPLETE
+Phase 22: [██████████] 100% - Shop System ✅ COMPLETE
+Phase 23: [██████████] 100% - Rewards System ✅ COMPLETE
+Phase 24: [██████░░░░] 60% - Admin Configuration 🔄
+
+Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
+```
 
 ## Performance Metrics
 
-**Velocity:**
-- Total plans completed: 62
+**Historical Velocity:**
+- Total plans completed: 68
 - Average duration: ~10.6 min
 - Total execution time: ~15.5 hours
 
-**By Phase:**
+**By Milestone:**
 
-| Phase | Plans | Total Time | Avg/Plan |
-|-------|-------|------------|----------|
+| Milestone | Plans | Total Time | Avg/Plan |
+|-----------|-------|------------|----------|
 | v1.0 (Phases 1-4) | 14 | ~2 hours | ~8.6 min |
 | v1.1 (Phases 5-13) | 48 | ~10.2 hours | ~12.8 min |
-| v1.2 (Phase 14) | 4 | ~25 min | ~6.3 min |
-| v1.2 (Phase 15) | 5 | ~35 min | ~7.0 min |
-| v1.2 (Phase 16) | 5 | ~2 hours | ~24 min |
+| v1.2 (Phases 14-18) | 21 | ~3.5 hours | ~10 min |
+| v2.0 (Phases 19-24) | 5 | ~55 min | ~11 min |
 
-**Recent Trend:**
-- Last 5 plans: Phase 16 complete (Testing Infrastructure)
-- Trend: Stable with comprehensive test infrastructure
+**v1.2 Baseline:**
+- Total lines of code: ~177,811 Python
+- Bot directory: ~24,328 lines
+- Services: 14
+- Tests: 212 passing
+
+**v2.0 Current:**
+- New services: 5/5 integrated (WalletService ✓, ReactionService ✓, StreakService ✓, ShopService ✓, RewardService)
+- Shop handlers: Catalog, detail, purchase, history with Lucien's voice ✓
+- Shop menu integration: 🛍️ Tienda button in VIP and Free menus ✓
+- Shop tests: 26 tests covering SHOP-01 through SHOP-08 ✓
+- New models: 10/10+ (UserGamificationProfile ✓, Transaction ✓, UserReaction ✓, UserStreak ✓, ContentSet ✓, ShopProduct ✓, UserContentAccess ✓, Reward ✓, RewardCondition ✓, UserReward ✓)
+- Requirements: 40/43 (all ECON + all REACT + all STREAK + all SHOP + all REWARD complete)
+- Tests: 377 passing (165 new economy/reaction/streak tests)
 
 ## Accumulated Context
 
-### Decisions
+### Key Architectural Decisions (v2.0)
 
-See PROJECT.md Key Decisions table for full decision log.
+| Decision | Rationale | Status |
+|----------|-----------|--------|
+| Botones inline para reacciones | Telegram no expone reacciones nativas en canales | **Fully Implemented** |
+| Tienda solo con besitos | Separar economía virtual de dinero real | Pending |
+| Configuración en cascada | Evitar fragmentación que complica UX admin | Pending |
+| Rachas se reinician | Mecánica simple, fácil de entender | **Implemented** |
+| Niveles por puntos totales | Progresión clara y medible | **Implemented** |
+| Atomic transaction pattern | UPDATE SET col = col + delta for thread-safety | **Implemented** |
+| transaction_metadata field | Avoid SQLAlchemy reserved 'metadata' name | **Implemented** |
+| FSM for economy config | Consistent with existing admin handlers pattern | **Implemented** |
+| Safe formula evaluation | Regex validation + restricted eval for level formulas | **Implemented** |
+| Admin credit/debit | EARN_ADMIN/SPEND_ADMIN with audit metadata | **Implemented** |
+| Economy config in BotConfig | level_formula, besitos_per_reaction, etc. | **Implemented** |
 
-**v1.2 Key Decisions:**
-- Phase 14: PostgreSQL migration with Alembic for production deployment
-- Phase 14: Database abstraction layer for SQLite/PostgreSQL switching via DATABASE_URL
-- Phase 14: Auto-inject drivers when URL lacks them (sqlite:// -> sqlite+aiosqlite://)
-- Phase 14: QueuePool for PostgreSQL (pool_size=5, max_overflow=10)
-- Phase 14: NullPool for SQLite (no pooling needed)
-- Phase 14: PRAGMA optimizations only applied to SQLite connections
-- Phase 14: Alembic configured with async engine and dialect detection (14-02a)
-- Phase 14: Initial migration generated with all 9 models (14-02b)
-- Phase 14: .gitignore strategy: ignore all migrations, allow initial baseline (14-02b)
-- Phase 14: Helper script (scripts/migrate.py) for manual migration operations (14-02b)
-- Phase 14: Timestamp-based migration naming (YYYYMMDD_HHMMSS_slug.py) for chronological ordering
-- Phase 14: compare_type=True enabled for type compatibility across dialects (DBMIG-06)
-- Phase 14: Auto-migration on production startup via ENV=production (14-03)
-- Phase 14: Fail-fast behavior on migration failure prevents bot startup (14-03)
-- Phase 14: Rollback procedures documented in docs/ROLLBACK.md (DBMIG-07)
-- Phase 15: FastAPI health check endpoint for Railway monitoring
-- Phase 15: Railway deployment preparation (NOT execution - deployment in v1.3+)
-- Phase 15-01: uvicorn without [standard] extra due to uvloop build failure on Termux ARM
-- Phase 15-02: Concurrent execution of bot and health API using asyncio tasks (15-02 complete)
-- Phase 15-02: Shared event loop pattern for bot and FastAPI server (15-02 complete)
-- Phase 15-02: Graceful shutdown with 5-second timeout for health API (15-02 complete)
-- Phase 15-03: Railway.toml deployment configuration with health check monitoring (15-03 complete)
-- Phase 15-03: Multi-stage Docker build with non-root user for security (15-03 complete)
-- Phase 15-03: Health check timeout of 300s allows time for DB migrations on Railway (15-03 complete)
-- Phase 15-03: .dockerignore for optimized Docker builds excluding dev artifacts (15-03 complete)
-- Phase 15-04: WEBHOOK_MODE defaults to "polling" for local development (no breaking changes)
-- Phase 15-04: validate_required_vars() returns (is_valid, missing_vars) tuple for detailed error reporting
-- Phase 15-04: WEBHOOK_SECRET is optional but logged as warning when missing in webhook mode (15-04 complete)
-- Phase 15-04: Health check API works independently of bot mode (starts in both polling and webhook)
-- Phase 15-04: Environment variable validation with clear error messages for missing/invalid variables
-- Phase 15-04: Webhook/polling mode switching infrastructure in place (15-04 complete)
-- Phase 15-05: Graceful shutdown fix with reduced aiohttp and polling timeouts (15-05 complete)
-- Phase 15-05: AiohttpSession timeout reduced from 120s to 10s for responsive Ctrl+C (15-05 complete)
-- Phase 15-05: start_polling timeout reduced from 30s to 10s for responsive shutdown (15-05 complete)
-- Phase 15-05: Enhanced shutdown logging with progress messages and timeout expectations (15-05 complete)
-- Phase 15-05: Bot now responds to Ctrl+C within 1-2 seconds (was 150 seconds) (15-05 complete)
-- Phase 15-05: No orphaned processes after shutdown; immediate restart capability (15-05 complete)
-- Phase 16-01: pytest-asyncio configured with asyncio_mode=auto (no decorators needed)
-- Phase 16-02: Core test fixtures created (test_db, mock_bot, container, container_with_preload)
-- Phase 16-02: In-memory SQLite for isolated test databases
-- Phase 16-02: ServiceContainer fixture with dependency injection for tests
-- Phase 16-03: In-memory SQLite database with WAL mode and foreign keys
-- Phase 16-03: BotConfig singleton auto-seeding with test defaults
-- Phase 16-03: Database isolation verification tests (16 tests, 13 passing)
-- Phase 16-04: Transaction rollback isolation between tests (session.rollback())
-- Phase 16-04: 27 isolation verification tests (test_isolation.py, test_cleanup.py)
-- Phase 16-04: BotConfig singleton modifications properly rolled back between tests
-- Phase 16-05: Coverage reporting configured with pytest-cov and .coveragerc
-- Phase 16-05: Branch coverage enabled for thorough measurement
-- Phase 16-05: Coverage exclusions for tests, migrations, venv, scripts configured
-- Phase 16-05: HTML and XML coverage reports supported
-- Phase 16-05: scripts/coverage.py helper for convenient coverage runs
-- Phase 17-01: System startup tests with 44 tests covering database initialization, ServiceContainer lazy loading, BotConfig singleton, background tasks, configuration validation, and health checks
-- Phase 17-02: Menu system tests with 54 tests covering Admin/VIP/Free menus, role-based routing, FSM state management, callback navigation
-- Phase 17-03: Role detection and user management tests with 57 tests covering role priority (Admin > VIP > Free), stateless behavior, user operations, audit logging
-- Phase 17-04: VIP/Free flow tests and message provider tests with 57 tests covering token lifecycle, queue processing, all 13 message providers, Lucien voice consistency
-- Phase 17: Comprehensive test coverage for all critical flows (complete)
-- Phase 18-01: Admin test runner with CLI script and Telegram /run_tests command (complete)
-- Phase 18-02: Test reporting with coverage, trends, and multi-format output (complete)
-- Phase 18-03: Performance profiling with pyinstrument integration (complete)
-- Phase 18-04: SQLite to PostgreSQL migration script with validation and N+1 query detection (complete)
-- **v1.2: Redis caching DEFERRED to v1.3 (out of scope)**
+### Critical Implementation Notes
 
-**v1.1 Key Decisions:**
-- Role detection is stateless (no caching) - always recalculates from fresh sources
-- Priority order: Admin > VIP > Free (first match wins)
-- Numeric(10,2) instead of Float for price field (currency precision)
-- 5-minute debounce window for interest notifications
-- Content packages sorted by price (free first, then paid ascending)
-- In-memory pagination (10 items/page for content, 20 for users)
-- VIP entry flow uses plain text (no HTML) for dramatic narrative
-- 64-character unique tokens for VIP entry with 24h expiry
-- Eager loading (selectinload) for relationships to prevent MissingGreenlet errors
+**Atomic Transactions:**
+- Use `UPDATE SET col = col + delta` pattern for besito operations
+- Never read-modify-write; always atomic operations
+- Transaction audit trail required for every change
+
+**Anti-Exploit Measures:**
+- Reaction deduplication: one per user per content (regardless of emoji)
+- Rate limiting: 30-second cooldown between reactions
+- Daily limits: configurable per-user caps
+
+**Streak Calculation:**
+- UTC-based day boundaries
+- Background job at UTC midnight for expiration
+- No grace period for v2.0 (resets immediately)
+
+**Cascading Admin Flow:**
+- Nested FSM states for reward + condition creation
+- State data persistence across wizard steps
+- Inline condition creation without leaving flow
+
+### Phase Structure (v2.0)
+
+| Phase | Name | Requirements | Key Deliverable |
+|-------|------|--------------|-----------------|
+| 19 | Economy Foundation | 8 | WalletService, UserEconomy model |
+| 20 | Reaction System | 7 | ReactionService, inline buttons |
+| 21 | Daily Rewards & Streaks | 7 | StreakService, daily gift flow |
+| 22 | Shop System | 8 | ShopService, purchase flow |
+| 23 | Rewards System | 6 | RewardService, conditions |
+| 24 | Admin Configuration | 8 | Cascading admin UI |
+
+### Phase 24 Progress
+
+| Plan | Status | Description |
+|------|--------|-------------|
+| 24-01 | ✅ COMPLETE | Economy Configuration Handlers - 4 values configurable via FSM flow |
+| 24-02 | ✅ COMPLETE | Shop Management Handlers - Product creation FSM with 6-step wizard |
+| 24-03 | ✅ COMPLETE | Reward Management Handlers - Reward creation with conditions wizard |
+| 24-04 | ✅ COMPLETE | Economy Stats Handlers - Global and per-user economy statistics |
+| 24-05 | ✅ COMPLETE | User Gamification Profile Viewer - Search and view complete user profiles |
+
+**Phase 24 Status:** 🔄 IN PROGRESS - 5/5 plans complete
 
 ### Pending Todos
 
@@ -141,70 +139,336 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 005 | Eliminar usuario completamente del sistema | 2026-02-04 | a9af9b8 | [005-eliminar-usuario-completo](./quick/005-eliminar-usuario-completo/) |
-| 006 | Gestion masiva de solicitudes Free (aprobar/rechazar todas) | 2026-02-04 | ca321ce | [006-implementar-la-funcionalidad-para-proces](./quick/006-implementar-la-funcionalidad-para-proces/) |
-| 007 | Modificar flujo de aceptacion Free para usar callback | 2026-02-05 | 329cfba | [007-modificar-flujo-de-aceptacion-free-para-](./quick/007-modificar-flujo-de-aceptacion-free-para-/) |
-| 008 | Verificar CRUD para paquetes de contenido | 2026-02-06 | 8b459a7 | [008-implementar-funcionalidades-crud-para-el](./quick/008-implementar-funcionalidades-crud-para-el/) |
-| 009 | Agregar botones "Ver" en lista de paquetes | 2026-02-06 | aaa2f6b | [009-agregar-botones-ver-en-lista-de-paquetes](./quick/009-agregar-botones-ver-en-lista-de-paquetes/) |
-| 010 | Corregir vulnerabilidades críticas de seguridad | 2026-02-07 | 0297846 | [010-corregir-vulnerabilidades-criticas-seguridad](./quick/010-corregir-vulnerabilidades-criticas-seguridad/) |
-| 011 | Corregir vulnerabilidades ALTA-004 y ALTA-006 | 2026-02-07 | f9d5b0b | [011-corregir-vulnerabilidades-altas-004-006](./quick/011-corregir-vulnerabilidades-altas-004-006/) |
+| 006 | Gestion masiva de solicitudes Free (aprobar/rechazar todas) | 2026-02-04 | ca321ce | [quick/006](./quick/006-implementar-la-funcionalidad-para-proces/) |
+| 007 | Modificar flujo de aceptacion Free para usar callback | 2026-02-05 | 329cfba | [quick/007](./quick/007-modificar-flujo-de-aceptacion-free-para-/) |
+| 008 | Verificar CRUD para paquetes de contenido | 2026-02-06 | 8b459a7 | [quick/008](./quick/008-implementar-funcionalidades-crud-para-el/) |
+| 009 | Agregar botones "Ver" en lista de paquetes | 2026-02-06 | aaa2f6b | [quick/009](./quick/009-agregar-botones-ver-en-lista-de-paquetes/) |
+| 010 | Corregir vulnerabilidades críticas de seguridad | 2026-02-07 | 0297846 | [quick/010](./quick/010-corregir-vulnerabilidades-criticas-seguridad/) |
+| 011 | Corregir vulnerabilidades ALTA-004 y ALTA-006 | 2026-02-07 | f9d5b0b | [quick/011](./quick/011-corregir-vulnerabilidades-altas-004-006/) |
 
 ### Blockers/Concerns
 
-**Research Gaps to Address (from research/SUMMARY.md):**
-
-- **Phase 14:** Alembic auto-migration on startup patterns implemented. Best practice for running migrations in Railway deployment environment implemented with ENV=production detection.
-- **Phase 16:** aiogram FSM testing patterns with pytest-asyncio for aiogram 3.4.1 needs verification. Manual mocking approaches need validation.
-- **Phase 18:** pyinstrument validated for async code profiling. Statistical profiling with low overhead confirmed working.
-
-**Resolved in v1.1:**
-- Phase 5 gap: RoleDetectionMiddleware properly registered in main.py
-- Enum format mismatch: Fixed to use uppercase values
-- Interest notification NoneType error: Fixed with eager loading
-- MissingGreenlet error: Applied eager loading with selectinload()
-- Role change confirmation callback parsing: Fixed index checking
-
-**Phase 18-01 Key Decisions:**
-- Subprocess execution prevents test crashes from affecting the bot (asyncio.create_subprocess_exec)
-- Lock-based concurrency prevents multiple simultaneous test runs (asyncio.Lock)
-- HTML formatting for Telegram with automatic truncation at 4000 chars
-- Three admin commands: /run_tests, /test_status, /smoke_test
-
-**Phase 18-02 Key Decisions:**
-- Use async file operations for history to avoid blocking bot (asyncio.create_task)
-- Cache last test result in memory for failure detail retrieval
-- Generate HTML reports on-demand only (not by default)
-- Sanitize file paths to hide sensitive project structure
-- Store lightweight TestRunRecord in history (no full stdout)
-
-**Phase 18-03 Key Decisions:**
-- Use pyinstrument for statistical profiling (low overhead ~5-10%)
-- Gate profiling with PROFILE_HANDLERS env var for production safety
-- Support text, HTML (flame graphs), and JSON output formats
-- CLI script uses real database session for accurate profiling
-- SQLAlchemy event monitoring via before_cursor_execute/after_cursor_execute
-- MagicMock detection to avoid attaching events to mock sessions
-
-**Phase 18-04 Key Decisions:**
-- N+1 detection threshold: 5 similar queries (configurable via class constant)
-- Slow query threshold: 100ms (configurable via SLOW_QUERY_THRESHOLD)
-- Migration batch size: 100 rows per INSERT for memory efficiency
-- Debug mode: Opt-in parameter (not env var) for flexibility
-- Eager loading: Explicit methods (backward compatible, doesn't change defaults)
-- Migration validation: Row count verification for all tables
-- Query analysis: Context manager pattern for scoped monitoring
+None.
 
 ## Session Continuity
 
-Last session: 2026-02-07 (Quick Task 011 execution)
-Stopped at: Completed Quick Task 011 (Vulnerabilidades ALTA-004 y ALTA-006)
-Resume file: None
-Next: Ready for next quick task or v1.3 planning
+**Last session:** 2026-02-10 — Completed Phase 20 Plan 03: Reaction Callback Handlers
+**Stopped at:** Plan 20-03 complete, reaction handlers registered and tested
+**Next:** Phase 20 Plan 04: Channel Integration (posting content with reaction keyboards)
+
+### Wave 4 Summary
+- WalletService integrated into ServiceContainer with lazy loading
+- 90 new tests covering all economy functionality
+- All 8 ECON requirements explicitly verified
+- Test files:
+  - `tests/services/test_wallet.py` (35 tests)
+  - `tests/services/test_config_economy.py` (18 tests)
+  - `tests/economy/test_econ_requirements.py` (11 tests)
+
+### Open Questions
+
+1. **Economy tuning:** Exact besito values for reactions, daily gift, shop prices need validation
+2. **Streak grace period:** Confirm 0-hour grace for v2.0 (can add recovery in v2.1)
+3. **Reaction rate limit:** 30 seconds is conservative; may need tuning
+4. **Level formula:** Linear vs exponential progression needs decision
+
+### Quick Reference
+
+**Files:**
+- Roadmap: `.planning/ROADMAP.md`
+- Requirements: `.planning/REQUIREMENTS.md`
+- Research: `.planning/research/SUMMARY.md`
+
+**Starting Phase 19:**
+```bash
+# Create plan for Phase 19
+/gsd:plan-phase 19
+```
+
+**Key Services Created:**
+1. `bot/services/wallet.py` - WalletService ✓ (earn/spend/levels/transactions)
+   - Integrated into ServiceContainer ✓
+   - 35 comprehensive tests ✓
+   - All 8 ECON requirements verified ✓
+2. `bot/services/reaction.py` - ReactionService ✓ (reaction tracking, rate limiting)
+   - UserReaction model with deduplication ✓
+   - 30s cooldown, daily limits, VIP access control ✓
+   - Integration with WalletService for EARN_REACTION ✓
+   - ServiceContainer integration with lazy loading ✓
+   - Keyboard utilities for inline reaction buttons ✓
+   - Callback handlers for reaction button presses ✓
+   - Channel integration - automatic reaction buttons on all posts ✓
+   - 58 comprehensive tests (38 service + 20 handler) ✓
+   - All 7 REACT requirements verified ✓
+
+**Key Services Created:**
+3. `bot/services/streak.py` - StreakService ✓ (daily gift + reaction streaks)
+   - StreakService core with DAILY_GIFT and REACTION types ✓
+   - UTC-based day boundaries for global consistency ✓
+   - Base 20 + capped bonus (max 50) calculation ✓
+   - WalletService integration for automatic besitos crediting ✓
+   - 35 comprehensive tests ✓
+   - Reaction streak tracking integrated with ReactionService ✓
+   - **Daily Gift Handler** ✓ (Plan 21-04)
+     - `/daily_gift` command with Lucien's voice (🎩)
+     - Detailed breakdown: base + bonus = total
+     - FSM states for claim flow
+     - Countdown timer for next claim
+     - 17 handler tests ✓
+
+**Key Services Created:**
+4. `bot/services/shop.py` - ShopService ✓ (catalog, purchase, delivery)
+   - browse_catalog() with price ascending pagination ✓
+   - purchase_product() with atomic besitos deduction ✓
+   - deliver_content() returning file_ids ✓
+   - VIP pricing with discount calculation ✓
+   - Ownership checking to prevent duplicates ✓
+   - **Shop Handlers** ✓ (Plan 22-03)
+     - `shop_catalog_handler` - Vertical product list with pagination ✓
+     - `shop_product_detail_handler` - VIP/Free price differentiation ✓
+     - `shop_purchase_handler` - Purchase confirmation flow ✓
+     - `shop_confirm_purchase_handler` - Execute purchase + deliver content ✓
+     - `shop_history_handler` - Purchase history with pagination ✓
+     - `shop_earn_besitos_handler` - Redirect to daily gift ✓
+     - Lucien's voice (🎩) for all messages ✓
+     - Content delivery via Telegram file_ids ✓
+
+**Key Services Created:**
+5. `bot/services/reward.py` - RewardService ✓ (condition evaluation, event-driven checking)
+   - Condition evaluation for all RewardConditionType values ✓
+   - Event-driven checking on daily gift, purchase, reaction, level up ✓
+   - Reward claiming with proper state updates ✓
+   - Grouped notification builder with Lucien's voice (🎩) ✓
+   - Integration with WalletService for BESITOS rewards ✓
+   - Reward value capping (REWARD-06) ✓
+
+**Key Models Created:**
+1. `UserGamificationProfile` - balance, level, total earned ✓
+2. `Transaction` - audit trail ✓
+
+**Key Models Created (continued):**
+3. `UserReaction` - reaction tracking ✓ (deduplication, rate limiting support)
+
+**Key Models Created (continued):**
+4. `UserStreak` - streak data ✓ (DAILY_GIFT and REACTION types)
+
+**Key Models Created (continued):**
+5. `ContentSet` - centralized content storage with file_ids array ✓
+6. `ShopProduct` - catalog items with VIP pricing ✓
+7. `UserContentAccess` - purchase tracking with unique constraint ✓
+
+**Key Models Created:**
+8. `Reward` / `RewardCondition` / `UserReward` - achievement system ✓ (Phase 23)
+   - RewardType, RewardConditionType, RewardStatus enums ✓
+   - Reward model with conditions and user_rewards relationships ✓
+   - RewardCondition model with group logic for AND/OR ✓
+   - UserReward model with status tracking and repeatable support ✓
+
+**Key Models Pending:**
+None
 
 ---
 
-*State updated: 2026-02-07 after Quick Task 011 completion*
-*Phase 18 (Admin Test Runner & Performance Profiling) is now COMPLETE*
+## Session Continuity
+
+**Last session:** 2026-02-13 — Completed Phase 21 Plan 07: Streak System Tests
+**Stopped at:** Phase 21 complete - 40 comprehensive streak tests passing
+**Next:** Phase 22 - Shop System
+
+### Wave 5 Summary (StreakService Complete)
+- StreakService with UTC-based daily gift tracking
+- Base 20 besitos + streak bonus (capped at 50)
+- WalletService integration for automatic crediting
+- **Daily Gift Handler** with Lucien's voice (🎩)
+  - `/daily_gift` command with claim button
+  - Detailed breakdown display (base + bonus = total)
+  - Countdown timer for next claim
+  - FSM state management
+- **Streak Display** in user menus (fire emoji + streak count)
+- **Reaction Streaks** integrated with ReactionService
+- **Background Job** at UTC midnight for streak expiration
+  - Resets DAILY_GIFT streaks when users miss a day
+  - Resets REACTION streaks when users miss a day
+  - Preserves longest_streak as historical record
+- 69 total streak tests (35 service + 17 handler + 11 integration + 6 expiration)
+- All 7 STREAK requirements verified (STREAK-01 through STREAK-07)
+- Test files:
+  - `tests/services/test_streak_service.py` (35 tests)
+  - `tests/handlers/test_streak_handlers.py` (17 tests)
+  - `tests/unit/services/test_streak.py` (29 tests)
+  - `tests/integration/test_daily_gift.py` (11 tests)
+
+### Wave 4 Summary (Complete)
+- WalletService integrated into ServiceContainer with lazy loading
+- ReactionService with full channel integration
+- Fixed duplicate reaction constraint (one reaction per content, not per emoji)
+- 148 new tests covering all economy and reaction functionality
+- All 8 ECON + all 7 REACT requirements explicitly verified
+- Test files:
+  - `tests/services/test_wallet.py` (35 tests)
+  - `tests/services/test_config_economy.py` (18 tests)
+  - `tests/economy/test_econ_requirements.py` (11 tests)
+  - `tests/services/test_reaction_service.py` (18 tests)
+  - `tests/handlers/test_reaction_handlers.py` (20 tests)
+  - `tests/services/test_reaction_integration.py` (12 tests)
+  - `tests/requirements/test_react_requirements.py` (8 tests)
+
+### Gap Closure: Duplicate Reaction Fix (Plan 20-05)
+- Changed unique constraint from `(user_id, content_id, emoji)` to `(user_id, content_id)`
+- Created Alembic migration to deduplicate existing data
+- Updated error message: "Ya reaccionaste a este contenido"
+- All 58 reaction tests pass with new behavior
+
+### Wave 5 Summary (StreakService)
+- StreakService with UTC-based daily gift tracking
+- Base 20 besitos + streak bonus (capped at 50)
+- WalletService integration for automatic crediting
+- 35 new tests for streak functionality
+- All 4 STREAK requirements verified (STREAK-01 through STREAK-04)
+- Test files:
+  - `tests/services/test_streak_service.py` (35 tests)
 
 ---
 
-*State updated: 2026-01-30 after Plan 18-03 completion*
+## Session Continuity
+
+**Last session:** 2026-02-13 — Completed Phase 22 Plan 02: ShopService Implementation
+**Stopped at:** Plan 22-02 complete - ShopService with catalog, purchase, delivery
+**Next:** Phase 22 Plan 03 - Shop catalog handlers
+
+### Wave 6 Summary (Shop System Progress)
+- ContentSet model with file_ids JSON array for Telegram content delivery ✓
+- ShopProduct model with besitos_price and VIP discount system ✓
+- UserContentAccess model with unique constraint preventing duplicate purchases ✓
+- ContentType enum: PHOTO_SET, VIDEO, AUDIO, MIXED ✓
+- ContentTier enum: FREE, VIP, PREMIUM, GIFT with emojis ✓
+- **ShopService created:**
+  - browse_catalog() - Paginated by price ascending ✓
+  - get_product_details() - User-specific pricing ✓
+  - validate_purchase() - Balance, tier, ownership checks ✓
+  - purchase_product() - Atomic besitos + access creation ✓
+  - deliver_content() - Returns file_ids for Telegram ✓
+  - get_purchase_history() - Formatted purchase records ✓
+  - get_user_shop_stats() - Aggregated user statistics ✓
+- VIP pricing with automatic discount calculation ✓
+- Ownership detection with repurchase support ✓
+- WalletService integration for atomic payments ✓
+- **Shop Handlers created (Plan 22-03):**
+  - `shop_catalog_handler` - Vertical product list with Prev/Next pagination ✓
+  - `shop_product_detail_handler` - VIP/Free price differentiation with strikethrough ✓
+  - `shop_purchase_handler` - Purchase flow with confirmation ✓
+  - `shop_confirm_purchase_handler` - Execute purchase + content delivery ✓
+  - `shop_history_handler` - Purchase history with pagination ✓
+  - `shop_earn_besitos_handler` - Redirect to daily gift when low balance ✓
+  - Lucien's voice (🎩) - Formal mayordomo tone for all messages ✓
+  - Content delivery - Sends actual Telegram files using file_ids ✓
+- **ServiceContainer integration:**
+  - `container.shop` property with lazy loading ✓
+  - Wallet service injection for payments ✓
+
+---
+
+## Session Continuity
+
+**Last session:** 2026-02-13 — Completed Phase 22 Plan 04: Shop System Integration and Testing
+**Stopped at:** Phase 22 COMPLETE - Shop system fully integrated with 26 tests passing
+**Next:** Phase 23 - Rewards System
+
+### Wave 6 Summary (Shop System Complete)
+- ContentSet model with file_ids JSON array for Telegram content delivery ✓
+- ShopProduct model with besitos_price and VIP discount system ✓
+- UserContentAccess model with unique constraint preventing duplicate purchases ✓
+- ContentType enum: PHOTO_SET, VIDEO, AUDIO, MIXED ✓
+- ContentTier enum: FREE, VIP, PREMIUM, GIFT with emojis ✓
+- **ShopService created:**
+  - browse_catalog() - Paginated by price ascending ✓
+  - get_product_details() - User-specific pricing ✓
+  - validate_purchase() - Balance, tier, ownership checks ✓
+  - purchase_product() - Atomic besitos + access creation ✓
+  - deliver_content() - Returns file_ids for Telegram ✓
+  - get_purchase_history() - Formatted purchase records ✓
+  - get_user_shop_stats() - Aggregated user statistics ✓
+- VIP pricing with automatic discount calculation ✓
+- Ownership detection with repurchase support ✓
+- WalletService integration for atomic payments ✓
+- **Shop Handlers created (Plan 22-03):**
+  - `shop_catalog_handler` - Vertical product list with Prev/Next pagination ✓
+  - `shop_product_detail_handler` - VIP/Free price differentiation with strikethrough ✓
+  - `shop_purchase_handler` - Purchase flow with confirmation ✓
+  - `shop_confirm_purchase_handler` - Execute purchase + content delivery ✓
+  - `shop_history_handler` - Purchase history with pagination ✓
+  - `shop_earn_besitos_handler` - Redirect to daily gift when low balance ✓
+  - Lucien's voice (🎩) - Formal mayordomo tone for all messages ✓
+  - Content delivery - Sends actual Telegram files using file_ids ✓
+- **Shop Integration (Plan 22-04):**
+  - 🛍️ Tienda button added to VIP and Free menus ✓
+  - Shop router registered in user handlers ✓
+  - 26 comprehensive tests covering SHOP-01 through SHOP-08 ✓
+  - All tests passing (pytest) ✓
+
+---
+
+## Session Continuity
+
+**Last session:** 2026-02-17 — Completed Phase 24 Plan 03: Reward Management Handlers
+**Stopped at:** Plan 24-03 complete - Reward management handlers with FSM flows
+**Next:** Phase 24 Plan 04 - Economy stats handlers
+
+### Wave 7 Summary (Rewards System Complete)
+- RewardType enum: BESITOS, CONTENT, BADGE, VIP_EXTENSION ✓
+- RewardConditionType enum: 9 condition types including streak, level, events ✓
+- RewardStatus enum: LOCKED, UNLOCKED, CLAIMED, EXPIRED ✓
+- **Reward model** with JSON reward_value and secret/repeatable flags ✓
+- **RewardCondition model** with condition_group for AND/OR logic ✓
+- **UserReward model** with claim tracking for repeatable rewards ✓
+- **RewardService** with 14 async methods (989 lines) ✓
+  - Condition evaluation: numeric, event-based, exclusion ✓
+  - Event-driven checking: daily_gift, purchase, reaction, level_up ✓
+  - Reward claiming: BESITOS, CONTENT, BADGE, VIP_EXTENSION ✓
+  - Grouped notifications with Lucien's voice (🎩) ✓
+  - Reward value capping (REWARD-06) ✓
+- **ConfigService** reward cap methods added ✓
+- **ServiceContainer Integration** (Plan 23-03) ✓
+  - `container.reward` property with lazy loading ✓
+  - Wallet and streak service injection ✓
+- **User Reward Handlers** (Plan 23-03) ✓
+  - `/rewards` command with Lucien's voice (🎩) ✓
+  - Claim handler with Diana's voice (🫦) ✓
+  - Status emojis (🔒✨✅⏰) for reward states ✓
+  - Progress tracking display ✓
+- **Daily Gift Integration** (Plan 23-03) ✓
+  - `check_rewards_on_event` after claim ✓
+  - Grouped notifications for unlocked rewards ✓
+- **Shop Purchase Integration** (Plan 23-03) ✓
+  - `check_rewards_on_event` after purchase ✓
+  - FIRST_PURCHASE and BESITOS_SPENT conditions ✓
+- **Comprehensive Tests** (Plan 23-04) ✓
+  - 70 total tests passing
+  - tests/services/test_reward_service.py (28 tests)
+  - tests/handlers/test_reward_handlers.py (21 tests)
+  - tests/requirements/test_reward_requirements.py (10 tests)
+  - tests/integration/test_reward_events.py (11 tests)
+  - All 6 REWARD requirements explicitly verified ✓
+  - Bug fixes: operator precedence, lazy loading issues ✓
+
+---
+
+### Wave 8 Summary (Admin Configuration Progress)
+- **Economy Config Handlers (24-01)** - FSM flow for 4 economy values ✓
+- **Shop Management Handlers (24-02)** - 6-step product creation wizard ✓
+- **Reward Management Handlers (24-03)** - Reward creation with conditions ✓
+- **Economy Stats Handlers (24-04)** - Global and per-user statistics ✓
+- **User Gamification Profile Viewer (24-05)** - Complete user profile with:
+  - Search by ID or username
+  - Economy profile (balance, earned, spent, level)
+  - Streak information (daily gift, reaction)
+  - Rewards status (unlocked, locked, claimed)
+  - Shop purchases with pagination
+  - Transaction history with pagination
+  - All using Lucien's voice (🎩)
+
+---
+
+*State updated: 2026-02-17 after Phase 24 Plan 05 completion*
+*Milestone v2.0 (Gamification) Phase 24 IN PROGRESS - Admin configuration complete*
+*Next: Phase 25 - Final integration and testing*
