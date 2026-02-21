@@ -276,8 +276,9 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24 → 25
 | 23. Rewards System | v2.0 | 4/4 | Complete | 2026-02-14 |
 | 24. Admin Configuration | v2.0 | 9/9 | Complete | 2026-02-21 |
 | 25. Broadcasting Improvements | v2.1 | 1/1 | Complete | 2026-02-21 |
+| 26. Initial Data Migration | v2.1 | 0/3 | Planned | - |
 
-**Overall Progress:** 102 plans complete
+**Overall Progress:** 102 plans complete (3 pending)
 
 ### Phase 25: Broadcasting Improvements - Optional Reactions and Content Protection ✅
 
@@ -307,6 +308,27 @@ Actualmente las reacciones se envían junto con todos los mensajes al canal. Est
 Plans:
 - [x] 25-01-PLAN.md — Extend broadcast FSM with optional reactions and content protection
 
+### Phase 26: Initial Data Migration for Gamification Module
+
+**Goal:** Create Alembic data migration that seeds default gamification data (economy config, rewards, shop products) and backfills existing users with gamification profiles
+**Depends on:** Phase 25
+**Status:** Planned — 3 plans ready for execution
+
+**Context:**
+This is NOT an initial installation seed. The bot is ALREADY in production with real users, channels, and subscription data. This phase migrates the production database to add the new gamification module (economy, reactions, streaks, shop, rewards).
+
+**Success Criteria:**
+1. Alembic migration updates BotConfig with default economy values
+2. All existing users get gamification profiles (backfill)
+3. Default rewards seeded (Primeros Pasos, Ahorrador Principiante, Racha de 7 Dias)
+4. Sample shop products created with content sets
+5. Migration is idempotent (safe to run multiple times)
+
+**Plans:**
+- [ ] 26-01-PLAN.md — Create Alembic data migration (BotConfig update, user backfill, rewards seed)
+- [ ] 26-02-PLAN.md — Create Python seeder module for rewards with conditions
+- [ ] 26-03-PLAN.md — Create shop products seeder with content sets
+
 ---
 
-*Last updated: 2026-02-21 after Phase 25 completion*
+*Last updated: 2026-02-21 after Phase 26 planning*
