@@ -8,6 +8,21 @@ El bot ahora incluye un sistema completo de gamificación con economía virtual 
 
 ## Current State
 
+**v2.1 SHIPPED** (2026-02-21)
+
+Deployment readiness improvements with optional broadcast reactions/content protection and complete data migration infrastructure:
+- Extended broadcast FSM with `configuring_options` state for per-message configuration
+- Admins can toggle reaction buttons ON/OFF per broadcast message
+- Admins can toggle content protection (no download) ON/OFF per message
+- Default values ensure backward compatibility (reactions ON, protection OFF)
+- Alembic data migration seeds default economy configuration
+- User gamification profile backfill for all existing users
+- Python seeder module (BaseSeeder + reward/shop seeders)
+- Default rewards: Primeros Pasos, Ahorrador Principiante, Racha de 7 Dias
+- Default shop products: Pack de Bienvenida, Pack VIP Especial
+- Idempotent migration design (safe to run multiple times)
+- Safety-first downgrade (preserves user data)
+
 **v2.0 SHIPPED** (2026-02-17)
 
 Complete virtual economy system with "besitos" currency, inline reactions, daily rewards with streaks, content shop, configurable rewards, and admin configuration panel:
@@ -61,6 +76,10 @@ Consistencia absoluta en la voz de Lucien: cada mensaje del bot debe sonar elega
 
 Infraestructura existente que funciona y ha sido preservada:
 
+**v2.1 Deployment Readiness (Shipped 2026-02-21):**
+- ✓ BROADCAST-01 through BROADCAST-04: Optional reactions and content protection per message
+- ✓ MIGRATION-01 through MIGRATION-05: Idempotent data migration with default rewards and shop products
+
 **v2.0 Gamification (Shipped 2026-02-17):**
 - ✓ ECON-01 through ECON-08: Virtual economy with besitos, wallet, transaction history, levels
 - ✓ REACT-01 through REACT-07: Inline reaction buttons with rate limiting and daily caps
@@ -80,7 +99,7 @@ Infraestructura existente que funciona y ha sido preservada:
 
 ### Active
 
-**Next Milestone (v2.1):**
+**Next Milestone (v2.2):**
 
 Potential areas for enhancement:
 - Analytics dashboard for economy health (faucet vs sink rates)
@@ -89,6 +108,7 @@ Potential areas for enhancement:
 - VIP besitos multiplier (2x earnings for VIP)
 - Limited-time shop items (seasonal/flash sales)
 - Complex achievement system with events
+- User-facing reward notifications and progress tracking
 
 ### Out of Scope
 
@@ -103,14 +123,15 @@ Características explícitamente excluidas:
 
 ## Context
 
-### Codebase State (v2.0)
+### Codebase State (v2.1)
 
-- **Total lines of code:** ~41,201 Python (bot/ directory)
+- **Total lines of code:** ~42,000 Python (bot/ directory)
 - **Services:** 19 (14 base + 5 gamification: Wallet, Reaction, Streak, Shop, Reward)
 - **Database models:** 10+ gamification models added
 - **Tests:** 409+ total (212 base + 197+ gamification)
 - **Message providers:** 13
-- **Deployment:** Railway-ready with health checks
+- **Deployment:** Railway-ready with health checks and data migration
+- **Migration:** Idempotent Alembic migration with Python seeders
 
 ### Architecture
 
@@ -133,7 +154,12 @@ Características explícitamente excluidas:
 | Niveles por puntos totales | Progresión clara y medible | ✓ calculate_level() basado en total_earned |
 | Atomic transaction pattern | UPDATE SET col = col + delta para thread-safety | ✓ WalletService usa operaciones atómicas |
 | FSM para economy config | Consistente con admin handlers existentes | ✓ EconomyConfigState con 4 estados |
+| Broadcast options configuration step | Give admins control over reactions/protection per message | ✓ Implemented (25-01) - configuring_options state with toggle UI |
+| Default reactions ON, protection OFF | Backward compatibility with existing behavior | ✓ Implemented (25-01) - sensible defaults |
+| Idempotent data migration pattern | Use INSERT OR IGNORE for safe re-runs in production | ✓ Implemented (26-01) - Migration safely re-runnable |
+| Preserve user data on downgrade | Downgrade only resets config, keeps user profiles/rewards | ✓ Implemented (26-01) - Safety-first downgrade |
+| Python seeders for relational data | ORM relationships too complex for raw SQL | ✓ Implemented (26-02/26-03) - BaseSeeder + reward/shop seeders |
 
 ---
 
-*Last updated: 2026-02-17 after v2.0 milestone completion*
+*Last updated: 2026-02-21 after v2.1 milestone completion*

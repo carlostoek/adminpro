@@ -130,3 +130,35 @@
 
 ---
 
+
+## v2.1 Deployment Readiness (Shipped: 2026-02-21)
+
+**Delivered:** Broadcasting improvements with optional reactions and content protection, plus complete data migration infrastructure for seamless deployment with default gamification data.
+
+**Phases completed:** 25-26 (4 plans total)
+
+**Key accomplishments:**
+
+- Extended broadcast FSM with optional reaction buttons and content protection toggle
+- Admins can now configure per-message options during broadcast flow (reactions ON/OFF, protection ON/OFF)
+- Default values ensure backward compatibility (reactions ON, protection OFF)
+- Alembic data migration seeds default economy configuration (level formula, besitos values, daily limits)
+- User gamification profile backfill for all existing users
+- Python seeder module with BaseSeeder abstract class for complex relational data
+- Default rewards seeded: Primeros Pasos, Ahorrador Principiante, Racha de 7 Dias
+- Default shop products: Pack de Bienvenida (50 besitos) and Pack VIP Especial (200 besitos)
+- Idempotent migration design (safe to run multiple times)
+- Safety-first downgrade (preserves user data, only resets config)
+- 9/9 requirements satisfied (100%)
+
+**Stats:**
+
+- 4 plans, 4 phases, ~15 tasks
+- 7 commits from Phase 25-01 through Phase 26-03
+- 5 files created, 4 files modified
+- Completed in 1 day (2026-02-21)
+
+**Git range:** `feat(25-01)` to `feat(26-03)`
+
+---
+
