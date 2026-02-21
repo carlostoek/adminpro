@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 ## Current Position
 
-**Milestone:** v2.0 Gamification
-**Phase:** 24 - Admin Configuration 🔄 IN PROGRESS
-**Plan:** 24-06 ContentSet Management Handlers
-**Status:** v2.0 milestone complete
+**Milestone:** v2.1 Broadcasting & Content Protection
+**Phase:** 25 - Broadcasting Improvements ✅ COMPLETE
+**Plan:** 25-01 — Extend broadcast FSM with optional reactions and content protection
+**Status:** ✅ COMPLETE - All 3 tasks executed, broadcast flow enhanced with options configuration
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -24,9 +24,11 @@ Phase 20: [██████████] 100% - Reaction System ✅
 Phase 21: [██████████] 100% - Daily Rewards & Streaks ✅ COMPLETE
 Phase 22: [██████████] 100% - Shop System ✅ COMPLETE
 Phase 23: [██████████] 100% - Rewards System ✅ COMPLETE
-Phase 24: [██████░░░░] 60% - Admin Configuration 🔄
+Phase 24: [██████████] 100% - Admin Configuration ✅ COMPLETE
+Phase 25: [██████████] 100% - Broadcasting Improvements ✅ COMPLETE
 
-Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
+Overall v2.0:  [██████████] 100% (43/43 requirements) ✅
+Overall v2.1:  [██████████] 100% (Phase 25 complete) ✅
 ```
 
 ## Performance Metrics
@@ -67,6 +69,8 @@ Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
 
 | Decision | Rationale | Status |
 |----------|-----------|--------|
+| Broadcast options configuration step | Give admins control over reactions/protection per message | **Implemented (25-01)** |
+| Default reactions ON, protection OFF | Backward compatibility with existing behavior | **Implemented (25-01)** |
 | Botones inline para reacciones | Telegram no expone reacciones nativas en canales | **Fully Implemented** |
 | Tienda solo con besitos | Separar economía virtual de dinero real | Pending |
 | Configuración en cascada | Evitar fragmentación que complica UX admin | Pending |
@@ -126,7 +130,14 @@ Overall v2.0:  [██████░░░░] 60% (34/43 requirements)
 | 24-08 | ✅ COMPLETE | Economy Stats Menu Button - Added missing button to admin main menu |
 | 24-09 | ✅ COMPLETE | Add EARN_SHOP_REFUND to TransactionType enum - Fix AttributeError in transaction history |
 
-**Phase 24 Status:** 🔄 IN PROGRESS - 9/9 plans complete
+**Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
+
+### Roadmap Evolution
+
+- Phase 25 added: Broadcasting Improvements - Optional Reactions and Content Protection
+  - Make reaction buttons optional per message during broadcast
+  - Add content protection (no download) toggle per message
+  - Configure both options in broadcast FSM flow
 
 ### Pending Todos
 
@@ -472,6 +483,56 @@ None
 
 ---
 
-*State updated: 2026-02-20 after Phase 24 Plan 06 completion*
-*Milestone v2.0 (Gamification) Phase 24 IN PROGRESS - Admin configuration complete*
-*Next: Phase 25 - Final integration and testing*
+---
+
+## Session Continuity
+
+**Last session:** 2026-02-21 — Phase 25-01 COMPLETE - Broadcast improvements with optional reactions and content protection
+**Stopped at:** Plan 25-01 complete - 3 tasks executed, broadcast flow enhanced
+**Next:** Phase 25-02 or milestone completion
+
+### Phase 25-01 COMPLETION SUMMARY
+
+**Delivered:** 3 tasks
+**Duration:** 4m 19s
+**Key Achievements:**
+- Added `configuring_options` state to BroadcastStates FSM
+- Extended `send_to_channel()` with `protect_content` parameter
+- New broadcast flow: content -> options configuration -> confirmation
+- Toggle handlers for reactions (ON/OFF) and content protection (ON/OFF)
+- Lucien's voice (🎩) throughout all new messages
+- Backward compatible defaults: reactions ON, protection OFF
+
+**Files Modified:**
+- `bot/states/admin.py` - Added configuring_options state
+- `bot/services/channel.py` - Added protect_content parameter
+- `bot/handlers/admin/broadcast.py` - Complete flow overhaul with options UI
+
+**Commits:**
+- e497ce2: feat(25-01): add configuring_options state to BroadcastStates
+- 28cfd8c: feat(25-01): add protect_content parameter to send_to_channel
+- 72de864: feat(25-01): add options configuration step to broadcast flow
+
+---
+
+### Phase 24 COMPLETION SUMMARY
+
+**Delivered:** 9 plans (24-01 through 24-09)
+**UAT Results:** 26 passed, 6 skipped, 0 failed
+**Key Achievements:**
+- Economy Configuration: 4 values configurable via FSM
+- Shop Management: Product creation wizard with ContentSet support
+- Reward Management: Full CRUD with conditions
+- Economy Stats: Global and per-user statistics
+- User Lookup: Complete gamification profile viewer
+- ContentSet Management: File upload wizard for product content
+- Bug Fixes: All 4 issues resolved and verified
+
+**v2.0 Gamification COMPLETE:** All 43 requirements delivered ✅
+**v2.1 Broadcasting Improvements:** Phase 25-01 complete ✅
+
+---
+
+*State updated: 2026-02-21 - Phase 25-01 complete*
+*Milestone v2.0 (Gamification) COMPLETE*
+*Milestone v2.1 (Broadcasting) In Progress - 25-01 complete*
