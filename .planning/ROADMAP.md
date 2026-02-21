@@ -275,32 +275,38 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24 → 25
 | 22. Shop System | v2.0 | 4/4 | Complete | 2026-02-13 |
 | 23. Rewards System | v2.0 | 4/4 | Complete | 2026-02-14 |
 | 24. Admin Configuration | v2.0 | 9/9 | Complete | 2026-02-21 |
-| 25. Broadcasting Improvements | v2.1 | 1/1 | Planned | - |
+| 25. Broadcasting Improvements | v2.1 | 1/1 | Complete | 2026-02-21 |
 
-**Overall Progress:** 101 plans complete
+**Overall Progress:** 102 plans complete
 
-### Phase 25: Broadcasting Improvements - Optional Reactions and Content Protection 🔄
+### Phase 25: Broadcasting Improvements - Optional Reactions and Content Protection ✅
 
 **Goal:** Mejorar el funcionamiento de broadcasting a los canales con opciones configurables por mensaje
 **Requirements:** BROADCAST-01 through BROADCAST-04 (4 requirements)
 **Dependencies:** Phase 24 (Admin Configuration complete)
-**Status:** Planned
+**Status:** Complete — 2026-02-21
 
 **Success Criteria:**
-1. Admin can toggle reaction buttons per message during broadcast flow
-2. Admin can enable/disable content protection (no download) per message
-3. Broadcast FSM includes step for reaction button configuration
-4. Broadcast FSM includes step for content protection configuration
+1. ✅ Admin can toggle reaction buttons per message during broadcast flow
+2. ✅ Admin can enable/disable content protection (no download) per message
+3. ✅ Broadcast FSM includes step for reaction button configuration
+4. ✅ Broadcast FSM includes step for content protection configuration
 
 **Description:**
 Actualmente las reacciones se envían junto con todos los mensajes al canal. Esta fase hace que sea una funcionalidad opcional:
-- El emisor debe poder seleccionar si quiere adjuntar los botones de reacción o no
-- También poder activar/desactivar la protección de Telegram (que no se pueda descargar el contenido)
+- El emisor puede seleccionar si quiere adjuntar los botones de reacción o no
+- También puede activar/desactivar la protección de Telegram (que no se pueda descargar el contenido)
 - Ambas opciones se configuran en el flujo de envío del mensaje al canal
 
+**Key Changes:**
+- New `configuring_options` state in BroadcastStates
+- `send_to_channel()` now accepts `protect_content` parameter
+- Options configuration UI with toggle buttons
+- Default values: reactions ON, protection OFF (backward compatible)
+
 Plans:
-- [ ] 25-01-PLAN.md — Extend broadcast FSM with optional reactions and content protection
+- [x] 25-01-PLAN.md — Extend broadcast FSM with optional reactions and content protection
 
 ---
 
-*Last updated: 2026-02-21 after Phase 25 planning*
+*Last updated: 2026-02-21 after Phase 25 completion*
