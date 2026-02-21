@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 ## Current Position
 
-**Milestone:** v2.1 Broadcasting & Content Protection
-**Phase:** 25 - Broadcasting Improvements ✅ COMPLETE
-**Plan:** 25-01 — Extend broadcast FSM with optional reactions and content protection
-**Status:** ✅ COMPLETE - All 3 tasks executed, broadcast flow enhanced with options configuration
+**Milestone:** v2.1 Deployment Readiness
+**Phase:** 26 - Initial Data Migration ✅ COMPLETE
+**Plan:** 26-01 COMPLETE
+**Status:** ✅ Seed data migration created and committed
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -26,9 +26,10 @@ Phase 22: [██████████] 100% - Shop System ✅ COMPLETE
 Phase 23: [██████████] 100% - Rewards System ✅ COMPLETE
 Phase 24: [██████████] 100% - Admin Configuration ✅ COMPLETE
 Phase 25: [██████████] 100% - Broadcasting Improvements ✅ COMPLETE
+Phase 26: [██████████] 100% - Initial Data Migration ✅ COMPLETE
 
 Overall v2.0:  [██████████] 100% (43/43 requirements) ✅
-Overall v2.1:  [██████████] 100% (Phase 25 complete) ✅
+Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 ```
 
 ## Performance Metrics
@@ -69,6 +70,8 @@ Overall v2.1:  [██████████] 100% (Phase 25 complete) ✅
 
 | Decision | Rationale | Status |
 |----------|-----------|--------|
+| Idempotent data migration pattern | Use INSERT OR IGNORE for safe re-runs in production | **Implemented (26-01)** |
+| Preserve user data on downgrade | Downgrade only resets config, keeps user profiles/rewards | **Implemented (26-01)** |
 | Broadcast options configuration step | Give admins control over reactions/protection per message | **Implemented (25-01)** |
 | Default reactions ON, protection OFF | Backward compatibility with existing behavior | **Implemented (25-01)** |
 | Botones inline para reacciones | Telegram no expone reacciones nativas en canales | **Fully Implemented** |
@@ -130,9 +133,24 @@ Overall v2.1:  [██████████] 100% (Phase 25 complete) ✅
 | 24-08 | ✅ COMPLETE | Economy Stats Menu Button - Added missing button to admin main menu |
 | 24-09 | ✅ COMPLETE | Add EARN_SHOP_REFUND to TransactionType enum - Fix AttributeError in transaction history |
 
-**Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
+### Phase 26 Progress
+
+| Plan | Status | Description |
+|------|--------|-------------|
+| 26-01 | ✅ COMPLETE | Seed Gamification Data Migration - Default economy config, user profile backfill, default rewards |
+
+**Phase 26 Status:** ✅ COMPLETE - 1/1 plans delivered
+
+### Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
 
 ### Roadmap Evolution
+
+- Phase 26 added: Initial Data Migration - Seed data for first deployment
+  - Default economy configuration (besitos values, daily limits)
+  - Default rewards and achievement conditions
+  - Default shop products with sample content
+  - Default level progression formula
+  - Ensure bot is functional on first deploy without manual configuration
 
 - Phase 25 added: Broadcasting Improvements - Optional Reactions and Content Protection
   - Make reaction buttons optional per message during broadcast
@@ -529,10 +547,34 @@ None
 - Bug Fixes: All 4 issues resolved and verified
 
 **v2.0 Gamification COMPLETE:** All 43 requirements delivered ✅
-**v2.1 Broadcasting Improvements:** Phase 25-01 complete ✅
+**v2.1 Deployment Readiness COMPLETE:** Phases 25-26 complete ✅
+  - Phase 25: Broadcasting Improvements ✅
+  - Phase 26: Initial Data Migration ✅
 
 ---
 
-*State updated: 2026-02-21 - Phase 25-01 complete*
+### Phase 26-01 COMPLETION SUMMARY
+
+**Delivered:** 1 task
+**Duration:** ~5m
+**Key Achievements:**
+- Created Alembic data migration `20260221_000001_seed_gamification_data.py`
+- Updates BotConfig with default economy values (level_formula, besitos_per_reaction, etc.)
+- Backfills UserGamificationProfile for all existing users with default values
+- Seeds 3 default rewards: Primeros Pasos, Ahorrador Principiante, Racha de 7 Dias
+- Idempotent design using INSERT OR IGNORE for SQLite
+- Downgrade preserves user data (only resets config fields to NULL)
+- down_revision correctly points to 20260217_000001
+
+**Files Modified:**
+- `alembic/versions/20260221_000001_seed_gamification_data.py` - Data migration file
+- `.gitignore` - Added exception for data migration
+
+**Commits:**
+- f9335d6: feat(26-01): create alembic data migration for gamification seed data
+
+---
+
+*State updated: 2026-02-21 - Phase 26-01 complete*
 *Milestone v2.0 (Gamification) COMPLETE*
-*Milestone v2.1 (Broadcasting) In Progress - 25-01 complete*
+*Milestone v2.1 (Deployment Readiness) COMPLETE*
