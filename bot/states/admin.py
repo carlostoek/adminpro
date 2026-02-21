@@ -57,10 +57,11 @@ class BroadcastStates(StatesGroup):
     1. Admin selecciona canal destino (VIP, Free, o Ambos)
     2. Bot entra en waiting_for_content
     3. Admin envía contenido (texto, foto, o video)
-    4. Bot muestra preview y entra en waiting_for_confirmation
-    5. Admin confirma o cancela
-    6. Si confirma: Bot envía al canal(es) y sale del estado
-    7. Si cancela: Bot vuelve a waiting_for_content o sale
+    4. Bot entra en configuring_options para configurar reacciones y protección
+    5. Bot muestra preview y entra en waiting_for_confirmation
+    6. Admin confirma o cancela
+    7. Si confirma: Bot envía al canal(es) y sale del estado
+    8. Si cancela: Bot vuelve a waiting_for_content o sale
 
     Estados adicionales para reacciones (ONDA 2):
     - selecting_reactions: Admin selecciona reacciones a aplicar
@@ -68,6 +69,7 @@ class BroadcastStates(StatesGroup):
     Tipos de Contenido:
     - Soportar: texto, foto, video
     - Estado waiting_for_content acepta cualquiera
+    - Estado configuring_options permite configurar opciones del mensaje
     - Estado waiting_for_confirmation maneja confirmación
     - Estado selecting_reactions permite cambiar reacciones (opcional)
     """
@@ -75,10 +77,13 @@ class BroadcastStates(StatesGroup):
     # Estado 1: Esperando contenido del mensaje a enviar
     waiting_for_content = State()
 
-    # Estado 2: Esperando confirmación de envío (después de preview)
+    # Estado 2: Configurando opciones del mensaje (reacciones, protección)
+    configuring_options = State()
+
+    # Estado 3: Esperando confirmación de envío (después de preview)
     waiting_for_confirmation = State()
 
-    # Estado 3: Seleccionando reacciones a aplicar (NUEVO - T23)
+    # Estado 4: Seleccionando reacciones a aplicar (NUEVO - T23)
     selecting_reactions = State()
 
 
