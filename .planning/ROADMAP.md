@@ -221,32 +221,33 @@ Plans:
 - [x] 23-03-PLAN.md — ServiceContainer integration and user handlers
 - [x] 23-04-PLAN.md — Comprehensive tests covering all REWARD requirements
 
-### Phase 24: Admin Configuration 🔄
+### Phase 24: Admin Configuration ✅
 **Goal:** Admins can configure all gamification parameters
 **Requirements:** ADMIN-01 through ADMIN-08 (8 requirements)
 **Dependencies:** All previous phases
+**Status:** Complete — 2026-02-21
 
 **Success Criteria:**
-1. Admin can configure besitos values and daily limits
-2. Admin can create shop products with besitos price
-3. Admin can enable/disable shop products
-4. Admin can create rewards with cascading condition creation
-5. Admin can create conditions inline from reward flow
-6. Admin dashboard displays economy metrics
-7. Admin can view user's complete gamification profile
+1. ✅ Admin can configure besitos values and daily limits
+2. ✅ Admin can create shop products with besitos price
+3. ✅ Admin can enable/disable shop products
+4. ✅ Admin can create rewards with cascading condition creation
+5. ✅ Admin can create conditions inline from reward flow
+6. ✅ Admin dashboard displays economy metrics
+7. ✅ Admin can view user's complete gamification profile
 
-**Gap Closure Plans:**
-- [ ] 24-06-PLAN.md — ContentSet CRUD handlers (fixes product creation blocker)
-- [ ] 24-07-PLAN.md — Reward delete error fix (TelegramBadRequest handling)
-- [ ] 24-08-PLAN.md — Economy stats menu button (missing navigation)
-- [ ] 24-09-PLAN.md — TransactionType enum fix (EARN_SHOP_REFUND missing)
+**Gap Closure Plans (All Complete):**
+- [x] 24-06-PLAN.md — ContentSet CRUD handlers (fixes product creation blocker)
+- [x] 24-07-PLAN.md — Reward delete error fix (TelegramBadRequest handling)
+- [x] 24-08-PLAN.md — Economy stats menu button (missing navigation)
+- [x] 24-09-PLAN.md — TransactionType enum fix (EARN_SHOP_REFUND missing)
 
 </details>
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24
+Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24 → 25
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -273,10 +274,33 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24
 | 21. Daily Rewards & Streaks | v2.0 | 7/7 | Complete | 2026-02-13 |
 | 22. Shop System | v2.0 | 4/4 | Complete | 2026-02-13 |
 | 23. Rewards System | v2.0 | 4/4 | Complete | 2026-02-14 |
-| 24. Admin Configuration | v2.0 | 5/9 | Gap Closure | 2026-02-19 |
+| 24. Admin Configuration | v2.0 | 9/9 | Complete | 2026-02-21 |
+| 25. Broadcasting Improvements | v2.1 | 1/1 | Planned | - |
 
-**Overall Progress:** 97 plans complete + 4 gap closure plans = 101 total
+**Overall Progress:** 101 plans complete
+
+### Phase 25: Broadcasting Improvements - Optional Reactions and Content Protection 🔄
+
+**Goal:** Mejorar el funcionamiento de broadcasting a los canales con opciones configurables por mensaje
+**Requirements:** BROADCAST-01 through BROADCAST-04 (4 requirements)
+**Dependencies:** Phase 24 (Admin Configuration complete)
+**Status:** Planned
+
+**Success Criteria:**
+1. Admin can toggle reaction buttons per message during broadcast flow
+2. Admin can enable/disable content protection (no download) per message
+3. Broadcast FSM includes step for reaction button configuration
+4. Broadcast FSM includes step for content protection configuration
+
+**Description:**
+Actualmente las reacciones se envían junto con todos los mensajes al canal. Esta fase hace que sea una funcionalidad opcional:
+- El emisor debe poder seleccionar si quiere adjuntar los botones de reacción o no
+- También poder activar/desactivar la protección de Telegram (que no se pueda descargar el contenido)
+- Ambas opciones se configuran en el flujo de envío del mensaje al canal
+
+Plans:
+- [ ] 25-01-PLAN.md — Extend broadcast FSM with optional reactions and content protection
 
 ---
 
-*Last updated: 2026-02-19 after gap closure planning*
+*Last updated: 2026-02-21 after Phase 25 planning*
