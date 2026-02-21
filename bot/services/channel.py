@@ -276,6 +276,7 @@ class ChannelService:
         photo: Optional[str] = None,
         video: Optional[str] = None,
         add_reactions: bool = True,
+        protect_content: bool = False,
         **kwargs
     ) -> Tuple[bool, str, Optional[Message]]:
         """
@@ -286,6 +287,7 @@ class ChannelService:
         - Solo foto (con caption opcional)
         - Solo video (con caption opcional)
         - Botones de reacción inline (opcional, default True)
+        - Protección de contenido (opcional, default False)
 
         Args:
             channel_id: ID del canal
@@ -293,6 +295,7 @@ class ChannelService:
             photo: File ID o URL de foto
             video: File ID o URL de video
             add_reactions: Si agregar botones de reacción (default True)
+            protect_content: Si proteger contenido contra descargas (default False)
             **kwargs: Parámetros adicionales (parse_mode, etc)
 
         Returns:
@@ -311,6 +314,7 @@ class ChannelService:
                     chat_id=channel_id,
                     photo=photo,
                     caption=text,
+                    protect_content=protect_content,
                     **kwargs
                 )
             elif video:
@@ -319,6 +323,7 @@ class ChannelService:
                     chat_id=channel_id,
                     video=video,
                     caption=text,
+                    protect_content=protect_content,
                     **kwargs
                 )
             elif text:
@@ -326,6 +331,7 @@ class ChannelService:
                 sent_message = await self.bot.send_message(
                     chat_id=channel_id,
                     text=text,
+                    protect_content=protect_content,
                     **kwargs
                 )
             else:
