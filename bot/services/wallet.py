@@ -15,10 +15,11 @@ Patrones:
 import logging
 import math
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, Any
 
 from sqlalchemy import select, update, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models import UserGamificationProfile, Transaction
@@ -62,6 +63,9 @@ class WalletService:
         """
         Obtiene o crea el perfil de gamificación de un usuario.
 
+        Usa INSERT + manejo de IntegrityError para evitar la race condition
+        del patrón "check-then-create" con requests concurrentes.
+
         Args:
             user_id: ID del usuario
 
@@ -75,7 +79,12 @@ class WalletService:
         )
         profile = result.scalar_one_or_none()
 
-        if profile is None:
+        if profile is not None:
+            return profile
+
+        # Intentar crear — si dos requests concurrentes llegan aquí,
+        # el segundo recibirá IntegrityError y re-fetcheará el existente
+        try:
             profile = UserGamificationProfile(
                 user_id=user_id,
                 balance=0,
@@ -86,8 +95,27 @@ class WalletService:
             self.session.add(profile)
             await self.session.flush()
             self.logger.info(f"✅ Perfil de gamificación creado para user {user_id}")
+            return profile
 
-        return profile
+        except IntegrityError:
+            # Otro request concurrente ya creó el perfil — hacer rollback parcial
+            # y re-fetchear el perfil existente
+            await self.session.rollback()
+            result = await self.session.execute(
+                select(UserGamificationProfile).where(
+                    UserGamificationProfile.user_id == user_id
+                )
+            )
+            profile = result.scalar_one_or_none()
+            if profile is None:
+                raise RuntimeError(
+                    f"No se pudo obtener ni crear perfil para user {user_id} "
+                    "después de IntegrityError"
+                )
+            self.logger.info(
+                f"✅ Perfil de user {user_id} recuperado después de race condition"
+            )
+            return profile
 
     async def get_balance(self, user_id: int) -> int:
         """
@@ -164,31 +192,41 @@ class WalletService:
             return False, "invalid_amount", None
 
         try:
-            # Atomic UPDATE: try to update existing profile
+            # Atomic UPDATE: actualiza balance, total_earned Y nivel en una sola operación
+            # para eliminar la ventana de inconsistencia entre balance actualizado y nivel no
+            profile_check = await self.get_profile(user_id)
+            current_total = (profile_check.total_earned if profile_check else 0) + amount
+            new_level = self._evaluate_level_formula(current_total, None)
+
             result = await self.session.execute(
                 update(UserGamificationProfile)
                 .where(UserGamificationProfile.user_id == user_id)
                 .values(
                     balance=UserGamificationProfile.balance + amount,
                     total_earned=UserGamificationProfile.total_earned + amount,
-                    updated_at=datetime.utcnow()
+                    level=new_level,
+                    updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
                 )
             )
 
-            # If no rows affected, profile doesn't exist - create it
+            # Si no hay perfil, crear uno
             if result.rowcount == 0:
                 profile = UserGamificationProfile(
                     user_id=user_id,
                     balance=amount,
                     total_earned=amount,
                     total_spent=0,
-                    level=1
+                    level=new_level
                 )
                 self.session.add(profile)
                 await self.session.flush()
                 self.logger.info(f"✅ Perfil creado al ganar besitos: user {user_id}")
+            elif profile_check and new_level != profile_check.level:
+                self.logger.info(
+                    f"✅ User {user_id} level updated: {profile_check.level} -> {new_level}"
+                )
 
-            # Create transaction record
+            # Registrar transacción en el audit trail (misma transacción DB)
             transaction = Transaction(
                 user_id=user_id,
                 amount=amount,  # Positive for earn
@@ -202,21 +240,6 @@ class WalletService:
             self.logger.info(
                 f"✅ User {user_id} earned {amount} besitos ({transaction_type.value}): {reason}"
             )
-
-            # Recalculate and update cached level
-            # Get current total_earned from profile (or use amount if new profile)
-            profile = await self.get_profile(user_id)
-            if profile is not None:
-                new_level = self._evaluate_level_formula(profile.total_earned, None)
-                if new_level != profile.level:
-                    await self.session.execute(
-                        update(UserGamificationProfile)
-                        .where(UserGamificationProfile.user_id == user_id)
-                        .values(level=new_level)
-                    )
-                    self.logger.info(
-                        f"✅ User {user_id} level updated: {profile.level} -> {new_level}"
-                    )
 
             return True, "earned", transaction
 
@@ -275,7 +298,7 @@ class WalletService:
                 .values(
                     balance=UserGamificationProfile.balance - amount,
                     total_spent=UserGamificationProfile.total_spent + amount,
-                    updated_at=datetime.utcnow()
+                    updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
                 )
             )
 

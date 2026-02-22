@@ -15,10 +15,11 @@ Patrones:
 - Rate limiting basado en timestamp de última reacción
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import select, func, and_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models import UserReaction, BotConfig
@@ -86,21 +87,26 @@ class ReactionService:
             - True, 0: Puede reaccionar
             - False, N: Debe esperar N segundos
         """
-        # Buscar última reacción del usuario
+        # Buscar última reacción del usuario — con FOR UPDATE para serializar
+        # requests concurrentes del mismo usuario y evitar race condition
         result = await self.session.execute(
             select(UserReaction.created_at)
             .where(UserReaction.user_id == user_id)
             .order_by(UserReaction.created_at.desc())
             .limit(1)
+            .with_for_update(skip_locked=False)
         )
         last_reaction = result.scalar_one_or_none()
 
         if last_reaction is None:
-            # Nunca ha reaccionado, puede hacerlo
             return True, 0
 
-        # Calcular tiempo transcurrido
-        elapsed = (datetime.utcnow() - last_reaction).total_seconds()
+        # Normalizar a naive UTC para comparación consistente
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        if last_reaction.tzinfo is not None:
+            last_reaction = last_reaction.astimezone(timezone.utc).replace(tzinfo=None)
+
+        elapsed = (now - last_reaction).total_seconds()
 
         if elapsed < self.REACTION_COOLDOWN_SECONDS:
             remaining = int(self.REACTION_COOLDOWN_SECONDS - elapsed)
@@ -122,7 +128,8 @@ class ReactionService:
         limit = await self._get_config_value('max_reactions_per_day', 20)
 
         # Contar reacciones de hoy
-        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         result = await self.session.execute(
             select(func.count(UserReaction.id))
@@ -247,12 +254,9 @@ class ReactionService:
         if not can_react_daily:
             return False, "daily_limit_reached", {"used": used_today, "limit": limit}
 
-        # 4. Verificar duplicado
-        if await self._is_duplicate_reaction(user_id, content_id):
-            return False, "duplicate", None
-
+        # 4. Insertar reacción — el unique constraint idx_user_content_emoji
+        # maneja duplicados atómicamente sin necesidad de pre-check
         try:
-            # 5. Crear reacción
             reaction = UserReaction(
                 user_id=user_id,
                 content_id=content_id,
@@ -262,7 +266,18 @@ class ReactionService:
             self.session.add(reaction)
             await self.session.flush()
 
-            # 6. Otorgar besitos si wallet service está disponible
+        except IntegrityError:
+            # Duplicate reaction — constraint unique disparado por la DB
+            await self.session.rollback()
+            return False, "duplicate", None
+
+        except Exception as e:
+            self.logger.error(f"❌ Error insertando reacción para user {user_id}: {e}")
+            await self.session.rollback()
+            return False, "error", {"error": "Error interno al guardar reacción"}
+
+        # 5. Otorgar besitos y actualizar streak — dentro de la misma transacción
+        try:
             besitos_earned = 0
             if self.wallet:
                 besitos_per_reaction = await self._get_config_value(
@@ -287,13 +302,21 @@ class ReactionService:
                         f"✅ User {user_id} earned {besitos_earned} besitos for reaction {emoji}"
                     )
 
-                    # Track reaction streak (only for reactions that earn besitos)
+                    # Track reaction streak — dentro del mismo bloque para mantener
+                    # consistencia: si el streak falla, la reacción y besitos
+                    # siguen siendo válidos (el streak es secundario)
                     if self.streak:
-                        streak_incremented, current_streak = await self.streak.record_reaction(user_id)
-                        self.logger.debug(
-                            f"User {user_id} reaction streak: {current_streak} "
-                            f"(incremented: {streak_incremented})"
-                        )
+                        try:
+                            streak_incremented, current_streak = await self.streak.record_reaction(user_id)
+                            self.logger.debug(
+                                f"User {user_id} reaction streak: {current_streak} "
+                                f"(incremented: {streak_incremented})"
+                            )
+                        except Exception as streak_err:
+                            self.logger.error(
+                                f"⚠️ Error actualizando streak para user {user_id}: {streak_err}"
+                                " — reacción y besitos conservados"
+                            )
 
             return True, "success", {
                 "besitos_earned": besitos_earned,
@@ -302,8 +325,13 @@ class ReactionService:
             }
 
         except Exception as e:
-            self.logger.error(f"❌ Error adding reaction for user {user_id}: {e}")
-            return False, "error", {"error": str(e)}
+            self.logger.error(f"❌ Error otorgando besitos para user {user_id}: {e}")
+            # La reacción ya fue registrada; solo falló el reward
+            return True, "success", {
+                "besitos_earned": 0,
+                "reactions_today": used_today + 1,
+                "daily_limit": limit
+            }
 
     async def get_content_reactions(
         self,
@@ -347,7 +375,7 @@ class ReactionService:
         """
         limit = await self._get_config_value('max_reactions_per_day', 20)
 
-        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = datetime.now(timezone.utc).replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0)
 
         result = await self.session.execute(
             select(func.count(UserReaction.id))
