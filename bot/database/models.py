@@ -13,7 +13,7 @@ Tablas:
 - user_role_change_log: Auditoría de cambios de rol
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 
 from sqlalchemy import (
@@ -60,8 +60,8 @@ class BotConfig(Base):
     )
 
     # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     # Social Media Links (Phase 10)
     social_instagram = Column(String(200), nullable=True)  # Instagram handle or URL
@@ -121,8 +121,8 @@ class User(Base):
         nullable=False,
         default=UserRole.FREE
     )
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     # Relaciones (se definen después en VIPSubscriber y FreeChannelRequest)
     # interests relationship added in UserInterest model (back_populates)
@@ -187,10 +187,10 @@ class SubscriptionPlan(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
     duration_days = Column(Integer, nullable=False)
-    price = Column(Float, nullable=False)
+    price = Column(Numeric(10, 2), nullable=False)  # Numeric evita pérdida de precisión (Float es inseguro para dinero)
     currency = Column(String(10), nullable=False, default="$")
     active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     created_by = Column(BigInteger, nullable=False)
 
     # Relación con tokens
@@ -227,7 +227,7 @@ class InvitationToken(Base):
 
     # Generación
     generated_by = Column(BigInteger, nullable=False)  # User ID del admin
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
     duration_hours = Column(Integer, default=24, nullable=False)  # Duración en horas
 
     # Uso
@@ -255,7 +255,7 @@ class InvitationToken(Base):
         """Verifica si el token ha expirado"""
         from datetime import timedelta
         expiry_time = self.created_at + timedelta(hours=self.duration_hours)
-        return datetime.utcnow() > expiry_time
+        return datetime.now(timezone.utc).replace(tzinfo=None) > expiry_time
 
     def is_valid(self) -> bool:
         """Verifica si el token es válido (no usado y no expirado)"""
@@ -295,7 +295,7 @@ class VIPSubscriber(Base):
     user_id = Column(BigInteger, ForeignKey("users.user_id"), unique=True, nullable=False, index=True)  # ID Telegram
 
     # Suscripción
-    join_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    join_date = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
     expiry_date = Column(DateTime, nullable=False)  # Fecha de expiración
     status = Column(
         String(20),
@@ -324,11 +324,11 @@ class VIPSubscriber(Base):
 
     def is_expired(self) -> bool:
         """Verifica si la suscripción ha expirado"""
-        return datetime.utcnow() > self.expiry_date
+        return datetime.now(timezone.utc).replace(tzinfo=None) > self.expiry_date
 
     def days_remaining(self) -> int:
         """Retorna días restantes de suscripción (negativo si expirado)"""
-        delta = self.expiry_date - datetime.utcnow()
+        delta = self.expiry_date - datetime.now(timezone.utc).replace(tzinfo=None)
         return delta.days
 
     def __repr__(self):
@@ -354,7 +354,7 @@ class FreeChannelRequest(Base):
     user = relationship("User", uselist=False, lazy="selectin")
 
     # Solicitud
-    request_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    request_date = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
     processed = Column(Boolean, default=False, nullable=False, index=True)
     processed_at = Column(DateTime, nullable=True)
 
@@ -366,7 +366,7 @@ class FreeChannelRequest(Base):
 
     def minutes_since_request(self) -> int:
         """Retorna minutos transcurridos desde la solicitud"""
-        delta = datetime.utcnow() - self.request_date
+        delta = datetime.now(timezone.utc).replace(tzinfo=None) - self.request_date
         return int(delta.total_seconds() / 60)
 
     def is_ready(self, wait_time_minutes: int) -> bool:
@@ -421,7 +421,7 @@ class UserInterest(Base):
     attended_at = Column(DateTime, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     # Relationships
     user = relationship("User", back_populates="interests")
@@ -479,7 +479,7 @@ class UserRoleChangeLog(Base):
     change_metadata = Column(JSON, nullable=True)  # Optional: {"duration_hours": 24, "token": "ABC..."}
 
     # Timestamp
-    changed_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    changed_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), index=True)
 
     def __repr__(self):
         return (
@@ -552,12 +552,12 @@ class ContentPackage(Base):
     is_active = Column(Boolean, nullable=False, default=True, index=True)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     # Relationships
@@ -627,12 +627,12 @@ class UserGamificationProfile(Base):
     level = Column(Integer, nullable=False, default=1, index=True)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     # Indexes for efficient queries
@@ -742,7 +742,7 @@ class Transaction(Base):
     transaction_metadata = Column(JSON, nullable=True)  # Extra data: {"admin_id": 123, "shop_item_id": 456}
 
     # Timestamp
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), index=True)
 
     # Indexes for efficient queries
     __table_args__ = (
@@ -821,7 +821,7 @@ class UserReaction(Base):
     emoji = Column(String(10), nullable=False)  # Emoji used
 
     # Timestamp
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), index=True)
 
     # Indexes for efficient queries
     __table_args__ = (
@@ -893,12 +893,12 @@ class UserStreak(Base):
     last_reaction_date = Column(DateTime, nullable=True)  # For REACTION
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     # Indexes for efficient queries
@@ -968,12 +968,12 @@ class ContentSet(Base):
     is_active = Column(Boolean, nullable=False, default=True, index=True)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     # Relationships
@@ -1071,12 +1071,12 @@ class ShopProduct(Base):
     purchase_count = Column(Integer, nullable=False, default=0)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     # Relationships
@@ -1178,18 +1178,22 @@ class UserContentAccess(Base):
     shop_product_id = Column(
         Integer,
         ForeignKey("shop_products.id"),
-        nullable=True
+        nullable=True,
+        index=True  # Índice para queries frecuentes por producto
     )
 
     # Access details
-    access_type = Column(String(50), nullable=False)  # shop_purchase, reward_claim, gift, narrative
+    # NOTA: access_type debería tener CHECK constraint. Valores permitidos:
+    # 'shop_purchase', 'reward_claim', 'gift', 'narrative'
+    # Pendiente migración para agregar constraint formal.
+    access_type = Column(String(50), nullable=False)
     besitos_paid = Column(Integer, nullable=True)  # null for free rewards
 
     # State
     is_active = Column(Boolean, nullable=False, default=True)
 
     # Timestamps
-    accessed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    accessed_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     expires_at = Column(DateTime, nullable=True)
 
     # Metadata for extensibility
@@ -1233,7 +1237,7 @@ class UserContentAccess(Base):
         """Retorna True si el acceso ha expirado."""
         if self.expires_at is None:
             return False
-        return self.expires_at < datetime.utcnow()
+        return self.expires_at < datetime.now(timezone.utc).replace(tzinfo=None)
 
     def __repr__(self) -> str:
         return (
@@ -1300,12 +1304,12 @@ class Reward(Base):
     sort_order = Column(Integer, nullable=False, default=0)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     # Relationships
@@ -1384,7 +1388,7 @@ class RewardCondition(Base):
     sort_order = Column(Integer, nullable=False, default=0)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     # Relationships
     reward = relationship(
@@ -1473,12 +1477,12 @@ class UserReward(Base):
     last_claimed_at = Column(DateTime, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     # Relationships
@@ -1505,7 +1509,7 @@ class UserReward(Base):
         """Retorna True si la recompensa puede ser reclamada."""
         if self.status != RewardStatus.UNLOCKED:
             return False
-        if self.expires_at and self.expires_at < datetime.utcnow():
+        if self.expires_at and self.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
             return False
         return True
 

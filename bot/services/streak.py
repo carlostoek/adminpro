@@ -13,7 +13,7 @@ Patrones:
 - Streak reset en missed days (no grace period v2.0)
 """
 import logging
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional, Tuple, Dict, Any
 
 from sqlalchemy import select, update
@@ -43,7 +43,7 @@ class StreakService:
     - Las rachas usan UTC para consistencia global
     - Un reclamo por día UTC (00:00-23:59 UTC)
     - Streak incrementa solo en días consecutivos UTC
-    - Missed day = reset a 1 (o 0 si no reclama ese día)
+    - Missed day = reset a 0 (se pierde la racha si no reclama ese día)
     """
 
     # Configuration constants
@@ -117,7 +117,8 @@ class StreakService:
             date: Fecha en UTC
         """
         if dt is None:
-            dt = datetime.utcnow()
+            # replace(microsecond=0) para evitar inconsistencias en comparaciones de boundary
+            dt = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
         return dt.date()
 
     def _get_next_claim_time(self, last_claim_date: Optional[datetime]) -> datetime:
@@ -131,7 +132,7 @@ class StreakService:
             datetime: Próximo momento disponible (00:00 UTC del día siguiente)
         """
         if last_claim_date is None:
-            return datetime.utcnow()
+            return datetime.now(timezone.utc).replace(tzinfo=None)
 
         last_date = self._get_utc_date(last_claim_date)
         next_date = last_date + timedelta(days=1)
@@ -166,7 +167,7 @@ class StreakService:
         if last_claim == today:
             # Calculate time until next claim
             next_claim = self._get_next_claim_time(streak.last_claim_date)
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
 
             if now >= next_claim:
                 return True, "available"
@@ -280,10 +281,10 @@ class StreakService:
                 else:
                     new_streak = 1
 
-        # Calculate besitos before atomic update
+        # Calcular besitos antes del update atómico
         base, bonus, total = self.calculate_streak_bonus(new_streak)
-        now = datetime.utcnow()
-        today_start = datetime.combine(self._get_utc_date(), datetime.min.time())
+        now = datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
+        today_start = datetime.combine(self._get_utc_date(), datetime.min.time()).replace(microsecond=0)
 
         # ATOMIC UPDATE: Only succeeds if user hasn't claimed today
         # This prevents race conditions from concurrent requests
@@ -462,7 +463,7 @@ class StreakService:
             if not can_claim and streak.last_claim_date is not None:
                 next_claim_time = self._get_next_claim_time(streak.last_claim_date)
             elif can_claim:
-                next_claim_time = datetime.utcnow()
+                next_claim_time = datetime.now(timezone.utc).replace(tzinfo=None)
 
         return {
             "current_streak": streak.current_streak,
@@ -531,7 +532,7 @@ class StreakService:
             - new_streak: Valor actual de la racha
         """
         if reaction_date is None:
-            reaction_date = datetime.utcnow()
+            reaction_date = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # Get or create reaction streak
         streak = await self._get_or_create_streak(user_id, StreakType.REACTION)
@@ -595,12 +596,16 @@ class StreakService:
         """
         today = self._get_utc_date()
 
+        # Boundary exacto al inicio del día UTC, sin microsegundos,
+        # para evitar inconsistencias en registros con microsecond != 0
+        today_boundary = datetime.combine(today, datetime.min.time()).replace(microsecond=0)
+
         # Find all DAILY_GIFT streaks where last_claim_date < today
         result = await self.session.execute(
             select(UserStreak).where(
                 UserStreak.streak_type == StreakType.DAILY_GIFT,
                 UserStreak.current_streak > 0,
-                UserStreak.last_claim_date < datetime.combine(today, datetime.min.time())
+                UserStreak.last_claim_date < today_boundary
             )
         )
         expired_streaks = result.scalars().all()
@@ -636,12 +641,15 @@ class StreakService:
         """
         today = self._get_utc_date()
 
+        # Boundary exacto al inicio del día UTC, sin microsegundos
+        today_boundary = datetime.combine(today, datetime.min.time()).replace(microsecond=0)
+
         # Find all REACTION streaks where last_reaction_date < today
         result = await self.session.execute(
             select(UserStreak).where(
                 UserStreak.streak_type == StreakType.REACTION,
                 UserStreak.current_streak > 0,
-                UserStreak.last_reaction_date < datetime.combine(today, datetime.min.time())
+                UserStreak.last_reaction_date < today_boundary
             )
         )
         expired_streaks = result.scalars().all()
