@@ -14,10 +14,10 @@ Patrones:
 - Notificaciones agrupadas: un solo mensaje con múltiples logros
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, Any, Union
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models import (
@@ -487,7 +487,7 @@ class RewardService:
                 if user_reward.last_claimed_at and user_reward.unlocked_at:
                     if user_reward.unlocked_at > user_reward.last_claimed_at:
                         user_reward.status = RewardStatus.UNLOCKED
-                        user_reward.expires_at = datetime.utcnow() + timedelta(
+                        user_reward.expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
                             hours=reward.claim_window_hours
                         )
                         await self.session.flush()
@@ -498,8 +498,8 @@ class RewardService:
         if user_reward.status == RewardStatus.EXPIRED:
             if is_eligible:
                 user_reward.status = RewardStatus.UNLOCKED
-                user_reward.unlocked_at = datetime.utcnow()
-                user_reward.expires_at = datetime.utcnow() + timedelta(
+                user_reward.unlocked_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                user_reward.expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
                     hours=reward.claim_window_hours
                 )
                 await self.session.flush()
@@ -509,8 +509,8 @@ class RewardService:
         # If locked and now eligible -> unlock
         if user_reward.status == RewardStatus.LOCKED and is_eligible:
             user_reward.status = RewardStatus.UNLOCKED
-            user_reward.unlocked_at = datetime.utcnow()
-            user_reward.expires_at = datetime.utcnow() + timedelta(
+            user_reward.unlocked_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            user_reward.expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
                 hours=reward.claim_window_hours
             )
             await self.session.flush()
@@ -657,11 +657,29 @@ class RewardService:
         if not reward.is_active:
             return False, "reward_inactive", {}
 
-        # Get UserReward record
-        user_reward = await self._get_or_create_user_reward(user_id, reward_id)
+        # Get UserReward record — con FOR UPDATE para serializar claims concurrentes
+        # del mismo usuario al mismo reward y evitar double-claim
+        result = await self.session.execute(
+            select(UserReward)
+            .where(
+                UserReward.user_id == user_id,
+                UserReward.reward_id == reward_id
+            )
+            .with_for_update()
+        )
+        user_reward = result.scalar_one_or_none()
+
+        if user_reward is None:
+            user_reward = UserReward(
+                user_id=user_id,
+                reward_id=reward_id,
+                status=RewardStatus.LOCKED
+            )
+            self.session.add(user_reward)
+            await self.session.flush()
 
         # Check if expired
-        if user_reward.expires_at and user_reward.expires_at < datetime.utcnow():
+        if user_reward.expires_at and user_reward.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
             user_reward.status = RewardStatus.EXPIRED
             await self.session.flush()
             return False, "reward_expired", {"expires_at": user_reward.expires_at}
@@ -722,21 +740,17 @@ class RewardService:
 
         elif reward.reward_type == RewardType.VIP_EXTENSION:
             days = capped_value.get("days", 0)
-            # Integrate with subscription service to extend VIP
             try:
                 from bot.services.subscription import SubscriptionService
                 subscription_service = SubscriptionService(self.session, None)
 
-                # Check if user is already VIP
                 existing_subscriber = await subscription_service.get_vip_subscriber(user_id)
 
                 if existing_subscriber:
-                    # Extend existing subscription
+                    # Extender suscripción existente directamente en DB
                     extension = timedelta(days=days)
-
-                    # If expired, start from now; otherwise extend from current expiry
                     if existing_subscriber.is_expired():
-                        existing_subscriber.expiry_date = datetime.utcnow() + extension
+                        existing_subscriber.expiry_date = datetime.now(timezone.utc).replace(tzinfo=None) + extension
                         existing_subscriber.status = "active"
                     else:
                         existing_subscriber.expiry_date += extension
@@ -752,45 +766,63 @@ class RewardService:
                         f"(new expiry: {existing_subscriber.expiry_date})"
                     )
                 else:
-                    # Create new VIP subscription
-                    # First create a system token for this reward-based VIP
-                    from bot.database.models import InvitationToken
-                    import uuid
-                    # Use short unique token (16 chars max) with RWD prefix
-                    short_token = f"R{str(uuid.uuid4().int)[:15]}"
-                    system_token = InvitationToken(
-                        token=short_token,
-                        generated_by=0,  # SYSTEM (0 = auto-generated, not manual)
-                        duration_hours=days * 24,
-                        used=True,
-                        used_by=user_id,
-                        used_at=datetime.utcnow()
-                    )
-                    self.session.add(system_token)
-                    await self.session.flush()
+                    # Crear nueva suscripción VIP a través de SubscriptionService
+                    # para garantizar role assignment y entry ritual
+                    try:
+                        result = await subscription_service.create_vip_subscription(
+                            user_id=user_id,
+                            duration_days=days,
+                            source="reward",
+                            metadata={"reward_id": reward_id}
+                        )
+                        reward_result = {
+                            "days": days,
+                            "new_subscription": True,
+                            "result": str(result)
+                        }
+                        logger.info(
+                            f"✅ User {user_id} new VIP subscription via SubscriptionService "
+                            f"({days} days)"
+                        )
+                    except AttributeError:
+                        # Fallback si SubscriptionService no tiene create_vip_subscription:
+                        # crear token + VIPSubscriber directamente pero loguear warning
+                        logger.warning(
+                            f"⚠️ SubscriptionService.create_vip_subscription no disponible. "
+                            f"Creando VIPSubscriber directamente para user {user_id}. "
+                            f"Verificar role assignment manualmente."
+                        )
+                        from bot.database.models import InvitationToken, VIPSubscriber
+                        import uuid
+                        short_token = f"R{str(uuid.uuid4().int)[:15]}"
+                        system_token = InvitationToken(
+                            token=short_token,
+                            generated_by=0,
+                            duration_hours=days * 24,
+                            used=True,
+                            used_by=user_id,
+                            used_at=datetime.now(timezone.utc).replace(tzinfo=None)
+                        )
+                        self.session.add(system_token)
+                        await self.session.flush()
 
-                    expiry_date = datetime.utcnow() + timedelta(days=days)
+                        expiry_date = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=days)
+                        subscriber = VIPSubscriber(
+                            user_id=user_id,
+                            join_date=datetime.now(timezone.utc).replace(tzinfo=None),
+                            expiry_date=expiry_date,
+                            status="active",
+                            token_id=system_token.id
+                        )
+                        self.session.add(subscriber)
+                        await self.session.flush()
 
-                    from bot.database.models import VIPSubscriber
-                    subscriber = VIPSubscriber(
-                        user_id=user_id,
-                        join_date=datetime.utcnow(),
-                        expiry_date=expiry_date,
-                        status="active",
-                        token_id=system_token.id
-                    )
-                    self.session.add(subscriber)
-                    await self.session.flush()
-
-                    reward_result = {
-                        "days": days,
-                        "expiry": expiry_date.isoformat(),
-                        "new_subscription": True
-                    }
-                    logger.info(
-                        f"✅ User {user_id} new VIP subscription created "
-                        f"({days} days, expires: {expiry_date})"
-                    )
+                        reward_result = {
+                            "days": days,
+                            "expiry": expiry_date.isoformat(),
+                            "new_subscription": True,
+                            "warning": "role_assignment_skipped"
+                        }
 
             except Exception as e:
                 logger.error(f"❌ Error extending VIP for user {user_id}: {e}")
@@ -798,17 +830,17 @@ class RewardService:
 
         # Update UserReward
         user_reward.status = RewardStatus.CLAIMED
-        user_reward.claimed_at = datetime.utcnow()
+        user_reward.claimed_at = datetime.now(timezone.utc).replace(tzinfo=None)
         user_reward.claim_count += 1
-        user_reward.last_claimed_at = datetime.utcnow()
+        user_reward.last_claimed_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # For repeatable rewards, reset to LOCKED if conditions still met
         if reward.is_repeatable:
             is_eligible, _, _ = await self.evaluate_reward_conditions(user_id, reward)
             if is_eligible:
                 user_reward.status = RewardStatus.UNLOCKED
-                user_reward.unlocked_at = datetime.utcnow()
-                user_reward.expires_at = datetime.utcnow() + timedelta(
+                user_reward.unlocked_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                user_reward.expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
                     hours=reward.claim_window_hours
                 )
             else:

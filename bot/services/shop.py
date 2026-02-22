@@ -15,10 +15,11 @@ Patrones:
 - Precios diferenciados FREE vs VIP
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple, Dict, Any
 
 from sqlalchemy import select, func, update
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models import ContentSet, ShopProduct, UserContentAccess
@@ -200,6 +201,17 @@ class ShopService:
         if not product.is_active:
             return False, "product_inactive", None
 
+        # Verificar que el ContentSet asociado esté activo
+        if product.content_set_id:
+            cs_result = await self.session.execute(
+                select(ContentSet.id).where(
+                    ContentSet.id == product.content_set_id,
+                    ContentSet.is_active == True
+                )
+            )
+            if cs_result.scalar_one_or_none() is None:
+                return False, "product_inactive", None
+
         # Check tier restrictions
         if product.tier == ContentTier.VIP and user_role == "FREE":
             return False, "vip_only", None
@@ -310,7 +322,7 @@ class ShopService:
             access_type="shop_purchase",
             besitos_paid=price_to_pay,
             is_active=True,
-            accessed_at=datetime.utcnow(),
+            accessed_at=datetime.now(timezone.utc).replace(tzinfo=None),
             access_metadata={
                 "product_name": product.name,
                 "is_repurchase": is_owned
@@ -318,8 +330,7 @@ class ShopService:
         )
         self.session.add(access_record)
 
-        # Update purchase count
-        product.purchase_count += 1
+        # Update purchase count — atómico con UPDATE, sin incrementar también en Python
         await self.session.execute(
             update(ShopProduct)
             .where(ShopProduct.id == product_id)
@@ -411,7 +422,7 @@ class ShopService:
             return False, "content_not_found", None
 
         # Update last_accessed_at
-        access.last_accessed_at = datetime.utcnow()
+        access.last_accessed_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.session.flush()
 
         self.logger.info(
@@ -463,10 +474,15 @@ class ShopService:
         count_result = await self.session.execute(count_query)
         total = count_result.scalar_one_or_none() or 0
 
-        # Apply ordering and pagination
+        # Apply ordering and pagination — con selectinload para evitar N+1
+        # al acceder a shop_product.name y content_set.name en el loop
         offset = (page - 1) * per_page
         query = (
             base_query
+            .options(
+                selectinload(UserContentAccess.shop_product),
+                selectinload(UserContentAccess.content_set)
+            )
             .order_by(UserContentAccess.accessed_at.desc())
             .offset(offset)
             .limit(per_page)

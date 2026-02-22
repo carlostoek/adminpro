@@ -26,8 +26,8 @@ from bot.services.container import ServiceContainer
 from bot.database.enums import ContentTier, ContentType, TransactionType
 from bot.database.models import ShopProduct, UserContentAccess
 from bot.middlewares import DatabaseMiddleware
-from datetime import datetime
-from sqlalchemy import update as sa_update, delete as sa_delete
+from datetime import datetime, timezone
+from sqlalchemy import update as sa_update
 
 logger = logging.getLogger(__name__)
 
@@ -890,37 +890,14 @@ async def shop_confirm_purchase_handler(
             await callback.answer("❌ Compra fallida", show_alert=True)
             return
 
-        # Step 3: Create access record (database operation)
-        access_record = UserContentAccess(
-            user_id=user_id,
-            content_set_id=product.content_set_id,
-            shop_product_id=product.id,
-            access_type="shop_purchase",
-            besitos_paid=price_to_pay,
-            is_active=True,
-            accessed_at=datetime.utcnow(),
-            access_metadata={
-                "product_name": product.name,
-                "is_repurchase": is_owned
-            }
-        )
-        container.shop.session.add(access_record)
-
-        # Update purchase count
-        await container.shop.session.execute(
-            sa_update(ShopProduct)
-            .where(ShopProduct.id == product_id)
-            .values(purchase_count=ShopProduct.purchase_count + 1)
-        )
-        await container.shop.session.flush()
-
         # Get file_ids for delivery
         file_ids = product.content_set.file_ids if product.content_set else []
         content_type = product.content_set.content_type.value if product.content_set else "mixed"
 
-        # Step 4: Deliver content (outside DB transaction)
+        # Step 3: Deliver content ANTES de crear el registro de acceso en DB.
+        # Si el delivery falla, solo se necesita reembolsar los besitos,
+        # sin necesidad de rollback de registros de acceso que aún no existen.
         delivery_success = True
-        delivery_error = None
         try:
             await deliver_purchased_content(
                 bot=callback.bot,
@@ -930,20 +907,20 @@ async def shop_confirm_purchase_handler(
             )
         except Exception as e:
             delivery_success = False
-            delivery_error = e
-            logger.error(f"❌ Content delivery failed for user {user_id}, product {product_id}: {e}", exc_info=True)
+            logger.error(
+                f"❌ Content delivery failed for user {user_id}, product {product_id}: {e}",
+                exc_info=True
+            )
 
-        # Step 5: If delivery failed, refund automatically
         if not delivery_success:
+            # Reembolsar besitos — el acceso nunca fue creado, no hay rollback de DB necesario
             try:
-                # Refund besitos using admin_credit (system refund)
-                refund_success, refund_msg, refund_tx = await container.wallet.admin_credit(
+                refund_success, refund_msg, _ = await container.wallet.admin_credit(
                     user_id=user_id,
                     amount=price_to_pay,
                     reason="reembolso_automatico_fallo_entrega",
-                    admin_id=0  # System admin ID
+                    admin_id=0
                 )
-
                 if refund_success:
                     logger.error(
                         f"🔄 Automatic refund executed for user {user_id}: {price_to_pay} besitos "
@@ -955,7 +932,6 @@ async def shop_confirm_purchase_handler(
                         f"(product {product_id}, refund error: {refund_msg}). "
                         f"Manual intervention required!"
                     )
-
             except Exception as refund_error:
                 logger.critical(
                     f"🚨 REFUND EXCEPTION for user {user_id}: {price_to_pay} besitos "
@@ -963,37 +939,6 @@ async def shop_confirm_purchase_handler(
                     f"Manual intervention required!"
                 )
 
-            # Step 5b: Rollback database changes (atomic transaction cleanup)
-            try:
-                # Delete the UserContentAccess record created for this purchase
-                await container.shop.session.execute(
-                    sa_delete(UserContentAccess)
-                    .where(
-                        UserContentAccess.user_id == user_id,
-                        UserContentAccess.shop_product_id == product_id,
-                        UserContentAccess.access_type == "shop_purchase"
-                    )
-                )
-
-                # Revert the purchase_count increment on the product
-                await container.shop.session.execute(
-                    sa_update(ShopProduct)
-                    .where(ShopProduct.id == product_id)
-                    .values(purchase_count=ShopProduct.purchase_count - 1)
-                )
-
-                await container.shop.session.flush()
-                logger.info(
-                    f"🗑️ Rolled back purchase record for user {user_id}, product {product_id} "
-                    f"(UserContentAccess deleted, purchase_count reverted)"
-                )
-            except Exception as rollback_error:
-                logger.critical(
-                    f"🚨 ROLLBACK FAILED for user {user_id}, product {product_id}: {rollback_error}. "
-                    f"Database may be in inconsistent state!"
-                )
-
-            # Notify user of error and refund
             text = _get_delivery_error_with_refund_message(product.name)
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(
@@ -1004,6 +949,30 @@ async def shop_confirm_purchase_handler(
             await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
             await callback.answer("❌ Error en entrega - Saldo restaurado", show_alert=True)
             return
+
+        # Step 4: Delivery exitoso — crear registro de acceso y actualizar contador
+        access_record = UserContentAccess(
+            user_id=user_id,
+            content_set_id=product.content_set_id,
+            shop_product_id=product.id,
+            access_type="shop_purchase",
+            besitos_paid=price_to_pay,
+            is_active=True,
+            accessed_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            access_metadata={
+                "product_name": product.name,
+                "is_repurchase": is_owned
+            }
+        )
+        container.shop.session.add(access_record)
+
+        # Actualizar contador de compras de forma atómica
+        await container.shop.session.execute(
+            sa_update(ShopProduct)
+            .where(ShopProduct.id == product_id)
+            .values(purchase_count=ShopProduct.purchase_count + 1)
+        )
+        await container.shop.session.flush()
 
         # Delivery successful - continue with rewards and success message
         price_paid = price_to_pay
