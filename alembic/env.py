@@ -140,21 +140,7 @@ def run_migrations_online() -> None:
     """
     import asyncio
 
-    # Check if we're already in an event loop (called from async context)
-    try:
-        loop = asyncio.get_running_loop()
-        # We're in an event loop, need to use a different approach
-        # Create a new event loop for this thread
-        new_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(new_loop)
-        try:
-            new_loop.run_until_complete(run_async_migrations())
-        finally:
-            new_loop.close()
-            asyncio.set_event_loop(loop)
-    except RuntimeError:
-        # No event loop running, safe to use asyncio.run()
-        asyncio.run(run_async_migrations())
+    asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():
