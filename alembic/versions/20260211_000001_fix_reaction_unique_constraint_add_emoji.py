@@ -1,7 +1,7 @@
 """fix reaction unique constraint to include emoji
 
 Revision ID: 20260217_000001
-Revises: 43b8b4e4a504
+Revises: 29019dace4c7
 Create Date: 2026-02-17 00:00:01.000000+00:00
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '20260217_000001'
+revision: str = '20260211_000001'
 down_revision: Union[str, None] = '29019dace4c7'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
