@@ -46,13 +46,14 @@ async def show_admin_menu(message: Message, data: Dict[str, Any]):
     # Sección Configuración
     keyboard.button(text="⚙️ Configuración", callback_data="admin:config")
     keyboard.button(text="📈 Estadísticas", callback_data="admin:stats")
+    keyboard.button(text="📊 Métricas Economía", callback_data="admin:economy_stats")
 
     # Sección Free Queue
     keyboard.button(text="🆓 Cola Free", callback_data="admin:free_queue")
     keyboard.button(text="✅ Procesar Free", callback_data="admin:process_free")
 
     # Ajustar layout (3 columnas)
-    keyboard.adjust(3, 3, 2, 2)
+    keyboard.adjust(3, 3, 3, 2)
 
     # Mensaje de bienvenida
     welcome_text = (

@@ -59,6 +59,11 @@ class ServiceContainer:
         self._interest_service = None
         self._user_management_service = None
         self._vip_entry_service = None
+        self._wallet_service = None
+        self._reaction_service = None
+        self._streak_service = None
+        self._shop_service = None
+        self._reward_service = None
 
         logger.debug("🏭 ServiceContainer inicializado (modo lazy)")
 
@@ -387,6 +392,181 @@ class ServiceContainer:
 
         return self._vip_entry_service
 
+    # ===== WALLET SERVICE =====
+
+    @property
+    def wallet(self):
+        """
+        Service de economía (besitos, transacciones, niveles).
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            WalletService: Instancia del service
+
+        Usage:
+            # Credit user
+            success, msg, tx = await container.wallet.earn_besitos(...)
+
+            # Check balance
+            balance = await container.wallet.get_balance(user_id)
+
+            # Get transaction history
+            txs, total = await container.wallet.get_transaction_history(user_id)
+        """
+        if self._wallet_service is None:
+            from bot.services.wallet import WalletService
+            logger.debug("🔄 Lazy loading: WalletService")
+            self._wallet_service = WalletService(self._session)
+
+        return self._wallet_service
+
+    # ===== REACTION SERVICE =====
+
+    @property
+    def reaction(self):
+        """
+        Service de gestión de reacciones a contenido.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            ReactionService: Instancia del service
+
+        Usage:
+            # Add reaction
+            success, code, data = await container.reaction.add_reaction(
+                user_id=123,
+                content_id=456,
+                channel_id="-1001234567890",
+                emoji="❤️",
+                content_category=ContentCategory.VIP_CONTENT
+            )
+
+            # Get content reaction counts
+            counts = await container.reaction.get_content_reactions(
+                content_id=456,
+                channel_id="-1001234567890"
+            )
+        """
+        if self._reaction_service is None:
+            from bot.services.reaction import ReactionService
+            logger.debug("🔄 Lazy loading: ReactionService")
+            # Inject wallet service for besitos earning and streak service for tracking
+            self._reaction_service = ReactionService(
+                self._session,
+                wallet_service=self.wallet,
+                streak_service=self.streak
+            )
+
+        return self._reaction_service
+
+    # ===== STREAK SERVICE =====
+
+    @property
+    def streak(self):
+        """
+        Service de gestión de rachas diarias y recompensas.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            StreakService: Instancia del service
+
+        Usage:
+            # Check if user can claim daily gift
+            can_claim, status = await container.streak.can_claim_daily_gift(user_id)
+
+            # Claim daily gift
+            success, result = await container.streak.claim_daily_gift(user_id)
+
+            # Get streak info
+            info = await container.streak.get_streak_info(user_id, StreakType.DAILY_GIFT)
+        """
+        if self._streak_service is None:
+            from bot.services.streak import StreakService
+            logger.debug("🔄 Lazy loading: StreakService")
+            # Inject wallet service for besitos crediting
+            self._streak_service = StreakService(
+                self._session,
+                wallet_service=self.wallet
+            )
+
+        return self._streak_service
+
+    # ===== SHOP SERVICE =====
+
+    @property
+    def shop(self):
+        """
+        Service de tienda (shop) para compra de contenido.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            ShopService: Instancia del service
+
+        Usage:
+            # Browse catalog
+            products, total = await container.shop.browse_catalog(user_role="VIP")
+
+            # Purchase product
+            success, code, result = await container.shop.purchase_product(
+                user_id=123, product_id=456, user_role="VIP"
+            )
+
+            # Get purchase history
+            history, total = await container.shop.get_purchase_history(user_id=123)
+        """
+        if self._shop_service is None:
+            from bot.services.shop import ShopService
+            logger.debug("🔄 Lazy loading: ShopService")
+            # Inject wallet service for payments
+            self._shop_service = ShopService(
+                self._session,
+                wallet_service=self.wallet
+            )
+
+        return self._shop_service
+
+    # ===== REWARD SERVICE =====
+
+    @property
+    def reward(self):
+        """
+        Service de recompensas y logros.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            RewardService: Instancia del service
+
+        Usage:
+            # Check rewards on event
+            unlocked = await container.reward.check_rewards_on_event(
+                user_id=123, event_type="daily_gift_claimed"
+            )
+
+            # Get available rewards
+            rewards = await container.reward.get_available_rewards(user_id=123)
+
+            # Claim a reward
+            success, msg, details = await container.reward.claim_reward(
+                user_id=123, reward_id=456
+            )
+        """
+        if self._reward_service is None:
+            from bot.services.reward import RewardService
+            logger.debug("🔄 Lazy loading: RewardService")
+            # Inject wallet and streak services
+            self._reward_service = RewardService(
+                self._session,
+                wallet_service=self.wallet,
+                streak_service=self.streak
+            )
+
+        return self._reward_service
+
     # ===== UTILIDADES =====
 
     def get_loaded_services(self) -> list[str]:
@@ -428,6 +608,16 @@ class ServiceContainer:
             loaded.append("user_management")
         if self._vip_entry_service is not None:
             loaded.append("vip_entry")
+        if self._wallet_service is not None:
+            loaded.append("wallet")
+        if self._reaction_service is not None:
+            loaded.append("reaction")
+        if self._streak_service is not None:
+            loaded.append("streak")
+        if self._shop_service is not None:
+            loaded.append("shop")
+        if self._reward_service is not None:
+            loaded.append("reward")
 
         return loaded
 

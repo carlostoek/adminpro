@@ -57,10 +57,11 @@ class BroadcastStates(StatesGroup):
     1. Admin selecciona canal destino (VIP, Free, o Ambos)
     2. Bot entra en waiting_for_content
     3. Admin envía contenido (texto, foto, o video)
-    4. Bot muestra preview y entra en waiting_for_confirmation
-    5. Admin confirma o cancela
-    6. Si confirma: Bot envía al canal(es) y sale del estado
-    7. Si cancela: Bot vuelve a waiting_for_content o sale
+    4. Bot entra en configuring_options para configurar reacciones y protección
+    5. Bot muestra preview y entra en waiting_for_confirmation
+    6. Admin confirma o cancela
+    7. Si confirma: Bot envía al canal(es) y sale del estado
+    8. Si cancela: Bot vuelve a waiting_for_content o sale
 
     Estados adicionales para reacciones (ONDA 2):
     - selecting_reactions: Admin selecciona reacciones a aplicar
@@ -68,6 +69,7 @@ class BroadcastStates(StatesGroup):
     Tipos de Contenido:
     - Soportar: texto, foto, video
     - Estado waiting_for_content acepta cualquiera
+    - Estado configuring_options permite configurar opciones del mensaje
     - Estado waiting_for_confirmation maneja confirmación
     - Estado selecting_reactions permite cambiar reacciones (opcional)
     """
@@ -75,10 +77,13 @@ class BroadcastStates(StatesGroup):
     # Estado 1: Esperando contenido del mensaje a enviar
     waiting_for_content = State()
 
-    # Estado 2: Esperando confirmación de envío (después de preview)
+    # Estado 2: Configurando opciones del mensaje (reacciones, protección)
+    configuring_options = State()
+
+    # Estado 3: Esperando confirmación de envío (después de preview)
     waiting_for_confirmation = State()
 
-    # Estado 3: Seleccionando reacciones a aplicar (NUEVO - T23)
+    # Estado 4: Seleccionando reacciones a aplicar (NUEVO - T23)
     selecting_reactions = State()
 
 
@@ -227,3 +232,124 @@ class UserManagementStates(StatesGroup):
 
     # Confirmando eliminación de usuario
     deleting_user = State()
+
+
+class EconomyConfigState(StatesGroup):
+    """States for economy configuration flow."""
+    waiting_for_reaction_value = State()
+    waiting_for_daily_value = State()
+    waiting_for_streak_value = State()
+    waiting_for_limit_value = State()
+
+
+class ShopCreateState(StatesGroup):
+    """
+    States for shop product creation flow.
+
+    Flujo de creación de producto:
+    1. Admin selecciona "Crear Producto"
+    2. Bot entra en waiting_for_name
+    3. Admin envía nombre del producto
+    4. Bot entra en waiting_for_description
+    5. Admin envía descripción (opcional)
+    6. Bot entra en waiting_for_price
+    7. Admin envía precio en besitos
+    8. Bot entra en waiting_for_tier
+    9. Admin selecciona tier con botones: [FREE] [VIP] [PREMIUM]
+    10. Bot entra en waiting_for_content_set
+    11. Admin selecciona ContentSet de la lista
+    12. Bot muestra resumen y entra en waiting_for_confirmation
+    13. Admin confirma o cancela
+    14. Bot crea producto y sale del estado
+
+    Validación:
+    - Nombre: No vacío, máximo 200 caracteres
+    - Descripción: Opcional, máximo 1000 caracteres
+    - Precio: Número entero positivo
+    - Tier: Selección via botones (FREE, VIP, PREMIUM)
+    - ContentSet: Debe existir y estar activo
+    """
+
+    # Paso 1: Esperando nombre del producto
+    waiting_for_name = State()
+
+    # Paso 2: Esperando descripción
+    waiting_for_description = State()
+
+    # Paso 3: Esperando precio en besitos
+    waiting_for_price = State()
+
+    # Paso 4: Esperando selección de tier
+    waiting_for_tier = State()
+
+    # Paso 5: Esperando selección de ContentSet
+    waiting_for_content_set = State()
+
+    # Paso 6: Esperando confirmación final
+    waiting_for_confirmation = State()
+
+
+class RewardCreateState(StatesGroup):
+    """States for reward creation flow."""
+    waiting_for_name = State()
+    waiting_for_description = State()
+    waiting_for_type = State()
+    waiting_for_besitos_amount = State()
+    waiting_for_content_set = State()
+    waiting_for_badge_name = State()
+    waiting_for_badge_emoji = State()
+    waiting_for_vip_days = State()
+    waiting_for_behavior = State()
+    waiting_for_repeatable = State()
+    waiting_for_secret = State()
+    waiting_for_claim_window = State()
+    waiting_for_conditions = State()
+
+
+class RewardConditionState(StatesGroup):
+    """States for condition creation flow."""
+    waiting_for_type = State()
+    waiting_for_value = State()
+    waiting_for_group = State()
+
+
+class UserLookupState(StatesGroup):
+    """States for user lookup flow."""
+    waiting_for_user = State()
+
+
+class ContentSetCreateState(StatesGroup):
+    """
+    States for ContentSet creation flow.
+
+    Flujo de creación de ContentSet:
+    1. Admin selecciona "Gestionar ContentSets" → "Crear ContentSet"
+    2. Bot entra en waiting_for_name
+    3. Admin envía nombre del ContentSet
+    4. Bot entra en waiting_for_description
+    5. Admin envía descripción (opcional, /skip)
+    6. Bot entra en waiting_for_content_type
+    7. Admin selecciona tipo: [Fotos] [Video] [Audio] [Mixto]
+    8. Bot entra en waiting_for_tier
+    9. Admin selecciona tier: [FREE] [VIP] [PREMIUM] [GIFT]
+    10. Bot entera en waiting_for_files
+    11. Admin forwards one or more messages with media
+    12. Admin sends /done to finish uploading
+    13. Bot entra en waiting_for_confirmation
+    14. Admin confirma o cancela
+    15. Bot crea ContentSet y sale del estado
+
+    Estados:
+    - waiting_for_name: Nombre del ContentSet (requerido)
+    - waiting_for_description: Descripción (opcional)
+    - waiting_for_content_type: Tipo de contenido via botones
+    - waiting_for_tier: Tier via botones
+    - waiting_for_files: Recolectando file_ids de mensajes forwarded
+    - waiting_for_confirmation: Confirmación final
+    """
+    waiting_for_name = State()
+    waiting_for_description = State()
+    waiting_for_content_type = State()
+    waiting_for_tier = State()
+    waiting_for_files = State()
+    waiting_for_confirmation = State()

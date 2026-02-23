@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from bot.database.models import BotConfig
+from bot.utils.keyboards import get_reaction_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -274,6 +275,8 @@ class ChannelService:
         text: Optional[str] = None,
         photo: Optional[str] = None,
         video: Optional[str] = None,
+        add_reactions: bool = True,
+        protect_content: bool = False,
         **kwargs
     ) -> Tuple[bool, str, Optional[Message]]:
         """
@@ -283,12 +286,16 @@ class ChannelService:
         - Solo texto
         - Solo foto (con caption opcional)
         - Solo video (con caption opcional)
+        - Botones de reacción inline (opcional, default True)
+        - Protección de contenido (opcional, default False)
 
         Args:
             channel_id: ID del canal
             text: Texto del mensaje
             photo: File ID o URL de foto
             video: File ID o URL de video
+            add_reactions: Si agregar botones de reacción (default True)
+            protect_content: Si proteger contenido contra descargas (default False)
             **kwargs: Parámetros adicionales (parse_mode, etc)
 
         Returns:
@@ -307,6 +314,7 @@ class ChannelService:
                     chat_id=channel_id,
                     photo=photo,
                     caption=text,
+                    protect_content=protect_content,
                     **kwargs
                 )
             elif video:
@@ -315,6 +323,7 @@ class ChannelService:
                     chat_id=channel_id,
                     video=video,
                     caption=text,
+                    protect_content=protect_content,
                     **kwargs
                 )
             elif text:
@@ -322,10 +331,19 @@ class ChannelService:
                 sent_message = await self.bot.send_message(
                     chat_id=channel_id,
                     text=text,
+                    protect_content=protect_content,
                     **kwargs
                 )
             else:
                 return False, "❌ Debes proporcionar texto, foto o video", None
+
+            # Add reaction keyboard if requested
+            if add_reactions and sent_message:
+                keyboard = get_reaction_keyboard(
+                    content_id=sent_message.message_id,
+                    channel_id=channel_id
+                )
+                await sent_message.edit_reply_markup(reply_markup=keyboard)
 
             logger.info(f"✅ Mensaje enviado al canal {channel_id}")
             return True, "✅ Publicación enviada correctamente", sent_message
@@ -409,6 +427,46 @@ class ChannelService:
         except Exception as e:
             logger.error(f"Error al copiar a {channel_id}: {e}")
             return False, f"❌ Error: {str(e)}"
+
+    async def copy_to_channel_with_reactions(
+        self,
+        channel_id: str,
+        from_chat_id: int,
+        message_id: int
+    ) -> Tuple[bool, str, Optional[Message]]:
+        """
+        Copia un mensaje a un canal y agrega botones de reacción.
+
+        Args:
+            channel_id: ID del canal destino
+            from_chat_id: ID del chat origen
+            message_id: ID del mensaje a copiar
+
+        Returns:
+            Tuple[bool, str, Optional[Message]]: (éxito, mensaje, mensaje_enviado)
+        """
+        try:
+            sent_message = await self.bot.copy_message(
+                chat_id=channel_id,
+                from_chat_id=from_chat_id,
+                message_id=message_id
+            )
+
+            # Add reaction keyboard
+            keyboard = get_reaction_keyboard(
+                content_id=sent_message.message_id,
+                channel_id=channel_id
+            )
+            await sent_message.edit_reply_markup(reply_markup=keyboard)
+
+            logger.info(f"✅ Mensaje copiado al canal {channel_id} con reacciones")
+            return True, "✅ Mensaje copiado con botones de reacción", sent_message
+
+        except TelegramForbiddenError:
+            return False, "❌ Bot no tiene permiso para publicar en el canal", None
+        except Exception as e:
+            logger.error(f"Error al copiar a {channel_id}: {e}")
+            return False, f"❌ Error: {str(e)}", None
 
     # ===== INFORMACIÓN DE CANALES =====
 

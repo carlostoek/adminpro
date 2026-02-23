@@ -14,7 +14,7 @@ Free users: "Sí… ya eres Kinky. Aquí empieza el juego."
 """
 import random
 from datetime import datetime
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict, Any
 
 from aiogram.types import InlineKeyboardMarkup
 
@@ -66,12 +66,58 @@ class UserMenuMessages(BaseMessageProvider):
         """
         super().__init__()
 
+    def _format_streak_display(self, streak_count: int) -> str:
+        """
+        Format streak count for display with fire emoji.
+
+        Args:
+            streak_count: Current streak day count
+
+        Returns:
+            str: Formatted streak string with fire emoji
+
+        Voice (Diana 🫦):
+            - Direct, empowering tone
+            - "Sin racha" for zero streak (encouraging start)
+            - "{count} días" for active streak
+        """
+        if streak_count > 0:
+            return f"🔥 {streak_count} días"
+        return "🔥 Sin racha"
+
+    def _format_time_until_next_claim(self, next_claim_time: Optional[datetime]) -> str:
+        """
+        Format time remaining until next claim.
+
+        Args:
+            next_claim_time: Datetime when next claim is available
+
+        Returns:
+            str: Formatted time string (e.g., "5h 30m")
+        """
+        if next_claim_time is None:
+            return "pronto"
+
+        from datetime import datetime
+        now = datetime.utcnow()
+        if next_claim_time <= now:
+            return "disponible"
+
+        remaining = next_claim_time - now
+        hours = remaining.seconds // 3600
+        minutes = (remaining.seconds % 3600) // 60
+
+        if hours > 0:
+            return f"{hours}h {minutes}m"
+        return f"{minutes}m"
+
     def vip_menu_greeting(
         self,
         user_name: str,
         vip_expires_at: Optional[datetime] = None,
         user_id: Optional[int] = None,
-        session_history: Optional["SessionMessageHistory"] = None
+        session_history: Optional["SessionMessageHistory"] = None,
+        streak_info: Optional[Dict[str, any]] = None
     ) -> Tuple[str, InlineKeyboardMarkup]:
         """
         Generate main VIP menu greeting with Diana's direct voice.
@@ -100,10 +146,19 @@ class UserMenuMessages(BaseMessageProvider):
             >>> 'Ya no estás afuera' in text
             True
         """
-        # Fixed greeting for VIP users - solo el texto solicitado
-        text = "🫦 <b>Diana:</b>\n\nYa no estás afuera.\nAquí el juego cambia."
+        # Build greeting with streak info if provided
+        streak_display = ""
+        if streak_info:
+            current_streak = streak_info.get("current_streak", 0)
+            streak_display = self._format_streak_display(current_streak)
 
-        keyboard = self._vip_main_menu_keyboard()
+        # Fixed greeting for VIP users - with streak display
+        if streak_display:
+            text = f"🫦 <b>Diana:</b>\n\nYa no estás afuera.\nAquí el juego cambia.\n\n{streak_display}"
+        else:
+            text = "🫦 <b>Diana:</b>\n\nYa no estás afuera.\nAquí el juego cambia."
+
+        keyboard = self._vip_main_menu_keyboard(streak_info)
         return text, keyboard
 
     def free_menu_greeting(
@@ -111,7 +166,8 @@ class UserMenuMessages(BaseMessageProvider):
         user_name: str,
         free_queue_position: Optional[int] = None,
         user_id: Optional[int] = None,
-        session_history: Optional["SessionMessageHistory"] = None
+        session_history: Optional["SessionMessageHistory"] = None,
+        streak_info: Optional[Dict[str, Any]] = None
     ) -> Tuple[str, InlineKeyboardMarkup]:
         """
         Generate main Free menu greeting with Diana's direct voice.
@@ -140,10 +196,19 @@ class UserMenuMessages(BaseMessageProvider):
             >>> 'ya eres Kinky' in text
             True
         """
-        # Fixed greeting for Free users - solo el texto solicitado
-        text = "🫦 <b>Diana:</b>\n\nSí… ya eres Kinky.\nAquí empieza el juego."
+        # Build greeting with streak info if provided
+        streak_display = ""
+        if streak_info:
+            current_streak = streak_info.get("current_streak", 0)
+            streak_display = self._format_streak_display(current_streak)
 
-        keyboard = self._free_main_menu_keyboard()
+        # Fixed greeting for Free users - with streak display
+        if streak_display:
+            text = f"🫦 <b>Diana:</b>\n\nSí… ya eres Kinky.\nAquí empieza el juego.\n\n{streak_display}"
+        else:
+            text = "🫦 <b>Diana:</b>\n\nSí… ya eres Kinky.\nAquí empieza el juego."
+
+        keyboard = self._free_main_menu_keyboard(streak_info)
         return text, keyboard
 
     def vip_premium_section(
@@ -496,9 +561,12 @@ class UserMenuMessages(BaseMessageProvider):
 
     # ===== PRIVATE KEYBOARD FACTORY METHODS =====
 
-    def _vip_main_menu_keyboard(self) -> InlineKeyboardMarkup:
+    def _vip_main_menu_keyboard(self, streak_info: Optional[Dict[str, Any]] = None) -> InlineKeyboardMarkup:
         """
         Generate keyboard for VIP main menu.
+
+        Args:
+            streak_info: Optional dict with streak data (current_streak, can_claim, next_claim_time)
 
         Returns:
             InlineKeyboardMarkup with VIP navigation options
@@ -510,18 +578,34 @@ class UserMenuMessages(BaseMessageProvider):
             - Uses create_menu_navigation for consistent "Salir" button
         """
         content_buttons = [
+            [{"text": "🛍️ Tienda", "callback_data": "shop_catalog"}],
             [{"text": "💎 Contenido Premium", "callback_data": "vip:premium"}],
             [{"text": "📦 Mi contenido", "callback_data": "vip:free_content"}],
             [{"text": "📊 Estado de la Membresía", "callback_data": "vip:status"}],
         ]
+
+        # Add streak/daily gift button if streak info provided
+        if streak_info:
+            can_claim = streak_info.get("can_claim", False)
+            next_claim_time = streak_info.get("next_claim_time")
+
+            if can_claim:
+                content_buttons.insert(0, [{"text": "🎁 Reclamar regalo diario", "callback_data": "streak:claim_daily"}])
+            elif next_claim_time:
+                time_str = self._format_time_until_next_claim(next_claim_time)
+                content_buttons.insert(0, [{"text": f"⏳ Próximo regalo en {time_str}", "callback_data": "streak:status"}])
+
         return create_content_with_navigation(
             content_buttons,
             include_back=False  # Main menu has no navigation buttons (content only)
         )
 
-    def _free_main_menu_keyboard(self) -> InlineKeyboardMarkup:
+    def _free_main_menu_keyboard(self, streak_info: Optional[Dict[str, Any]] = None) -> InlineKeyboardMarkup:
         """
         Generate keyboard for Free main menu.
+
+        Args:
+            streak_info: Optional dict with streak data (current_streak, can_claim, next_claim_time)
 
         Returns:
             InlineKeyboardMarkup with Free navigation options
@@ -535,10 +619,23 @@ class UserMenuMessages(BaseMessageProvider):
             - Uses create_menu_navigation for consistent "Salir" button
         """
         content_buttons = [
+            [{"text": "🛍️ Tienda", "callback_data": "shop_catalog"}],
             [{"text": "📦 Mi contenido", "callback_data": "menu:free:content"}],
             [{"text": "🛋️ El Diván", "callback_data": "menu:free:vip"}],
             [{"text": "🔗 Mis redes", "callback_data": "menu:free:social"}],
         ]
+
+        # Add streak/daily gift button if streak info provided
+        if streak_info:
+            can_claim = streak_info.get("can_claim", False)
+            next_claim_time = streak_info.get("next_claim_time")
+
+            if can_claim:
+                content_buttons.insert(0, [{"text": "🎁 Reclamar regalo diario", "callback_data": "streak:claim_daily"}])
+            elif next_claim_time:
+                time_str = self._format_time_until_next_claim(next_claim_time)
+                content_buttons.insert(0, [{"text": f"⏳ Próximo regalo en {time_str}", "callback_data": "streak:status"}])
+
         return create_content_with_navigation(
             content_buttons,
             include_back=False  # Main menu has no navigation buttons (content only)

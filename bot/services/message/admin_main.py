@@ -235,11 +235,16 @@ class AdminMainMessages(BaseMessageProvider):
             [{"text": "👑 Círculo Exclusivo VIP", "callback_data": "admin:vip"}],
             [{"text": "📺 Vestíbulo de Acceso", "callback_data": "admin:free"}],
             [{"text": "📦 Paquetes de Contenido", "callback_data": "admin:content"}],
+            [{"text": "📁 ContentSets", "callback_data": "admin:content_sets"}],
+            [{"text": "🛍️ Tienda", "callback_data": "admin:shop"}],
+            [{"text": "🏆 Recompensas", "callback_data": "admin:rewards"}],
             [{"text": "🔔 Intereses", "callback_data": "admin:interests"}],
             [{"text": "👥 Gestión de Usuarios", "callback_data": "admin:users"}],
+            [{"text": "👤 Buscar Usuario", "callback_data": "admin:user:lookup"}],
             [{"text": "⚙️ Calibración del Reino", "callback_data": "admin:config"}],
             [{"text": "💰 Planes de Suscripción", "callback_data": "admin:pricing"}],
             [{"text": "📈 Observaciones del Reino", "callback_data": "admin:stats"}],
+            [{"text": "📊 Métricas Economía", "callback_data": "admin:economy_stats"}],
         ])
 
     def _config_menu_keyboard(self) -> InlineKeyboardMarkup:
@@ -255,6 +260,7 @@ class AdminMainMessages(BaseMessageProvider):
         """
         return create_inline_keyboard([
             [{"text": "📊 Estado del Reino", "callback_data": "config:status"}],
+            [{"text": "💰 Economía", "callback_data": "admin:economy_config"}],
             [{"text": "👑 Reacciones del Círculo", "callback_data": "config:reactions:vip"}],
             [{"text": "📺 Reacciones del Vestíbulo", "callback_data": "config:reactions:free"}],
             [{"text": "🔙 Volver al Menú Principal", "callback_data": "admin:main"}],

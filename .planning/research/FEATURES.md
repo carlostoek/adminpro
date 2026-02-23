@@ -1,286 +1,406 @@
-# Feature Research: Menu System for Role-Based Bot Experience
+# Feature Research: Gamification System
 
-**Domain:** Role-Based Menu System with Content Management
-**Researched:** 2026-01-24
-**Confidence:** HIGH
+**Domain:** Virtual Currency & Engagement Gamification for Telegram Bot
+**Researched:** 2026-02-08
+**Confidence:** MEDIUM (based on established gamification patterns + existing codebase analysis)
 
 ## Feature Landscape
 
 ### Table Stakes (Users Expect These)
 
-Features essential for any menu-based bot experience. Missing these = unusable or confusing navigation.
+Features essential for any gamification system. Missing these = economy feels broken or unfair.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Role-based menu routing** | Different user types (Admin/VIP/Free) need different menus | MEDIUM | Detect user role, render appropriate menu. Core to this milestone. |
-| **Hierarchical navigation** | Users expect to drill down into categories and go back | MEDIUM | FSM states for each level, back button to return. Essential for content browsing. |
-| **Inline keyboard buttons** | Telegram standard for menu interactions | LOW | CallbackQuery handlers. Already used in admin handlers. |
-| **Content list with pagination** | Cannot show all content at once (>50 items causes UI issues) | MEDIUM | LIMIT/OFFSET queries, prev/next buttons. Standard pattern. |
-| **Back button behavior** | Users need to navigate up the menu hierarchy | LOW | FSM state transition to previous level. Natural with FSM. |
-| **Menu state persistence** | User's position remembered across sessions | LOW | FSMContext persists state. aiogram handles automatically. |
-| **Content detail view** | Users need full info before taking action | LOW | Show title, description, media. Standard CRUD read operation. |
-| **Admin content CRUD** | Admins must manage content packages | MEDIUM | Create, Read, Update, Delete. Core admin functionality. |
+| **Virtual currency balance** | Users need to see their "besitos" balance clearly | LOW | Display in menu, profile. Core to economy. |
+| **Currency earning methods** | Users must know HOW to earn currency | LOW | Reactions, daily gift, streaks. Clear rules. |
+| **Currency spending (shop)** | Economy needs a sink or it's meaningless | MEDIUM | Content packages, VIP benefits. Core loop. |
+| **Transaction history** | Users want to track where currency came/went | MEDIUM | Audit trail prevents disputes, builds trust. |
+| **Daily gift with cooldown** | Standard retention mechanic in gamification | LOW | 24h cooldown, clear claim button. Expected. |
+| **Streak system** | Rewards consistent engagement | MEDIUM | Daily consecutive logins, bonus scaling. Standard. |
+| **Reaction buttons on content** | Simple engagement mechanic | LOW | Inline buttons (❤️🔥💋😈) on channel posts. |
+| **Level/progress indicator** | Users want to see their standing | LOW | XP bar, level number, progress to next. |
+| **Shop with purchasable items** | Core economy sink | MEDIUM | Content packages, VIP extensions, perks. |
+| **Anti-farming protections** | Prevent abuse of earning mechanics | MEDIUM | Rate limits, duplicate detection, cooldowns. |
 
 ### Differentiators (Competitive Advantage)
 
-Features that make the menu system excellent and user-friendly.
+Features that make the gamification system engaging and unique.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **"Me interesa" notification system** | Users express interest, admins get notified for follow-up | MEDIUM | InterestNotification model tracks clicks, real-time admin alerts. Key engagement feature. |
-| **Dynamic menu rendering** | Menus adapt to content availability and user permissions | MEDIUM | Query database for active content, build keyboard dynamically. No stale menus. |
-| **User management from menu** | Admins can view users, change roles, block without commands | HIGH | User info viewer, role changer, block/expel functionality. Powerful admin tool. |
-| **Content type filtering** | Users can filter content by category/interest | MEDIUM | Store package_type, filter in queries. Improves discoverability. |
-| **Social media entry flow** | Free users follow socials to unlock channel access | MEDIUM | Display links, verify (optional), generate invite. Growth feature. |
-| **Audit logging** | Track role changes and important actions | LOW | UserRoleChangeLog model. Accountability and debugging. |
-| **Media support in content** | Rich content with photos/videos | MEDIUM | file_id storage, send_photo/send_video in detail view. Engaging UX. |
-| **Soft delete for content** | Hide content without losing data | LOW | is_active flag, toggle instead of delete. Safety net. |
-| **Interest analytics** | Admins see which content gets most interest | LOW | Query InterestNotification, aggregate stats. Data-driven decisions. |
+| **"Besitos" as soft currency** | Branded currency creates emotional connection | LOW | Cute name fits Diana's voice (🫦). Memorable. |
+| **Reaction-to-currency conversion** | Engagement directly rewarded | LOW | Each reaction type = different besito value. |
+| **Streak recovery (one-time)** | Compassion for broken streaks increases retention | MEDIUM | One "save" per user, premium or limited use. |
+| **Level-based shop discounts** | Higher levels get better prices | LOW | Incentive to engage long-term. Progressive reward. |
+| **VIP-only shop items** | Creates aspiration for VIP status | LOW | Exclusive content, perks visible but locked. |
+| **Achievement/achievement system** | Recognition beyond currency | HIGH | Configurable conditions, badges, notifications. |
+| **Seasonal events (2x besitos)** | Time-limited engagement spikes | LOW | Weekend events, holiday bonuses. Easy wins. |
+| **Leaderboard (opt-in)** | Social competition drives engagement | MEDIUM | Top besitos earners, weekly reset. Privacy-aware. |
+| **Currency gifting between users** | Social economy layer | HIGH | Transfer besitos, promotes community. Abuse risk. |
+| **"Besitos multiplier" for VIPs** | VIP status enhances gamification | LOW | 2x besitos from all sources. VIP value-add. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| **Deeply nested menus (>4 levels)** | "More granular organization!" | Users get lost, back button fatigue, FSM state complexity | Flat menus with filters/search instead |
-| **Real-time menu updates for all users** | "See new content immediately!" | Broadcasts to all users expensive, privacy concerns (show unpublished content) | Refresh button or new session gets updated menu |
-| **Customizable menu layouts per user** | "Personalized experience!" | A/B testing complexity, harder to maintain, inconsistent UX | Role-based menus (Admin/VIP/Free) only |
-| **Drag-and-drop content ordering** | "Easy reordering!" | Requires position column, update cascade, conflict resolution | Sort by created_at or simple priority field |
-| **Menu search within bot** | "Find content quickly!" | Complex to implement, Telegram search exists, adds state | Use channel search or external website |
-| **User-generated content in menus** | "Community contribution!" | Moderation overhead, spam risk, quality issues | Admin-only content creation, interest buttons for feedback |
-| **Menu branching logic (conditionals)** | "Show different menus based on X" | Hard to debug, hidden complexity, unpredictable UX | Separate menu paths with clear role/access rules |
+| **Real money → besitos conversion IN bot** | "Seamless purchase experience" | Violates Telegram ToS for bots, payment processing complexity, tax implications | External payment (manual), then admin grants besitos |
+| **Gambling/lottery with besitos** | "Fun random rewards!" | Regulatory issues, addiction concerns, perceived unfairness | Guaranteed rewards, choice-based purchases |
+| **Trading besitos for real money** | "Cash out option!" | Creates regulatory nightmare, money transmission laws | Non-convertible currency, only in-ecosystem value |
+| **Unlimited streaks without cap** | "Reward forever loyalty!" | Numbers get absurd, diminishing returns, database bloat | Cap at 30/60/90 days, reset or convert to badge |
+| **Automated besitos farming detection** | "Stop cheaters!" | Complex ML, false positives harm legitimate users | Rate limits + manual review for suspicious patterns |
+| **Currency inflation (unlimited supply)** | "Everyone gets rich!" | Devalues currency, economy collapses, shop prices must inflate | Controlled supply, sinks match sources, periodic rebalancing |
+| **NFT/blockchain integration** | "Web3 is the future!" | Massive complexity, user friction, environmental concerns | Simple database-backed currency |
+| **Cross-bot besitos transfer** | "Use currency everywhere!" | Technical complexity, abuse vector, dilutes brand | Self-contained economy, export history only |
 
 ## Feature Dependencies
 
 ```
-[Role-Based Menu Routing]
-    └──requires──> [User Role Detection]
-                      └──uses──> [FSM State Management]
+[Virtual Currency System]
+    └──requires──> [User Model Extension]
+                       └──requires──> [Existing User Model]
 
-[Content Package Management]
-    └──requires──> [Content Package Model]
-    └──requires──> [Admin CRUD Operations]
-    └──enhances──> [Dynamic Menu Rendering]
+[Daily Gift System]
+    └──requires──> [Currency Service]
+    └──requires──> [Streak Tracking Model]
+    └──enhances──> [Retention Metrics]
 
-[Interest Notification System]
-    └──requires──> [InterestNotification Model]
-    └──requires──> [Content Detail View]
-    └──triggers──> [Admin Notification Handler]
+[Reaction System]
+    └──requires──> [Channel Message Handler]
+    └──requires──> [Currency Service]
+    └──uses──> [Existing Reaction Config (BotConfig.vip_reactions)]
 
-[User Management Features]
-    └──requires──> [UserRoleChangeLog Model]
-    └──requires──> [Admin Menu Access]
-    └──uses──> [SubscriptionService (existing)]
+[Shop System]
+    └──requires──> [Currency Service]
+    └──requires──> [Content Package Model (existing)]
+    └──requires──> [VIP Subscription Service (existing)]
+    └──conflicts──> [Direct Content Purchase with Real Money]
 
-[Free Channel Entry Flow]
-    └──requires──> [Social Media Config]
-    └──uses──> [ChannelService (existing)]
-    └──produces──> [Invite Link]
+[Level System]
+    └──requires──> [XP/Currency Accumulation]
+    └──requires──> [Level Config (thresholds, rewards)]
+    └──enhances──> [Shop System (level-based discounts)]
+
+[Achievement System]
+    └──requires──> [Event Tracking System]
+    └──requires──> [Achievement Config Model]
+    └──enhances──> [Engagement Metrics]
+
+[Admin Configuration]
+    └──requires──> [Cascading Config Pattern]
+    └──uses──> [Existing ConfigService Pattern]
+    └──replaces──> [Fragmented Config Files]
 ```
 
 ### Dependency Notes
 
-- **Role-Based Routing requires User Role Detection:** Cannot route without knowing user's role. Uses existing SubscriptionService.is_vip_active() and Config.is_admin().
-- **Content Management requires Admin CRUD:** Admins need full control over content lifecycle. Create, edit, delete, toggle active.
-- **Interest Notifications require Content Detail:** Users click "Me interesa" from content detail view. Cannot have notification without detail view.
-- **User Management requires existing services:** Leverage SubscriptionService and ChannelService. Don't duplicate logic.
-- **Free Entry Flow requires ChannelService:** Generate invite links using existing service. Integration point.
+- **Currency System requires User Model Extension:** Need to add `besitos_balance`, `total_earned`, `total_spent` to User model or create UserEconomy model.
+- **Daily Gift requires Streak Tracking:** Need `UserStreak` model with `current_streak`, `last_claim_date`, `longest_streak`.
+- **Reaction System uses existing config:** BotConfig already has `vip_reactions` and `free_reactions` - extend with currency values.
+- **Shop integrates with existing ContentPackage:** Content packages already exist - add `besitos_price` field.
+- **Level System builds on currency:** Total lifetime besitos earned = XP. Levels at thresholds (100, 250, 500, etc.).
+- **Achievement System is complex:** Requires event emission, condition evaluation, reward distribution. Defer to v2 unless core requirement.
+- **Admin Configuration must cascade:** One screen configures reactions → earning values → shop items → levels. No fragmentation.
 
 ## MVP Definition
 
-### Launch With (v1.1 Core) — Essential Menu System
+### Launch With (v1 Gamification Core) — Essential Economy
 
-Minimum viable menu system for role-based content browsing and basic management.
+Minimum viable gamification system with working economy loop.
 
-- [x] **Role-Based Menu Routing** — Detect Admin/VIP/Free, render different main menus. Core differentiator.
-- [x] **FSM Menu States** — MAIN, CONTENT_LIST, CONTENT_DETAIL, USER_MANAGEMENT, CONTENT_MANAGEMENT. Navigation foundation.
-- [x] **Content Package Model** — id, package_type, title, description, media_url, is_active. Data layer.
-- [x] **Admin Content CRUD** — Create, read, update, delete, toggle active. Admin empowerment.
-- [x] **Content List with Pagination** — Query by type, prev/next buttons. Browsing UX.
-- [x] **Content Detail View** — Show full content with media. Decision support for users.
-- [x] **Back Button Navigation** — Return to previous menu level. Usability requirement.
-- [x] **InterestNotification Model** — Track "Me interesa" clicks. Engagement data.
-- [x] **"Me interesa" Button** — On content detail, creates notification. User engagement.
-- [x] **Admin Interest Notifications** — Real-time alerts when users express interest. Responsiveness.
+- [ ] **User Economy Model** — `besitos_balance`, `total_earned`, `total_spent`, `xp_total`
+- [ ] **Currency Service** — Add/subtract/query besitos with transaction logging
+- [ ] **Daily Gift Handler** — Claim button, 24h cooldown, streak tracking
+- [ ] **Reaction Earning System** — Click reaction → earn besitos (values configurable)
+- [ ] **Basic Shop** — List content packages with besitos prices, purchase flow
+- [ ] **Level Display** — Show current level based on total XP (besitos earned)
+- [ ] **Transaction History** — Last 20 transactions, earn/spend audit trail
+- [ ] **Admin Economy Panel** — Configure earning values, shop items, level thresholds
 
-**Rationale:** These features establish the menu system foundation. Users can browse content, express interest, admins can manage content and see interest. Basic user management included.
+**Rationale:** These establish the core economy loop. Users earn besitos (reactions, daily), spend besitos (shop), progress (levels). Admin can tune the economy.
 
-### Add After Validation (v1.2) — Advanced User Management
+### Add After Validation (v1.x) — Enhanced Engagement
 
-Features to add once basic menu system is validated by users.
+Features to add once core economy is working and balanced.
 
-- [ ] **User Info Viewer** — Admin can search/view user details from menu
-- [ ] **Role Change Functionality** — Admin can promote/demote users (VIP <-> Free)
-- [ ] **Block/Expel User** — Admin can block user from bot, expel from channels
-- [ ] **User Activity Log** — Track user actions (content viewed, interests clicked)
-- [ ] **Bulk User Operations** — Block multiple users, export user list
-- [ ] **Content Type Filtering** — Users can filter content by category/type
-- [ ] **Soft Delete Recovery** — Restore deleted content packages
+- [ ] **Streak Recovery** — One-time "save" for broken streak (costs besitos or watch ad)
+- [ ] **VIP Besitos Multiplier** — 2x earnings for VIP subscribers
+- [ ] **Seasonal Events** — Weekend 2x besitos, holiday bonuses
+- [ ] **Level-Based Shop Discounts** — Higher levels get X% off
+- [ ] **Leaderboard (opt-in)** — Weekly top earners, privacy-respecting
+- [ ] **Achievement Badges (simple)** — First purchase, 7-day streak, etc.
 
-**Trigger for adding:** When admins request more control over users, or when content volume makes filtering necessary.
+**Trigger for adding:** When daily active users stabilize and economy metrics (earning vs spending rates) are understood.
 
-### Future Consideration (v2+) — Scale & Advanced Features
+### Future Consideration (v2+) — Advanced Gamification
 
-Features to defer until menu system is proven and user base grows.
+Features to defer until economy is proven and user base is engaged.
 
-- [ ] **Menu Analytics Dashboard** — Most viewed content, click-through rates, user journeys
-- [ ] **Content Scheduling** — Schedule content to appear/disappear at specific times
-- [ ] **A/B Testing for Menus** — Test different menu layouts, measure engagement
-- [ ] **Multi-language Menus** — Separate menu flows per language/locale
-- [ ] **Content Approval Workflow** — Draft status, reviewer approval before publishing
-- [ ] **Advanced Search** — Full-text search within content titles/descriptions
-- [ ] **User-Generated Content** — Allow trusted users to submit content for review
-- [ ] **Menu Customization** — Admins can reorder menu items, hide sections
+- [ ] **Configurable Achievement System** — Admin-defined conditions and rewards
+- [ ] **Currency Gifting** — Users can send besitos to each other
+- [ ] **Shop Rotations** — Limited-time items, flash sales
+- [ ] **Quests/Missions** — Time-limited challenges for bonus besitos
+- [ ] **Guild/Team System** — Group competitions, shared goals
+- [ ] **Economy Analytics Dashboard** — Sink vs source rates, inflation tracking
 
-**Why defer:** These add complexity without validating core value (role-based menu browsing). Build after engagement patterns are understood.
+**Why defer:** These add complexity without validating core value (engagement through virtual economy). Build after earning/spending patterns are understood.
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority | Risk Level |
 |---------|------------|---------------------|----------|------------|
-| Role-Based Menu Routing | CRITICAL | MEDIUM | **P0** | Medium - core feature |
-| FSM Menu States | CRITICAL | LOW | **P0** | Low - standard aiogram |
-| Content Package Model | CRITICAL | LOW | **P0** | Low - simple SQLAlchemy |
-| Admin Content CRUD | HIGH | MEDIUM | **P0** | Medium - admin UX |
-| Content List Pagination | HIGH | MEDIUM | **P0** | Low - standard pattern |
-| Content Detail View | HIGH | LOW | **P0** | Low - render data |
-| Back Button Navigation | HIGH | LOW | **P0** | Low - FSM transition |
-| InterestNotification Model | HIGH | LOW | **P0** | Low - simple model |
-| "Me interesa" Button | HIGH | LOW | **P0** | Low - callback handler |
-| Admin Interest Alerts | MEDIUM | LOW | **P1** | Low - send message |
-| User Info Viewer | MEDIUM | MEDIUM | **P1** | Medium - query UX |
-| Role Change | MEDIUM | MEDIUM | **P1** | Medium - permissions |
-| Block/Expel User | MEDIUM | MEDIUM | **P1** | High - safety critical |
-| User Activity Log | LOW | MEDIUM | **P2** | Low - append-only table |
-| Content Type Filtering | MEDIUM | LOW | **P2** | Low - query filter |
-| Bulk User Operations | LOW | HIGH | **P3** | High - complex UX |
-| Content Scheduling | LOW | HIGH | **P3** | Medium - background jobs |
-| Menu Analytics | LOW | HIGH | **P3** | Low - read-only queries |
+| User Economy Model | CRITICAL | LOW | **P0** | Low - extends existing User |
+| Currency Service | CRITICAL | LOW | **P0** | Low - standard CRUD pattern |
+| Daily Gift Handler | HIGH | LOW | **P0** | Low - cooldown pattern exists |
+| Reaction Earning System | HIGH | LOW | **P0** | Low - extends existing reactions |
+| Basic Shop | HIGH | MEDIUM | **P0** | Medium - purchase flow, inventory |
+| Level Display | MEDIUM | LOW | **P1** | Low - calculated field |
+| Transaction History | MEDIUM | MEDIUM | **P1** | Low - audit table pattern |
+| Admin Economy Panel | HIGH | MEDIUM | **P1** | Medium - cascading config UI |
+| Streak Recovery | MEDIUM | MEDIUM | **P2** | Medium - one-time flag logic |
+| VIP Besitos Multiplier | MEDIUM | LOW | **P2** | Low - conditional multiplier |
+| Seasonal Events | MEDIUM | LOW | **P2** | Low - time-based flags |
+| Level-Based Discounts | LOW | LOW | **P2** | Low - formula adjustment |
+| Leaderboard | LOW | MEDIUM | **P3** | Medium - aggregation query |
+| Achievement Badges | LOW | HIGH | **P3** | High - event system, conditions |
+| Currency Gifting | LOW | HIGH | **P3** | High - abuse prevention, transfers |
 
 **Priority key:**
-- **P0**: Must have for v1.1 — Core menu system
-- **P1**: Should have for v1.1 — Important admin features
-- **P2**: Nice to have, v1.2 — Advanced features
-- **P3**: Future consideration — Scale features
+- **P0**: Must have for v1 gamification — Core economy loop
+- **P1**: Should have for v1.1 — Admin control and trust features
+- **P2**: Nice to have, v1.2 — Enhanced engagement
+- **P3**: Future consideration — Advanced features
+
+## Economy Design Principles
+
+### Currency Flow (Sources and Sinks)
+
+```
+SOURCES (Besitos Entering Economy):
+├── Reactions on channel content
+│   ├── ❤️ Heart = 1 besito
+│   ├── 🔥 Fire = 2 besitos (VIP only)
+│   ├── 💋 Kiss = 1 besito
+│   └── 😈 Devil = 3 besitos (VIP only)
+├── Daily Gift
+│   ├── Base: 10 besitos
+│   └── Streak bonus: +1 per day (max +7)
+├── Achievements (future)
+│   └── One-time rewards for milestones
+└── Admin grants (manual)
+    └── Support, compensation, contests
+
+SINKS (Besitos Leaving Economy):
+├── Shop purchases
+│   ├── Content packages: 50-500 besitos
+│   ├── VIP time extension: 1000 besitos
+│   └── Exclusive perks: variable
+├── Streak recovery (future)
+│   └── 50 besitos to restore broken streak
+└── Currency sinks (rebalancing)
+    └── Periodic shop items that destroy currency
+```
+
+### Level Thresholds (Recommended)
+
+| Level | Total Besitos Earned | Reward |
+|-------|---------------------|--------|
+| 1 | 0 | Starting level |
+| 2 | 100 | Shop discount 5% |
+| 3 | 250 | Shop discount 10% |
+| 4 | 500 | Shop discount 15% |
+| 5 | 1000 | VIP day (1 day free) |
+| 6 | 2000 | Shop discount 20% |
+| 7+ | +2000 per level | Badge + bragging rights |
+
+### Anti-Farming Measures
+
+| Risk | Mitigation |
+|------|------------|
+| Reaction spam | Max 1 reaction per message per user; reactions only count on messages < 24h old |
+| Daily gift abuse | 24h cooldown from last claim, not calendar day; timezone-aware |
+| Streak manipulation | Streak breaks if > 48h between claims; no backdating |
+| Shop exploit | Purchases are final; no refunds except admin intervention |
+| Multi-account | Device/IP tracking (basic); focus on engagement quality over quantity |
 
 ## Competitor/Reference Analysis
 
-Examined patterns from leading bot frameworks and menu systems:
+Examined patterns from gaming and bot economies:
 
-| Feature | Telegram Bot API | aiogram Best Practices | Botpress | Our Approach (Menu System) |
-|---------|------------------|------------------------|----------|----------------------------|
-| **Menu Navigation** | Inline keyboards + callback | FSM States for levels | Conversation paths | **FSM States** — Natural for nesting |
-| **Role Routing** | Custom middleware | Magic filters (F.role) | Role-based flows | **aiogram F filters** — Clean, declarative |
-| **Content Storage** | Not specified | SQLAlchemy models | CMS integration | **SQLAlchemy models** — Existing pattern |
-| **Pagination** | Manual callback handling | Custom keyboard builders | Built-in paginator | **Custom pagination** — Full control |
-| **State Persistence** | Not specified | FSMContext | Session storage | **FSMContext** — aiogram native |
-| **Back Navigation** | Manual state transition | State.set_state() | Return intent | **FSM state transition** — Explicit |
-| **Notifications** | Bot API send_message | Async tasks | Event system | **Async handler** — Simple, direct |
+| Feature | Discord Bots | Mobile Games | Our Approach (Gamification) |
+|---------|--------------|--------------|----------------------------|
+| **Virtual Currency** | "Points", "credits" | Gems, coins, tokens | **"Besitos"** — Branded, fits voice |
+| **Daily Rewards** | Fixed amount | Increasing with streak | **Streak-scaling** — Rewards consistency |
+| **Engagement Rewards** | Message count | Ad watches, sessions | **Reactions** — Low friction, content-aligned |
+| **Shop Items** | Roles, cosmetics | Power-ups, cosmetics | **Content + VIP time** — Value-aligned |
+| **Level System** | XP from activity | XP from everything | **Besitos earned = XP** — Unified metric |
+| **Anti-Farming** | Rate limits | CAPTCHA, detection | **Time windows + deduplication** — Simple, effective |
 
-**Key Differentiator:** Most bot platforms treat menus as static keyboards. Our approach uses **database-driven dynamic menus** with role-based routing and content management built-in. This is more flexible for content-heavy bots.
+**Key Differentiator:** Most systems separate "points" from "currency". Our approach unifies them: **total besitos earned = XP = level progress**. This simplifies mental model: "Everything I earn progresses me."
+
+## Database Schema Additions
+
+### New Models Required
+
+```python
+class UserEconomy(Base):
+    """Extends User with gamification data."""
+    user_id = FK(User)
+    besitos_balance = Integer(default=0)
+    total_earned = Integer(default=0)  # XP source
+    total_spent = Integer(default=0)
+    current_level = Integer(default=1)
+
+class UserStreak(Base):
+    """Daily gift streak tracking."""
+    user_id = FK(User)
+    current_streak = Integer(default=0)
+    longest_streak = Integer(default=0)
+    last_claim_date = DateTime
+    recovery_used = Boolean(default=False)
+
+class Transaction(Base):
+    """Audit trail for all currency movements."""
+    user_id = FK(User)
+    amount = Integer  # positive = earn, negative = spend
+    type = Enum(EARN_REACTION, EARN_DAILY, EARN_STREAK, SPEND_SHOP, ADMIN_GRANT)
+    description = String
+    created_at = DateTime
+
+class ShopItem(Base):
+    """Items available for purchase with besitos."""
+    name = String
+    description = String
+    besitos_price = Integer
+    item_type = Enum(CONTENT_PACKAGE, VIP_EXTENSION, PERK)
+    reference_id = Integer  # FK to content package, etc.
+    stock = Integer(nullable=True)  # NULL = unlimited
+    is_active = Boolean(default=True)
+
+class LevelConfig(Base):
+    """Level thresholds and rewards."""
+    level = Integer(primary_key)
+    xp_required = Integer  # Total besitos earned needed
+    reward_type = Enum(DISCOUNT, VIP_TIME, BADGE)
+    reward_value = String  # JSON or scalar
+```
 
 ## Feature Implementation Order
 
 ### Order by Dependency and Risk
 
-1. **Content Package Model** (LOW risk, no dependencies)
-   - Foundation for all content features
-   - Simple SQLAlchemy model
-   - Migration: Add table to existing database
+1. **UserEconomy Model** (LOW risk, no dependencies)
+   - Foundation for all gamification
+   - Simple model extension
+   - Migration: Add table, backfill zeros
 
-2. **InterestNotification Model** (LOW risk, no dependencies)
-   - Tracks user engagement
-   - Simple model with foreign key
-   - Can be built parallel with ContentPackage
-
-3. **FSM Menu States** (LOW risk, no dependencies)
-   - Define state hierarchy
-   - No code changes, just state definitions
-   - Enables all navigation features
-
-4. **MenuService** (MEDIUM risk, depends on models)
-   - Central service for menu logic
-   - Methods for rendering, navigation
+2. **Currency Service** (LOW risk, depends on UserEconomy)
+   - Core service for all economy operations
+   - Methods: earn(), spend(), get_balance()
    - Integrates with ServiceContainer
 
-5. **Admin Menu Handlers** (MEDIUM risk, depends on MenuService)
-   - Admin-only menu router
-   - Content CRUD handlers
-   - First functional menu
+3. **Transaction Model** (LOW risk, depends on Currency Service)
+   - Audit trail
+   - Simple append-only table
+   - Enables history feature
 
-6. **Content List Pagination** (LOW risk, depends on MenuService)
-   - Query with LIMIT/OFFSET
-   - Build pagination keyboard
-   - Standard pattern
+4. **Daily Gift Handler** (LOW risk, depends on Currency Service)
+   - Claim command/button
+   - Cooldown check
+   - Streak calculation
 
-7. **Content Detail View** (LOW risk, depends on MenuService)
-   - Render single content package
-   - Show media if available
-   - Add "Me interesa" button
+5. **UserStreak Model** (LOW risk, depends on Daily Gift)
+   - Streak tracking
+   - Can be built parallel with Daily Gift
 
-8. **Interest Notification Handlers** (LOW risk, depends on InterestNotification)
-   - Callback handler for "Me interesa"
-   - Create notification record
-   - Alert admin users
+6. **Reaction Earning System** (MEDIUM risk, depends on Currency Service)
+   - Callback handler for reactions
+   - Rate limiting
+   - Integration with existing reaction config
 
-9. **VIP/Free Menu Handlers** (MEDIUM risk, depends on MenuService)
-   - Role-based routing
-   - Content browsing
-   - Similar to admin but read-only
+7. **ShopItem Model** (LOW risk, no dependencies)
+   - Shop inventory
+   - Can be populated via admin
 
-10. **User Management Features** (MEDIUM risk, depends on MenuService)
-    - User info viewer
-    - Role change, block/expel
-    - Requires careful permission handling
+8. **Shop Handler** (MEDIUM risk, depends on ShopItem + Currency Service)
+   - Browse items
+   - Purchase flow
+   - Inventory management
 
-11. **Free Channel Entry Flow** (LOW risk, depends on ChannelService)
-    - Social media links display
-    - Follow verification (optional)
-    - Invite link generation
+9. **Level System** (LOW risk, depends on UserEconomy)
+   - Calculate level from total_earned
+   - Display progress
+   - Level-up notifications
+
+10. **LevelConfig Model** (LOW risk, depends on Level System)
+    - Thresholds and rewards
+    - Admin configurable
+
+11. **Admin Economy Panel** (MEDIUM risk, depends on all above)
+    - Cascading configuration
+    - Economy tuning
+    - Transaction monitoring
+
+12. **Achievement System** (HIGH risk, depends on Event System)
+    - Event emission framework
+    - Condition evaluation
+    - Reward distribution
+    - **Defer to v2 unless critical**
 
 ## Feature Risk Assessment
 
 | Feature | Risk Type | Mitigation |
 |---------|-----------|------------|
-| FSM State Complexity | Technical | Keep hierarchy shallow (<4 levels), clear state transitions |
-| Role Detection | Integration | Use existing SubscriptionService, cache role in FSMContext |
-| Content CRUD | UX | Add confirmation dialogs, soft delete (is_active flag) |
-| Pagination Performance | Performance | Index on (package_type, is_active, created_at) |
-| Interest Spam | UX | Limit rate (max 1 interest per user per content), deduplicate notifications |
-| Admin Notifications | UX | Batch if high volume, respect admin notification preferences |
-| User Blocking | Safety | Audit log, confirmation dialog, cannot block other admins |
-| Media Handling | Performance | Store Telegram file_id after first upload, cache aggressively |
-| Back Button State | Technical | Store previous state in FSMContext, validate transitions |
-| Role Change Permissions | Security | Only admins can change roles, log all changes, prevent self-promotion |
+| Currency balance accuracy | Data integrity | Database transactions, audit trail, reconciliation job |
+| Economy inflation | Balance | Monitor earn/spend ratio, adjust values, add sinks |
+| User confusion | UX | Clear earning rules, visible progress, help command |
+| Admin misconfiguration | Operational | Sensible defaults, validation, preview mode |
+| Reaction farming | Abuse | Time windows, deduplication, rate limits |
+| Streak timezone issues | Technical | Store UTC, display local, 48h grace period |
+| Shop purchase disputes | Support | Clear "no refunds" policy, transaction history |
+| Level calculation performance | Performance | Cache level, recalculate on earn only |
+| Achievement complexity | Technical | Start with hardcoded, build config system later |
+
+## Integration with Existing Features
+
+| Existing Feature | Gamification Integration |
+|------------------|-------------------------|
+| **VIP Subscription** | Besitos multiplier, shop items for VIP extension, VIP-only shop section |
+| **Content Packages** | Besitos pricing, "purchased" state, unlock via currency |
+| **Reaction System** | Earning source, values configurable per reaction type |
+| **Free Channel** | Daily gift reminder in Free menu, engagement before VIP |
+| **Admin Panel** | Cascading config for all economy settings |
+| **Interest System** | Bonus besitos for expressing interest (future) |
+
+## Voice Architecture Integration
+
+| Context | Voice | Usage |
+|---------|-------|-------|
+| Daily Gift (claim) | Diana (🫦) | "Toma tus besitos, cariño..." |
+| Shop browsing | Diana (🫦) | "Mira lo que tengo para ti..." |
+| Level up | Diana (🫦) | "Subiste de nivel... mereces más." |
+| Transaction success | Diana (🫦) | "Hecho. Disfruta." |
+| Economy admin | Lucien (🎩) | Configuration, stats, reports |
+| Error/insufficient funds | Lucien (🎩) | "No tiene fondos suficientes..." |
 
 ## Sources
 
-**Telegram Bot Menu Best Practices:**
-- [Telegram Bot: Inline Keyboards Documentation](https://core.telegram.org/bots/features#inline-keyboards) — Official inline keyboard guide (HIGH confidence)
-- [aiogram FSM Best Practices](https://docs.aiogram.dev/en/latest/dispatcher/finite_state_machine.html) — State management patterns (HIGH confidence)
-- [Building Nested Menus in Telegram Bots](https://surikov.dev/telegram-bot-nested-menus/) — Menu hierarchy patterns (MEDIUM confidence)
+**Gamification Design Patterns:**
+- [Octalysis Framework](https://yukaichou.com/gamification-examples/octalysis-complete-gamification-framework/) — Core drives for engagement (MEDIUM confidence)
+- [Virtual Economy Design](https://www.gamasutra.com/view/feature/134608/designing_virtual_economies.php) — Currency flow principles (MEDIUM confidence)
+- [Mobile Game Retention](https://www.gamedeveloper.com/design/retention-and-monetization-mechanics) — Daily rewards, streaks (MEDIUM confidence)
 
-**Role-Based Access Control:**
-- [Role-Based Access Control in Bots](https://www.botframework.com/blog/role-based-access-control/) — RBAC patterns (MEDIUM confidence)
-- [Implementing Role-Based Menus](https://dev.to/ Telegram-bot-role-based-menus) — Implementation guide (LOW confidence)
+**Telegram Bot Patterns:**
+- [aiogram CallbackQuery Handling](https://docs.aiogram.dev/en/latest/dispatcher/filters/callback_query.html) — Reaction buttons (HIGH confidence)
+- [Telegram Inline Keyboards](https://core.telegram.org/bots/api#inlinekeyboardmarkup) — Shop UI (HIGH confidence)
 
-**Content Management Systems:**
-- [Database-Driven Bot Content](https://dev.to/codesphere/building-a-telegram-bot-with-database-driven-content-3m1a) — Content CRUD patterns (MEDIUM confidence)
-- [CMS Patterns for Telegram Bots](https://medium.com/@ Telegram-bot-cms) — Content organization (LOW confidence)
-
-**Pagination and Navigation:**
-- [Pagination in Telegram Bots](https://mastergroosha.github.io/telegram-tutorial-2/levelup/) — Callback pagination patterns (MEDIUM confidence)
-- [Building Browseable Catalogs](https://www.youtube.com/watch?v=example) — Video tutorial (LOW confidence)
-
-**Notification Systems:**
-- [Telegram Bot Notification Patterns](https://www.twilio.com/blog/notifications-telegram-bot) — Async notifications (MEDIUM confidence)
-- [User Engagement Tracking](https://blog.botpress.io/engagement-metrics/) — Interest tracking patterns (MEDIUM confidence)
-
-**User Management:**
-- [Admin Panel Best Practices](https://admin-panel-patterns.dev/) — Admin UX patterns (MEDIUM confidence)
-- [User Role Management](https://auth0.com/docs/manage-users/access-control) — Role change workflows (HIGH confidence)
+**Existing Codebase:**
+- `/data/data/com.termux/files/home/repos/adminpro/bot/database/models.py` — User, ContentPackage models (HIGH confidence)
+- `/data/data/com.termux/files/home/repos/adminpro/bot/services/container.py` — Service architecture (HIGH confidence)
+- `/data/data/com.termux/files/home/repos/adminpro/bot/database/models.py` — BotConfig reactions config (HIGH confidence)
 
 ---
 
-*Feature research for: Menu System (v1.1)*
-*Researched: 2026-01-24*
-*Confidence: HIGH — Based on aiogram documentation + existing codebase patterns*
+*Feature research for: Gamification System (v1.4)*
+*Researched: 2026-02-08*
+*Confidence: MEDIUM — Based on established gamification patterns + existing codebase analysis*

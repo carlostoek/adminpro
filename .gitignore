@@ -24,6 +24,9 @@ __pycache__/
 alembic/versions/*.py
 # But allow the initial migration (explicitly committed)
 !alembic/versions/20260129_050441_initial_schema_with_all_models.py
+!alembic/versions/20260217_000001_fix_reaction_unique_constraint_add_emoji.py
+# Data migrations (seed data for production) - explicitly committed
+!alembic/versions/20260221_000001_seed_gamification_data.py
 
 # IDE
 .vscode/
@@ -33,6 +36,11 @@ alembic/versions/*.py
 
 # Logs
 *.log
+
+# Security Reports (CONFIDENTIAL - DO NOT COMMIT)
+docs/security/audit-reports/
+docs/security/*.md
+!docs/security/README.md
 
 # OS
 .DS_Store

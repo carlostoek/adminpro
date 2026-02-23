@@ -1,7 +1,7 @@
 """
 FSM States para handlers de usuarios.
 
-Estados para flujos de usuarios (solicitud Free).
+Estados para flujos de usuarios (solicitud Free, daily gift).
 
 Note: TokenRedemptionStates removed - manual token redemption deprecated.
 Only deep link activation exists (no FSM state needed).
@@ -52,3 +52,25 @@ class VIPEntryStates(StatesGroup):
     stage_1_confirmation = State()
     stage_2_alignment = State()
     stage_3_delivery = State()
+
+
+class StreakStates(StatesGroup):
+    """
+    Estados para flujo de regalo diario (daily gift).
+
+    Flujo:
+    1. Usuario ejecuta /daily_gift
+    2. Si disponible: Bot muestra botón de reclamo con preview de racha
+    3. Usuario presiona "Reclamar" → se procesa el regalo
+    4. Se muestra mensaje de éxito con desglose detallado
+
+    Estados:
+    - daily_gift_confirm: Esperando que usuario confirme reclamo
+    - daily_gift_claimed: Recién reclamado, mostrando cuenta regresiva
+    """
+
+    # Esperando confirmación del usuario para reclamar
+    daily_gift_confirm = State()
+
+    # Regalo reclamado, mostrando tiempo hasta próximo reclamo
+    daily_gift_claimed = State()

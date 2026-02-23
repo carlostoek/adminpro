@@ -158,48 +158,23 @@ async def process_broadcast_content(
         file_id = None
         caption = message.text
 
-    # Actualizar FSM data con contenido
+    # Actualizar FSM data con contenido y opciones por defecto
     await state.update_data({
         "content_type": content_type,
         "file_id": file_id,
         "caption": caption,
         "original_message_id": message.message_id,
+        "add_reactions": True,
+        "protect_content": False,
     })
 
-    # Mostrar preview
-    preview_text = await _generate_preview_text(target_channel, content_type, caption)
+    # Mostrar UI de configuración de opciones
+    await _show_options_config_ui(message, state)
 
-    # Enviar preview al admin
-    await message.answer(
-        text=preview_text,
-        reply_markup=create_inline_keyboard([
-            [
-                {"text": "✅ Confirmar y Enviar", "callback_data": "broadcast:confirm"},
-                {"text": "❌ Cancelar", "callback_data": "broadcast:cancel"}
-            ],
-            [{"text": "🔄 Enviar Otro Contenido", "callback_data": "broadcast:change"}]
-        ]),
-        parse_mode="HTML"
-    )
+    # Cambiar a estado de configuración de opciones
+    await state.set_state(BroadcastStates.configuring_options)
 
-    # Reenviar el contenido como preview visual
-    if content_type == ContentType.PHOTO:
-        await message.answer_photo(
-            photo=file_id,
-            caption="👁️ <i>Preview del mensaje</i>",
-            parse_mode="HTML"
-        )
-    elif content_type == ContentType.VIDEO:
-        await message.answer_video(
-            video=file_id,
-            caption="👁️ <i>Preview del mensaje</i>",
-            parse_mode="HTML"
-        )
-
-    # Cambiar a estado de confirmación
-    await state.set_state(BroadcastStates.waiting_for_confirmation)
-
-    logger.debug(f"✅ Preview generado para user {user_id}")
+    logger.debug(f"✅ Opciones de broadcast configurables para user {user_id}")
 
 
 @admin_router.message(BroadcastStates.waiting_for_content)
@@ -224,6 +199,229 @@ async def process_invalid_content_type(message: Message, state: FSMContext):
         "Otros tipos (documentos, audios, etc) no están soportados.",
         parse_mode="HTML"
     )
+
+
+# ===== CONFIGURACIÓN DE OPCIONES =====
+
+async def _show_options_config_ui(message: Message, state: FSMContext):
+    """
+    Muestra la UI de configuración de opciones del mensaje.
+
+    Args:
+        message: Mensaje para responder
+        state: FSM context con los datos actuales
+    """
+    data = await state.get_data()
+    add_reactions = data.get("add_reactions", True)
+    protect_content = data.get("protect_content", False)
+
+    # Texto con estado actual de opciones
+    reactions_status = "✅ ON" if add_reactions else "❌ OFF"
+    protection_status = "✅ ON" if protect_content else "❌ OFF"
+
+    text = (
+        "🎩 <b>Configuración de la Publicación</b>\n\n"
+        "Antes de enviar, configure las opciones del mensaje:\n\n"
+        f"<b>Botones de Reacción:</b> {reactions_status}\n"
+        f"<i>Permite a los usuarios reaccionar al contenido</i>\n\n"
+        f"<b>Protección de Contenido:</b> {protection_status}\n"
+        f"<i>Evita que se descargue o reenvíe el contenido</i>\n\n"
+        "Seleccione las opciones deseadas:"
+    )
+
+    # Botones de toggle
+    reactions_btn_text = "❌ Desactivar Reacciones" if add_reactions else "✅ Activar Reacciones"
+    protection_btn_text = "✅ Activar Protección" if not protect_content else "❌ Desactivar Protección"
+
+    await message.answer(
+        text=text,
+        reply_markup=create_inline_keyboard([
+            [{"text": reactions_btn_text, "callback_data": "broadcast:toggle_reactions"}],
+            [{"text": protection_btn_text, "callback_data": "broadcast:toggle_protection"}],
+            [{"text": "▶️ Continuar", "callback_data": "broadcast:continue"}],
+            [{"text": "❌ Cancelar", "callback_data": "broadcast:cancel"}]
+        ]),
+        parse_mode="HTML"
+    )
+
+
+@admin_router.callback_query(
+    BroadcastStates.configuring_options,
+    F.data == "broadcast:toggle_reactions"
+)
+async def callback_toggle_reactions(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    """
+    Toggle el estado de add_reactions en FSM data.
+
+    Args:
+        callback: Callback query
+        state: FSM context
+    """
+    data = await state.get_data()
+    current_value = data.get("add_reactions", True)
+    new_value = not current_value
+
+    await state.update_data({"add_reactions": new_value})
+
+    status_text = "activadas" if new_value else "desactivadas"
+    await callback.answer(f"Reacciones {status_text}")
+
+    # Actualizar la UI
+    await _update_options_config_ui(callback.message, state)
+
+
+@admin_router.callback_query(
+    BroadcastStates.configuring_options,
+    F.data == "broadcast:toggle_protection"
+)
+async def callback_toggle_protection(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    """
+    Toggle el estado de protect_content en FSM data.
+
+    Args:
+        callback: Callback query
+        state: FSM context
+    """
+    data = await state.get_data()
+    current_value = data.get("protect_content", False)
+    new_value = not current_value
+
+    await state.update_data({"protect_content": new_value})
+
+    status_text = "activada" if new_value else "desactivada"
+    await callback.answer(f"Protección {status_text}")
+
+    # Actualizar la UI
+    await _update_options_config_ui(callback.message, state)
+
+
+async def _update_options_config_ui(message: Message, state: FSMContext):
+    """
+    Actualiza la UI de configuración con los valores actuales.
+
+    Args:
+        message: Mensaje a editar
+        state: FSM context
+    """
+    data = await state.get_data()
+    add_reactions = data.get("add_reactions", True)
+    protect_content = data.get("protect_content", False)
+
+    reactions_status = "✅ ON" if add_reactions else "❌ OFF"
+    protection_status = "✅ ON" if protect_content else "❌ OFF"
+
+    text = (
+        "🎩 <b>Configuración de la Publicación</b>\n\n"
+        "Antes de enviar, configure las opciones del mensaje:\n\n"
+        f"<b>Botones de Reacción:</b> {reactions_status}\n"
+        f"<i>Permite a los usuarios reaccionar al contenido</i>\n\n"
+        f"<b>Protección de Contenido:</b> {protection_status}\n"
+        f"<i>Evita que se descargue o reenvíe el contenido</i>\n\n"
+        "Seleccione las opciones deseadas:"
+    )
+
+    reactions_btn_text = "❌ Desactivar Reacciones" if add_reactions else "✅ Activar Reacciones"
+    protection_btn_text = "✅ Activar Protección" if not protect_content else "❌ Desactivar Protección"
+
+    await message.edit_text(
+        text=text,
+        reply_markup=create_inline_keyboard([
+            [{"text": reactions_btn_text, "callback_data": "broadcast:toggle_reactions"}],
+            [{"text": protection_btn_text, "callback_data": "broadcast:toggle_protection"}],
+            [{"text": "▶️ Continuar", "callback_data": "broadcast:continue"}],
+            [{"text": "❌ Cancelar", "callback_data": "broadcast:cancel"}]
+        ]),
+        parse_mode="HTML"
+    )
+
+
+@admin_router.callback_query(
+    BroadcastStates.configuring_options,
+    F.data == "broadcast:continue"
+)
+async def callback_broadcast_continue(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession
+):
+    """
+    Continúa al estado de confirmación mostrando el preview.
+
+    Args:
+        callback: Callback query
+        state: FSM context
+        session: Sesión de BD
+    """
+    data = await state.get_data()
+    target_channel = data.get("target_channel", "vip")
+    content_type = data.get("content_type")
+    caption = data.get("caption")
+    file_id = data.get("file_id")
+    add_reactions = data.get("add_reactions", True)
+    protect_content = data.get("protect_content", False)
+
+    # Generar texto de preview
+    preview_text = await _generate_preview_text(
+        target_channel, content_type, caption, add_reactions, protect_content
+    )
+
+    # Mostrar preview con opciones actuales
+    await callback.message.edit_text(
+        text=preview_text,
+        reply_markup=create_inline_keyboard([
+            [
+                {"text": "✅ Confirmar y Enviar", "callback_data": "broadcast:confirm"},
+                {"text": "❌ Cancelar", "callback_data": "broadcast:cancel"}
+            ],
+            [{"text": "🔄 Cambiar Opciones", "callback_data": "broadcast:back_to_options"}],
+            [{"text": "📝 Enviar Otro Contenido", "callback_data": "broadcast:change"}]
+        ]),
+        parse_mode="HTML"
+    )
+
+    # Enviar el contenido como preview visual
+    if content_type == ContentType.PHOTO and file_id:
+        await callback.message.answer_photo(
+            photo=file_id,
+            caption="👁️ <i>Preview del mensaje</i>",
+            parse_mode="HTML"
+        )
+    elif content_type == ContentType.VIDEO and file_id:
+        await callback.message.answer_video(
+            video=file_id,
+            caption="👁️ <i>Preview del mensaje</i>",
+            parse_mode="HTML"
+        )
+
+    # Cambiar a estado de confirmación
+    await state.set_state(BroadcastStates.waiting_for_confirmation)
+    await callback.answer()
+
+
+@admin_router.callback_query(
+    BroadcastStates.waiting_for_confirmation,
+    F.data == "broadcast:back_to_options"
+)
+async def callback_back_to_options(
+    callback: CallbackQuery,
+    state: FSMContext
+):
+    """
+    Vuelve al estado de configuración de opciones.
+
+    Args:
+        callback: Callback query
+        state: FSM context
+    """
+    await state.set_state(BroadcastStates.configuring_options)
+    await _update_options_config_ui(callback.message, state)
+    await callback.answer("🎩 Volviendo a opciones")
 
 
 # ===== CONFIRMACIÓN Y ENVÍO =====
@@ -253,6 +451,8 @@ async def callback_broadcast_confirm(
     content_type = data["content_type"]
     file_id = data.get("file_id")
     caption = data.get("caption")
+    add_reactions = data.get("add_reactions", True)
+    protect_content = data.get("protect_content", False)
 
     logger.info(f"📤 Usuario {user_id} confirmó broadcast a {target_channel}")
 
@@ -260,6 +460,9 @@ async def callback_broadcast_confirm(
     await callback.answer("📤 Enviando publicación...", show_alert=False)
 
     container = ServiceContainer(session, callback.bot)
+
+    # Nota: send_to_channel ahora incluye botones de reacción por defecto (add_reactions=True)
+    # Esto satisface REACT-01: Channel messages display inline reaction buttons
 
     # Determinar canales destino
     channels_to_send = []
@@ -296,20 +499,26 @@ async def callback_broadcast_confirm(
                 success, msg, _ = await container.channel.send_to_channel(
                     channel_id=channel_id,
                     text=caption or "",
-                    photo=file_id
+                    photo=file_id,
+                    add_reactions=add_reactions,
+                    protect_content=protect_content
                 )
 
             elif content_type == ContentType.VIDEO:
                 success, msg, _ = await container.channel.send_to_channel(
                     channel_id=channel_id,
                     text=caption or "",
-                    video=file_id
+                    video=file_id,
+                    add_reactions=add_reactions,
+                    protect_content=protect_content
                 )
 
             else:  # TEXT
                 success, msg, _ = await container.channel.send_to_channel(
                     channel_id=channel_id,
-                    text=caption or ""
+                    text=caption or "",
+                    add_reactions=add_reactions,
+                    protect_content=protect_content
                 )
 
             if success:
@@ -422,7 +631,9 @@ async def callback_broadcast_cancel(
 async def _generate_preview_text(
     target_channel: str,
     content_type: str,
-    caption: Optional[str]
+    caption: Optional[str],
+    add_reactions: bool = True,
+    protect_content: bool = False
 ) -> str:
     """
     Genera el texto de preview antes de enviar.
@@ -431,6 +642,8 @@ async def _generate_preview_text(
         target_channel: "vip" o "free"
         content_type: Tipo de contenido (photo, video, text)
         caption: Caption o texto del mensaje
+        add_reactions: Si se agregan botones de reacción
+        protect_content: Si el contenido está protegido
 
     Returns:
         String HTML formateado
@@ -446,11 +659,16 @@ async def _generate_preview_text(
         ContentType.TEXT: "Texto"
     }.get(content_type, "Contenido")
 
+    reactions_status = "✅ ON" if add_reactions else "❌ OFF"
+    protection_status = "🔒 ON" if protect_content else "❌ OFF"
+
     text = f"""
 👁️ <b>Preview de Publicación</b>
 
 <b>Destino:</b> {channel_name}
 <b>Tipo:</b> {content_name}
+<b>Reacciones:</b> {reactions_status}
+<b>Protección:</b> {protection_status}
     """.strip()
 
     if caption and content_type != ContentType.TEXT:
