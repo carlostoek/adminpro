@@ -187,6 +187,11 @@ class ReactionService:
         Returns:
             Tuple[bool, str]: (tiene_acceso, mensaje_error)
         """
+        # Admins have access to all content - check first
+        from config import Config
+        if Config.is_admin(user_id):
+            return True, ""
+
         # Si es contenido VIP, verificar suscripción
         if content_category == ContentCategory.VIP_CONTENT:
             from bot.database.models import VIPSubscriber

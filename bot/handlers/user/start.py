@@ -233,20 +233,29 @@ async def _send_welcome_message(
     subscriber = await container.subscription.get_vip_subscriber(user_id)
 
     if subscriber and subscriber.vip_entry_stage:
-        # User has incomplete entry flow - resume from current stage
-        from bot.handlers.user.vip_entry import show_vip_entry_stage
+        # Check if user already has VIP role - if so, clear the stage and show menu
+        if user.role == UserRole.VIP:
+            logger.info(
+                f"🔄 User {user_id} has VIP role but vip_entry_stage={subscriber.vip_entry_stage}. "
+                f"Clearing stage and showing menu."
+            )
+            subscriber.vip_entry_stage = None
+            await session.commit()
+        else:
+            # User has incomplete entry flow - resume from current stage
+            from bot.handlers.user.vip_entry import show_vip_entry_stage
 
-        logger.info(
-            f"🔄 User {user_id} resuming VIP entry flow at stage "
-            f"{subscriber.vip_entry_stage}"
-        )
+            logger.info(
+                f"🔄 User {user_id} resuming VIP entry flow at stage "
+                f"{subscriber.vip_entry_stage}"
+            )
 
-        await show_vip_entry_stage(
-            message=message,
-            container=container,
-            stage=subscriber.vip_entry_stage
-        )
-        return
+            await show_vip_entry_stage(
+                message=message,
+                container=container,
+                stage=subscriber.vip_entry_stage
+            )
+            return
 
     # Original logic: Detect role and show menu
     role_service = container.role_detection

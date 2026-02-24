@@ -13,7 +13,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 from bot.services.container import ServiceContainer
 from bot.database.enums import ContentCategory
-from bot.utils.keyboards import get_reaction_keyboard
+from bot.utils.keyboards import get_reaction_keyboard_with_counts
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -217,11 +217,13 @@ async def _update_keyboard(
             channel_id=channel_id
         )
 
-        # Build new keyboard
-        keyboard = get_reaction_keyboard(
+        # Build new keyboard with user reactions marked
+        from bot.utils.keyboards import DEFAULT_REACTIONS
+        keyboard = get_reaction_keyboard_with_counts(
             content_id=content_id,
             channel_id=channel_id,
-            current_counts=counts
+            reactions=DEFAULT_REACTIONS,
+            user_reactions=user_reactions
         )
 
         # Try to update the message

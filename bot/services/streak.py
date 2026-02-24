@@ -67,7 +67,7 @@ class StreakService:
         self,
         user_id: int,
         streak_type: StreakType
-    ) -> UserStreak:
+    ) -> Optional[UserStreak]:
         """
         Obtiene o crea un registro de racha para el usuario.
 
@@ -76,7 +76,7 @@ class StreakService:
             streak_type: Tipo de racha (DAILY_GIFT o REACTION)
 
         Returns:
-            UserStreak: Registro existente o nuevo
+            UserStreak: Registro existente o nuevo, o None si el usuario no existe
         """
         # Try to get existing streak using composite key pattern
         result = await self.session.execute(
@@ -88,6 +88,19 @@ class StreakService:
         streak = result.scalar_one_or_none()
 
         if streak is None:
+            # Verify user exists before creating streak record
+            from bot.database.models import User
+            user_result = await self.session.execute(
+                select(User).where(User.user_id == user_id)
+            )
+            user = user_result.scalar_one_or_none()
+
+            if user is None:
+                self.logger.warning(
+                    f"⚠️ Cannot create streak for non-existent user {user_id}"
+                )
+                return None
+
             # Create new streak record
             streak = UserStreak(
                 user_id=user_id,
@@ -154,6 +167,10 @@ class StreakService:
                     - "next_claim_in_Xh_Ym": Tiempo hasta próximo reclamo
         """
         streak = await self._get_or_create_streak(user_id, StreakType.DAILY_GIFT)
+
+        # If user doesn't exist, they can't claim
+        if streak is None:
+            return False, "user_not_found"
 
         # If never claimed, can claim now
         if streak.last_claim_date is None:
@@ -252,6 +269,17 @@ class StreakService:
         if streak_info is None:
             # No streak record exists yet - need to create one
             streak = await self._get_or_create_streak(user_id, StreakType.DAILY_GIFT)
+            if streak is None:
+                # User doesn't exist
+                return False, {
+                    "success": False,
+                    "error": "user_not_found",
+                    "base_amount": 0,
+                    "streak_bonus": 0,
+                    "total": 0,
+                    "new_streak": 0,
+                    "longest_streak": 0
+                }
             new_streak = 1
         else:
             streak_id, current_streak, last_claim_date, longest_streak = streak_info
@@ -454,6 +482,16 @@ class StreakService:
         """
         streak = await self._get_or_create_streak(user_id, streak_type)
 
+        # If user doesn't exist, return default values
+        if streak is None:
+            return {
+                "current_streak": 0,
+                "longest_streak": 0,
+                "last_claim_date": None,
+                "can_claim": False,
+                "next_claim_time": None
+            }
+
         # Check if can claim (only for DAILY_GIFT type)
         can_claim = False
         next_claim_time = None
@@ -536,6 +574,10 @@ class StreakService:
 
         # Get or create reaction streak
         streak = await self._get_or_create_streak(user_id, StreakType.REACTION)
+
+        # If user doesn't exist, return default values
+        if streak is None:
+            return False, 0
 
         # Get today's date (UTC)
         today = self._get_utc_date(reaction_date)
