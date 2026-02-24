@@ -212,16 +212,27 @@ def format_number(number: Union[int, float], decimals: int = 0) -> str:
         >>> format_number(1234.5678, decimals=2)
         "1,234.57"
     """
-    if not isinstance(number, (int, float)):
-        raise TypeError("number debe ser numérico")
+    from decimal import Decimal
+
+    # Aceptar int, float, Decimal y strings numéricos
+    if isinstance(number, (int, float, Decimal)):
+        # Convertir Decimal a float para formateo
+        number_to_format = float(number) if isinstance(number, Decimal) else number
+    elif isinstance(number, str):
+        try:
+            number_to_format = float(number)
+        except ValueError:
+            raise TypeError("number debe ser numérico (int, float, Decimal o string convertible)")
+    else:
+        raise TypeError("number debe ser numérico (int, float, Decimal o string convertible)")
 
     if decimals < 0:
         raise ValueError("decimals debe ser >= 0")
 
     if decimals == 0:
-        return f"{int(number):,}"
+        return f"{int(number_to_format):,}"
     else:
-        return f"{number:,.{decimals}f}"
+        return f"{number_to_format:,.{decimals}f}"
 
 
 def format_currency(amount: float, symbol: str = "$") -> str:
@@ -242,10 +253,21 @@ def format_currency(amount: float, symbol: str = "$") -> str:
         >>> format_currency(1000, symbol="€")
         "€1,000.00"
     """
-    if not isinstance(amount, (int, float)):
-        raise TypeError("amount debe ser numérico")
+    # Aceptar int, float, Decimal y strings numéricos
+    from decimal import Decimal
 
-    return f"{symbol}{amount:,.2f}"
+    if isinstance(amount, (int, float, Decimal)):
+        # Convertir Decimal a float para formateo
+        amount_to_format = float(amount) if isinstance(amount, Decimal) else amount
+    elif isinstance(amount, str):
+        try:
+            amount_to_format = float(amount)
+        except ValueError:
+            raise TypeError("amount debe ser numérico (int, float, Decimal o string convertible)")
+    else:
+        raise TypeError("amount debe ser numérico (int, float, Decimal o string convertible)")
+
+    return f"{symbol}{amount_to_format:,.2f}"
 
 
 def format_percentage(value: float, decimals: int = 1) -> str:
@@ -266,10 +288,21 @@ def format_percentage(value: float, decimals: int = 1) -> str:
         >>> format_percentage(100, decimals=0)
         "100%"
     """
-    if not isinstance(value, (int, float)):
-        raise TypeError("value debe ser numérico")
+    from decimal import Decimal
 
-    return f"{value:.{decimals}f}%"
+    # Aceptar int, float, Decimal y strings numéricos
+    if isinstance(value, (int, float, Decimal)):
+        # Convertir Decimal a float para formateo
+        value_to_format = float(value) if isinstance(value, Decimal) else value
+    elif isinstance(value, str):
+        try:
+            value_to_format = float(value)
+        except ValueError:
+            raise TypeError("value debe ser numérico (int, float, Decimal o string convertible)")
+    else:
+        raise TypeError("value debe ser numérico (int, float, Decimal o string convertible)")
+
+    return f"{value_to_format:.{decimals}f}%"
 
 
 # ===== FORMATEO DE DURACIONES =====
@@ -294,10 +327,21 @@ def format_duration_minutes(minutes: Union[int, float]) -> str:
         >>> format_duration_minutes(1440)
         "1 día"
     """
-    if not isinstance(minutes, (int, float)):
-        raise TypeError("minutes debe ser numérico")
+    from decimal import Decimal
 
-    minutes = int(minutes)
+    # Aceptar int, float, Decimal y strings numéricos
+    if isinstance(minutes, (int, float, Decimal)):
+        # Convertir Decimal a float y luego a int
+        minutes_to_convert = float(minutes) if isinstance(minutes, Decimal) else minutes
+    elif isinstance(minutes, str):
+        try:
+            minutes_to_convert = float(minutes)
+        except ValueError:
+            raise TypeError("minutes debe ser numérico (int, float, Decimal o string convertible)")
+    else:
+        raise TypeError("minutes debe ser numérico (int, float, Decimal o string convertible)")
+
+    minutes = int(minutes_to_convert)
 
     if minutes < 60:
         return f"{minutes} minuto{'s' if minutes != 1 else ''}"
@@ -343,10 +387,21 @@ def format_seconds_to_time(seconds: Union[int, float]) -> str:
         >>> format_seconds_to_time(125)
         "00:02:05"
     """
-    if not isinstance(seconds, (int, float)):
-        raise TypeError("seconds debe ser numérico")
+    from decimal import Decimal
 
-    seconds = int(seconds)
+    # Aceptar int, float, Decimal y strings numéricos
+    if isinstance(seconds, (int, float, Decimal)):
+        # Convertir Decimal a float y luego a int
+        seconds_to_convert = float(seconds) if isinstance(seconds, Decimal) else seconds
+    elif isinstance(seconds, str):
+        try:
+            seconds_to_convert = float(seconds)
+        except ValueError:
+            raise TypeError("seconds debe ser numérico (int, float, Decimal o string convertible)")
+    else:
+        raise TypeError("seconds debe ser numérico (int, float, Decimal o string convertible)")
+
+    seconds = int(seconds_to_convert)
     hours = seconds // 3600
     minutes = (seconds % 3600) // 60
     secs = seconds % 60
@@ -681,8 +736,22 @@ def format_progress_bar(
         >>> format_progress_bar(10, 10, 10)
         "▓▓▓▓▓▓▓▓▓▓ 100%"
     """
-    if not isinstance(current, (int, float)) or not isinstance(total, (int, float)):
-        raise TypeError("current y total deben ser numéricos")
+    from decimal import Decimal
+
+    # Función auxiliar para convertir a float
+    def _to_float(value):
+        if isinstance(value, (int, float, Decimal)):
+            return float(value) if isinstance(value, Decimal) else value
+        elif isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                raise TypeError("current y total deben ser numéricos (int, float, Decimal o string convertible)")
+        else:
+            raise TypeError("current y total deben ser numéricos (int, float, Decimal o string convertible)")
+
+    current = _to_float(current)
+    total = _to_float(total)
 
     if not isinstance(length, int) or length < 1:
         raise ValueError("length debe ser int >= 1")
@@ -732,8 +801,22 @@ def format_progress_with_time(
         >>> format_progress_with_time(10, 10)
         "░░░░░░░░░░░░░░░ 0% (10 min restantes)"
     """
-    if not isinstance(remaining_minutes, int) or not isinstance(total_minutes, int):
-        raise TypeError("remaining_minutes y total_minutes deben ser int")
+    from decimal import Decimal
+
+    # Función auxiliar para convertir a int
+    def _to_int(value):
+        if isinstance(value, (int, float, Decimal)):
+            return int(value)
+        elif isinstance(value, str):
+            try:
+                return int(float(value))
+            except ValueError:
+                raise TypeError("remaining_minutes y total_minutes deben ser numéricos (int, float, Decimal o string convertible)")
+        else:
+            raise TypeError("remaining_minutes y total_minutes deben ser numéricos (int, float, Decimal o string convertible)")
+
+    remaining_minutes = _to_int(remaining_minutes)
+    total_minutes = _to_int(total_minutes)
 
     if total_minutes <= 0:
         raise ValueError("total_minutes debe ser > 0")
