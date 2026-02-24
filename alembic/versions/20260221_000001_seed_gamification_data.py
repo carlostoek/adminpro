@@ -39,7 +39,7 @@ def upgrade() -> None:
 
     # Backfill UserGamificationProfile for existing users
     op.execute("""
-        INSERT OR IGNORE INTO user_gamification_profiles
+        INSERT INTO user_gamification_profiles
         (user_id, balance, total_earned, total_spent, level, created_at, updated_at)
         SELECT
             user_id,
@@ -53,21 +53,29 @@ def upgrade() -> None:
         WHERE user_id NOT IN (
             SELECT user_id FROM user_gamification_profiles
         )
+        ON CONFLICT (user_id) DO NOTHING
     """)
 
     # Seed default rewards (idempotent)
+    # Ensure name is unique for conflict resolution
+    op.create_unique_constraint('uq_rewards_name', 'rewards', ['name'])
+
     op.execute("""
-        INSERT OR IGNORE INTO rewards
+        INSERT INTO rewards
         (name, description, reward_type, reward_value, is_repeatable, is_secret, claim_window_hours, is_active, sort_order, created_at, updated_at)
         VALUES
-        ('Primeros Pasos', 'Da tu primera reacción al contenido', 'BESITOS', '{"amount": 10}', 0, 0, 168, 1, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        ('Ahorrador Principiante', 'Acumula 100 besitos en tu cuenta', 'BADGE', '{"badge_name": "ahorrador", "emoji": "💰"}', 0, 0, 168, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-        ('Racha de 7 Días', 'Mantén una racha de 7 días reclamando el regalo diario', 'BESITOS', '{"amount": 50}', 0, 0, 168, 1, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ('Primeros Pasos', 'Da tu primera reacción al contenido', 'BESITOS', '{"amount": 10}', false, false, 168, true, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+        ('Ahorrador Principiante', 'Acumula 100 besitos en tu cuenta', 'BADGE', '{"badge_name": "ahorrador", "emoji": "💰"}', false, false, 168, true, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+        ('Racha de 7 Días', 'Mantén una racha de 7 días reclamando el regalo diario', 'BESITOS', '{"amount": 50}', false, false, 168, true, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT (name) DO NOTHING
     """)
 
 
 def downgrade() -> None:
     """Reset BotConfig economy fields (preserve user data)."""
+
+    # Drop the unique constraint added in upgrade
+    op.drop_constraint('uq_rewards_name', 'rewards', type_='unique')
 
     # Reset BotConfig economy fields to NULL
     # Do NOT delete rewards or user profiles (production safety)
