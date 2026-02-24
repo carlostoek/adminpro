@@ -48,7 +48,7 @@ class RoleDetectionService:
         """
         Detecta el rol actual del usuario.
 
-        Prioridad: Admin > VIP Subscription (activa) > VIP Channel > Free (primer match wins)
+        Prioridad: Admin (env o canal) > VIP Subscription (activa) > VIP Channel > Free (primer match wins)
 
         IMPORTANTE: VIP Subscription ACTIVA tiene PRIORIDAD sobre VIP Channel.
         Solo es VIP si tiene suscripción activa. Estar en el canal sin suscripción
@@ -60,12 +60,20 @@ class RoleDetectionService:
         Returns:
             UserRole: Rol detectado (ADMIN, VIP, or FREE)
         """
-        # 1. Check Admin (highest priority)
+        # 1. Check Admin from environment variables (highest priority)
         if Config.is_admin(user_id):
-            logger.debug(f"👑 User {user_id} detectado como ADMIN")
+            logger.debug(f"👑 User {user_id} detectado como ADMIN (env var)")
             return UserRole.ADMIN
 
-        # 2. Check VIP Subscription FIRST (HIGHEST PRIORITY for VIP detection)
+        # 2. Check Admin from channel membership (same priority as env admin)
+        if self.bot:
+            from bot.services.channel import ChannelService
+            channel_service = ChannelService(self.session, self.bot)
+            if await channel_service.is_user_channel_admin(user_id):
+                logger.info(f"👑 User {user_id} detectado como ADMIN (canal)")
+                return UserRole.ADMIN
+
+        # 3. Check VIP Subscription FIRST (HIGHEST PRIORITY for VIP detection)
         # Verificar suscripción activa antes de verificar canal
         from bot.services.subscription import SubscriptionService
 
@@ -115,14 +123,24 @@ class RoleDetectionService:
         """
         return await self.get_user_role(user_id)
 
-    def is_admin(self, user_id: int) -> bool:
+    async def is_admin(self, user_id: int) -> bool:
         """
-        Verifica si un usuario es admin (método helper síncrono).
+        Verifica si un usuario es admin (incluye variables de entorno y canales).
 
         Args:
             user_id: ID de Telegram del usuario
 
         Returns:
-            True si es admin, False en caso contrario
+            True si es admin (env o canal), False en caso contrario
         """
-        return Config.is_admin(user_id)
+        # Check env vars first
+        if Config.is_admin(user_id):
+            return True
+
+        # Check channel admins
+        if self.bot:
+            from bot.services.channel import ChannelService
+            channel_service = ChannelService(self.session, self.bot)
+            return await channel_service.is_user_channel_admin(user_id)
+
+        return False

@@ -187,9 +187,14 @@ class ReactionService:
         Returns:
             Tuple[bool, str]: (tiene_acceso, mensaje_error)
         """
-        # Admins have access to all content - check first
+        # Admins (env var or channel admin) have access to all content - check first
         from config import Config
         if Config.is_admin(user_id):
+            return True, ""
+
+        # Check if user is admin of the channels
+        channel_service = ChannelService(self.session, self.bot)
+        if await channel_service.is_user_channel_admin(user_id):
             return True, ""
 
         # Si es contenido VIP, verificar suscripción

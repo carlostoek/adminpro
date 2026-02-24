@@ -607,3 +607,53 @@ class ChannelService:
         except Exception as e:
             logger.error(f"❌ Error revocando enlace Free: {e}")
             return False, f"Error al revocar: {str(e)}"
+
+    # ===== VERIFICACIÓN DE ADMINISTRADORES DE CANALES =====
+
+    async def is_user_channel_admin(self, user_id: int) -> bool:
+        """
+        Verifica si un usuario es administrador de los canales VIP o Free.
+
+        Los administradores de canales tienen los mismos privilegios que los
+        administradores configurados en ADMIN_IDS (variables de entorno).
+
+        Args:
+            user_id: ID de Telegram del usuario
+
+        Returns:
+            True si es admin del canal VIP o Free, False en caso contrario
+        """
+        try:
+            config = await self.get_bot_config()
+
+            # Verificar canal VIP
+            if config.vip_channel_id:
+                try:
+                    member = await self.bot.get_chat_member(
+                        chat_id=config.vip_channel_id,
+                        user_id=user_id
+                    )
+                    if member.status in ["administrator", "creator"]:
+                        logger.debug(f"👑 User {user_id} es admin del canal VIP")
+                        return True
+                except Exception as e:
+                    logger.debug(f"⚠️ No se pudo verificar admin VIP para user {user_id}: {e}")
+
+            # Verificar canal Free
+            if config.free_channel_id:
+                try:
+                    member = await self.bot.get_chat_member(
+                        chat_id=config.free_channel_id,
+                        user_id=user_id
+                    )
+                    if member.status in ["administrator", "creator"]:
+                        logger.debug(f"👑 User {user_id} es admin del canal Free")
+                        return True
+                except Exception as e:
+                    logger.debug(f"⚠️ No se pudo verificar admin Free para user {user_id}: {e}")
+
+            return False
+
+        except Exception as e:
+            logger.error(f"❌ Error verificando si user {user_id} es admin de canales: {e}")
+            return False

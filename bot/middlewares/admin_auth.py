@@ -3,6 +3,10 @@ Admin Auth Middleware - Valida que el usuario tenga permisos de admin.
 
 Se aplica a handlers que requieren permisos administrativos.
 Si el usuario no es admin, responde con mensaje de error y no ejecuta el handler.
+
+Los administradores incluyen:
+- Usuarios en ADMIN_IDS (variables de entorno)
+- Administradores de los canales VIP o Free configurados
 """
 import logging
 from typing import Callable, Dict, Any, Awaitable
@@ -31,15 +35,40 @@ def _mask_user_id(user_id: int) -> str:
 
 
 def is_admin(user_id: int) -> bool:
-    """Verifica si un usuario es administrador.
+    """Verifica si un usuario es administrador (síncrono - solo variables de entorno).
+
+    Para verificación completa incluyendo admins de canales, usar is_admin_async().
 
     Args:
         user_id: ID de usuario de Telegram a verificar
 
     Returns:
-        True si el usuario es administrador, False en caso contrario
+        True si el usuario es administrador (env var), False en caso contrario
     """
     return Config.is_admin(user_id)
+
+
+async def is_admin_async(user_id: int, bot, session) -> bool:
+    """Verifica si un usuario es administrador (async - incluye canales).
+
+    Verifica tanto ADMIN_IDS como administradores de canales VIP/Free.
+
+    Args:
+        user_id: ID de usuario de Telegram a verificar
+        bot: Instancia del bot de Aiogram
+        session: Sesión de base de datos
+
+    Returns:
+        True si es admin (env o canal), False en caso contrario
+    """
+    # Primero verificar variables de entorno
+    if Config.is_admin(user_id):
+        return True
+
+    # Verificar si es admin de algún canal
+    from bot.services.channel import ChannelService
+    channel_service = ChannelService(session, bot)
+    return await channel_service.is_user_channel_admin(user_id)
 
 
 class AdminAuthMiddleware(BaseMiddleware):
@@ -76,6 +105,8 @@ class AdminAuthMiddleware(BaseMiddleware):
         """
         # Extraer user del event
         user = None
+        bot = data.get("bot")
+        session = data.get("session")
 
         if isinstance(event, Message):
             user = event.from_user
@@ -88,8 +119,15 @@ class AdminAuthMiddleware(BaseMiddleware):
             # Bloquear acceso - no ejecutar handler
             return None
 
-        # Verificar si es admin
-        if not Config.is_admin(user.id):
+        # Verificar si es admin (incluyendo admins de canales)
+        is_admin_user = False
+        if bot and session:
+            is_admin_user = await is_admin_async(user.id, bot, session)
+        else:
+            # Fallback a verificación sincrónica si no hay bot/session
+            is_admin_user = Config.is_admin(user.id)
+
+        if not is_admin_user:
             # Usuario no es admin
             logger.warning(
                 f"🚫 Acceso denegado: user {_mask_user_id(user.id)} "
@@ -114,5 +152,5 @@ class AdminAuthMiddleware(BaseMiddleware):
             return None
 
         # Usuario es admin: ejecutar handler normalmente
-        logger.debug(f"✅ Admin verificado: user {_mask_user_id(user.id)}")
+        logger.info(f"✅ Admin verificado: user {_mask_user_id(user.id)} (incluye admins de canales)")
         return await handler(event, data)
