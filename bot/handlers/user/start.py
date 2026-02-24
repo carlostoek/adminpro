@@ -99,7 +99,7 @@ async def cmd_start(message: Message, session: AsyncSession):
         )
     else:
         # No hay parámetro → Mensaje de bienvenida normal
-        await _send_welcome_message(message, user, container, user_id)
+        await _send_welcome_message(message, user, container, user_id, session)
 
 
 async def _activate_token_from_deeplink(
@@ -216,7 +216,8 @@ async def _send_welcome_message(
     message: Message,
     user,  # User model
     container: ServiceContainer,
-    user_id: int
+    user_id: int,
+    session: AsyncSession
 ):
     """
     Envía mensaje de bienvenida normal y muestra el menú correspondiente.
