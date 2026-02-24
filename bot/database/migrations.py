@@ -234,8 +234,8 @@ async def run_migrations_if_needed() -> bool:
         logger.info("Current migration state:")
         await get_current_revision()
 
-        # Run migrations to head
-        await run_migrations("upgrade", "head")
+        # Run migrations to heads (plural for branching/merge migrations)
+        await run_migrations("upgrade", "heads")
 
         # Show history for debugging
         await show_migration_history()
