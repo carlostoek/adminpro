@@ -116,3 +116,103 @@ class NarrativeService:
         logger.info(f"Found {len(stories)} available stories (total: {total})")
 
         return (stories, total)
+
+    async def start_story(
+        self,
+        user_id: int,
+        story_id: int
+    ) -> Tuple[bool, str, Optional[UserStoryProgress]]:
+        """
+        Inicia una nueva historia para un usuario o reanuda progreso existente.
+
+        Si el usuario ya tiene progreso:
+        - ACTIVE o PAUSED: Retorna el progreso existente (reanudar)
+        - COMPLETED: Retorna error (historia ya completada)
+
+        Si no tiene progreso:
+        - Verifica que la historia exista y este publicada
+        - Busca el nodo START de la historia
+        - Crea nuevo UserStoryProgress en estado ACTIVE
+
+        Args:
+            user_id: ID del usuario
+            story_id: ID de la historia
+
+        Returns:
+            Tuple[bool, str, Optional[UserStoryProgress]]:
+            - (True, "Story started", progress) - Nueva historia iniciada
+            - (True, "Resuming story", progress) - Reanudando historia
+            - (False, "Story already completed", progress) - Ya completada
+            - (False, "Story not found or not published", None) - No disponible
+            - (False, "Story has no start node", None) - Sin nodo inicial
+        """
+        logger.info(f"Starting story {story_id} for user {user_id}")
+
+        # 1. Verificar si ya existe progreso para este usuario/historia
+        existing_progress = await self.get_story_progress(user_id, story_id)
+
+        if existing_progress:
+            if existing_progress.status == StoryProgressStatus.COMPLETED:
+                logger.info(f"User {user_id} already completed story {story_id}")
+                return (False, "Story already completed", existing_progress)
+            elif existing_progress.status in (StoryProgressStatus.ACTIVE, StoryProgressStatus.PAUSED):
+                logger.info(f"Resuming story {story_id} for user {user_id}")
+                # Actualizar a ACTIVE si estaba PAUSED
+                if existing_progress.status == StoryProgressStatus.PAUSED:
+                    existing_progress.status = StoryProgressStatus.ACTIVE
+                    existing_progress.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                return (True, "Resuming story", existing_progress)
+            elif existing_progress.status == StoryProgressStatus.ABANDONED:
+                # Reactivar historia abandonada
+                logger.info(f"Reactivating abandoned story {story_id} for user {user_id}")
+                existing_progress.status = StoryProgressStatus.ACTIVE
+                existing_progress.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                return (True, "Resuming story", existing_progress)
+
+        # 2. No existe progreso - verificar que la historia exista y este publicada
+        story_result = await self.session.execute(
+            select(Story).where(
+                and_(
+                    Story.id == story_id,
+                    Story.status == StoryStatus.PUBLISHED
+                )
+            )
+        )
+        story = story_result.scalar_one_or_none()
+
+        if not story:
+            logger.error(f"Story {story_id} not found or not published")
+            return (False, "Story not found or not published", None)
+
+        # 3. Buscar el nodo START de la historia
+        start_node_result = await self.session.execute(
+            select(StoryNode).where(
+                and_(
+                    StoryNode.story_id == story_id,
+                    StoryNode.node_type == NodeType.START,
+                    StoryNode.is_active == True
+                )
+            )
+        )
+        start_node = start_node_result.scalar_one_or_none()
+
+        if not start_node:
+            logger.error(f"Story {story_id} has no start node")
+            return (False, "Story has no start node", None)
+
+        # 4. Crear nuevo progreso
+        progress = UserStoryProgress(
+            user_id=user_id,
+            story_id=story_id,
+            current_node_id=start_node.id,
+            status=StoryProgressStatus.ACTIVE,
+            decisions_made=[],
+            started_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
+        )
+
+        self.session.add(progress)
+
+        logger.info(f"Story {story_id} started for user {user_id}")
+
+        return (True, "Story started", progress)
