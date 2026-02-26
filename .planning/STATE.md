@@ -10,9 +10,9 @@
 
 | Attribute | Value |
 |-----------|-------|
-| Phase | 27 (planned) |
-| Plan | None (roadmap just created) |
-| Status | Ready to plan Phase 27 |
+| Phase | 27-core-narrative-engine |
+| Plan | 01 (database models) |
+| Status | Completed - ready for Plan 02
 
 **Progress Bar:**
 ```
@@ -21,9 +21,9 @@ v1.1 Menu System:      [██████████] 100% ✅
 v1.2 Deployment:       [██████████] 100% ✅
 v2.0 Gamification:     [██████████] 100% ✅
 v2.1 Deployment Ready: [██████████] 100% ✅
-v3.0 Narrativa:        [░░░░░░░░░░] 0%   🔄
+v3.0 Narrativa:        [██░░░░░░░░] 20%  🔄
 
-Phase 27: [____________________] 0% (0/5 requirements)
+Phase 27: [████________________] 20% (1/5 tasks - models complete)
 ```
 
 ---
@@ -39,7 +39,7 @@ Phase 27: [____________________] 0% (0/5 requirements)
 - Leverage existing WalletService for economy operations
 - Follow established voice architecture (Diana 🫦 for content, Lucien 🎩 for system)
 
-**Current Focus:** Planning Phase 27 - Core Narrative Engine (models and base services)
+**Current Focus:** Plan 27-02 - NarrativeService implementation
 
 ---
 
@@ -90,9 +90,13 @@ Phase 27: [____________________] 0% (0/5 requirements)
 
 ## Session Continuity
 
-**Last Action:** Roadmap creation for v3.0 Narrativa (Phases 27-30)
-**Next Action:** `/gsd:plan-phase 27` to begin Core Narrative Engine
+**Last Action:** Completed Plan 27-01 - Database models for narrative system
+**Next Action:** Plan 27-02 - NarrativeService implementation
 **Blockers:** None
+
+**Recent Commits (v3.0 Narrativa):**
+- feat(27-01): add narrative system models (Story, StoryNode, StoryChoice, UserStoryProgress)
+- feat(27-01): add narrative system enums (StoryStatus, NodeType, StoryProgressStatus)
 
 **Recent Commits (v2.1 shipped):**
 - feat(26-03): Data migration with Python seeders
@@ -129,4 +133,20 @@ Phase 27: [____________________] 0% (0/5 requirements)
 ---
 
 *State file updated: 2026-02-26*
-*Update this file after each plan/execute cycle*
+
+## Plan 27-01 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~15 minutes |
+| Tasks | 5/5 |
+| Commits | 2 |
+| Files Modified | 2 |
+| Lines Added | ~520 |
+
+**Deliverables:**
+- 3 new enums: StoryStatus, NodeType, StoryProgressStatus
+- 4 new models: Story, StoryNode, StoryChoice, UserStoryProgress
+- All relationships and indexes properly configured
+
+**SUMMARY:** `.planning/phases/27-core-narrative-engine/27-01-SUMMARY.md`
