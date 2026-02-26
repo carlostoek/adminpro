@@ -322,27 +322,34 @@ This milestone delivers a modular narrative system with branching stories integr
 
 ---
 
-## Phase 27: Core Narrative Engine
+### Phase 27: Core Narrative Engine ✅
+**Status:** Complete — 2026-02-26
 
 **Goal:** Foundation database models and core service for story storage, retrieval, and user progress tracking.
 
 **Dependencies:** None (builds on existing v2.1 infrastructure)
 
 **Requirements:**
-| ID | Requirement |
-|----|-------------|
-| NARR-01 | Admin can create a story with metadata (title, description, is_premium) |
-| NARR-02 | Admin can create story nodes with content (text, media_file_ids) |
-| NARR-03 | Admin can define choices for a node (text, target_node_id, optional cost) |
-| NARR-09 | System tracks user story progress (current_node, decisions_made, status) |
-| TIER-01 | Stories can be marked as Free (levels 1-3) or Premium (levels 4-6) |
+| ID | Requirement | Status |
+|----|-------------|--------|
+| NARR-01 | Admin can create a story with metadata (title, description, is_premium) | ✅ |
+| NARR-02 | Admin can create story nodes with content (text, media_file_ids) | ✅ |
+| NARR-03 | Admin can define choices for a node (text, target_node_id, optional cost) | ✅ |
+| NARR-09 | System tracks user story progress (current_node, decisions_made, status) | ✅ |
+| TIER-01 | Stories can be marked as Free (levels 1-3) or Premium (levels 4-6) | ✅ |
+
+**Plans:** 4 plans
+- [x] 27-01 — Database foundation (Story, StoryNode, StoryChoice, UserStoryProgress models)
+- [x] 27-02 — NarrativeService (user-facing story operations)
+- [x] 27-03 — StoryEditorService (admin CRUD operations)
+- [x] 27-04 — ServiceContainer integration
 
 **Success Criteria:**
-1. Database schema includes Story, StoryNode, StoryChoice, and UserStoryProgress tables with proper relationships
-2. NarrativeService provides API to create stories, add nodes, define choices, and track user progress
-3. StoryEditorService provides admin CRUD operations for story/node/choice management
-4. User progress is persisted to database immediately after each choice (dual-track persistence)
-5. Stories can be marked as Free or Premium and filtered accordingly
+1. ✅ Database schema includes Story, StoryNode, StoryChoice, and UserStoryProgress tables with proper relationships
+2. ✅ NarrativeService provides API to create stories, add nodes, define choices, and track user progress
+3. ✅ StoryEditorService provides admin CRUD operations for story/node/choice management
+4. ✅ User progress is persisted to database immediately after each choice (dual-track persistence)
+5. ✅ Stories can be marked as Free or Premium and filtered accordingly
 
 ---
 
@@ -463,7 +470,7 @@ This milestone delivers a modular narrative system with branching stories integr
 
 | Phase | Status | Requirements | Success Criteria Met |
 |-------|--------|--------------|---------------------|
-| 27 - Core Narrative Engine | Planned | 5/5 | 0/5 |
+| 27 - Core Narrative Engine | **Complete** | 5/5 | 5/5 |
 | 28 - User Story Experience | Planned | 15/15 | 0/10 |
 | 29 - Admin Story Editor | Planned | 13/13 | 0/9 |
 | 30 - Economy & Shop Integration | Planned | 10/10 | 0/11 |
@@ -514,5 +521,5 @@ Per research/SUMMARY.md:
 
 ---
 
-*Last updated: 2026-02-26 after v3.0 roadmap creation*
-*Next step: `/gsd:plan-phase 27` to begin Core Narrative Engine*
+*Last updated: 2026-02-26 after Phase 27 completion*
+*Next step: `/gsd:plan-phase 28` to begin User Story Experience*
