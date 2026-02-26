@@ -95,6 +95,7 @@ Phase 27: [████████____________] 40% (2/5 tasks - ServiceContain
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
+- feat(27-03): implement StoryEditorService for admin story management
 - feat(27-04): add narrative and story_editor services to ServiceContainer
 - feat(27-04): export NarrativeService and StoryEditorService from services package
 - feat(27-01): add narrative system models (Story, StoryNode, StoryChoice, UserStoryProgress)
@@ -152,6 +153,24 @@ Phase 27: [████████____________] 40% (2/5 tasks - ServiceContain
 - Package exports for both services in `__init__.py`
 
 **SUMMARY:** `.planning/phases/27-core-narrative-engine/27-04-SUMMARY.md`
+
+## Plan 27-03 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~10 minutes |
+| Tasks | 7/7 |
+| Commits | 1 |
+| Files Created | 1 |
+| Lines Added | 508 |
+
+**Deliverables:**
+- StoryEditorService with 7 methods: create_story, create_node, create_choice, validate_story, publish_story, get_story_stats
+- Full CRUD operations for admin story management
+- Story validation workflow (start node, endings, connectivity checks)
+- Story analytics (completion rates, popular endings)
+
+**SUMMARY:** `.planning/phases/27-core-narrative-engine/27-03-SUMMARY.md`
 
 ## Plan 27-01 Completion
 
