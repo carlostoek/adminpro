@@ -242,8 +242,22 @@ async def _send_welcome_message(
             )
             subscriber.vip_entry_stage = None
             await session.commit()
+        elif subscriber.vip_entry_stage == 3:
+            # HOTFIX: Stage 3 means user already completed the ritual
+            # They have the invite link and role should be VIP
+            # If role is not VIP, fix it and clear stage
+            logger.info(
+                f"🔄 User {user_id} has vip_entry_stage=3 but role is {user.role.value}. "
+                f"Completing ritual and showing menu."
+            )
+            # Change role to VIP
+            old_role = user.role
+            user.role = UserRole.VIP
+            subscriber.vip_entry_stage = None
+            await session.commit()
+            logger.info(f"✅ User {user_id} role corrected: {old_role.value} → VIP")
         else:
-            # User has incomplete entry flow - resume from current stage
+            # User has incomplete entry flow (Stage 1 or 2) - resume from current stage
             from bot.handlers.user.vip_entry import show_vip_entry_stage
 
             logger.info(
