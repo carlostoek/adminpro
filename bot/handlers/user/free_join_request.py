@@ -19,14 +19,13 @@ from aiogram import Router, F
 from aiogram.types import ChatJoinRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.middlewares import DatabaseMiddleware
 from bot.services.container import ServiceContainer
 
 logger = logging.getLogger(__name__)
 
 # Router para ChatJoinRequest
+# DatabaseMiddleware is applied globally in main.py - no local middleware needed
 free_join_router = Router(name="free_join")
-free_join_router.chat_join_request.middleware(DatabaseMiddleware())
 
 
 @free_join_router.chat_join_request(F.chat.type.in_({"channel", "supergroup"}))
