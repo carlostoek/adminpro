@@ -282,7 +282,7 @@ async def handle_vip_entry_main_menu(
     logger.info(f"✅ User {user_id} returning to main menu after VIP entry completion")
 
     # Show main menu via start handler
-    await _send_welcome_message(callback.message, None, container, user_id)
+    await _send_welcome_message(callback.message, None, container, user_id, session)
 
     # Delete the Stage 3 message
     try:
