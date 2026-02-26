@@ -11,8 +11,8 @@
 | Attribute | Value |
 |-----------|-------|
 | Phase | 27-core-narrative-engine |
-| Plan | 01 (database models) |
-| Status | Completed - ready for Plan 02
+| Plan | 04 (ServiceContainer integration) |
+| Status | Completed - ready for Plan 05
 
 **Progress Bar:**
 ```
@@ -23,7 +23,7 @@ v2.0 Gamification:     [██████████] 100% ✅
 v2.1 Deployment Ready: [██████████] 100% ✅
 v3.0 Narrativa:        [██░░░░░░░░] 20%  🔄
 
-Phase 27: [████________________] 20% (1/5 tasks - models complete)
+Phase 27: [████████____________] 40% (2/5 tasks - ServiceContainer integration complete)
 ```
 
 ---
@@ -34,12 +34,12 @@ Phase 27: [████________________] 20% (1/5 tasks - models complete)
 
 **Key Constraints:**
 - Zero new dependencies (existing stack sufficient)
-- Integrate with 19 existing services via ServiceContainer
+- Integrate with 21 services via ServiceContainer (19 existing + 2 narrative)
 - Use existing cascading condition system for story conditions
 - Leverage existing WalletService for economy operations
 - Follow established voice architecture (Diana 🫦 for content, Lucien 🎩 for system)
 
-**Current Focus:** Plan 27-02 - NarrativeService implementation
+**Current Focus:** Plan 27-05 - Next phase
 
 ---
 
@@ -90,11 +90,13 @@ Phase 27: [████________________] 20% (1/5 tasks - models complete)
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 27-01 - Database models for narrative system
-**Next Action:** Plan 27-02 - NarrativeService implementation
+**Last Action:** Completed Plan 27-04 - ServiceContainer integration
+**Next Action:** Plan 27-05 - Next phase
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
+- feat(27-04): add narrative and story_editor services to ServiceContainer
+- feat(27-04): export NarrativeService and StoryEditorService from services package
 - feat(27-01): add narrative system models (Story, StoryNode, StoryChoice, UserStoryProgress)
 - feat(27-01): add narrative system enums (StoryStatus, NodeType, StoryProgressStatus)
 
@@ -133,6 +135,23 @@ Phase 27: [████________________] 20% (1/5 tasks - models complete)
 ---
 
 *State file updated: 2026-02-26*
+
+## Plan 27-04 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~1 minute |
+| Tasks | 3/3 |
+| Commits | 2 |
+| Files Modified | 2 |
+| Lines Added | ~78 |
+
+**Deliverables:**
+- ServiceContainer with `narrative` and `story_editor` lazy loading properties
+- Updated `get_loaded_services()` to include new services
+- Package exports for both services in `__init__.py`
+
+**SUMMARY:** `.planning/phases/27-core-narrative-engine/27-04-SUMMARY.md`
 
 ## Plan 27-01 Completion
 
