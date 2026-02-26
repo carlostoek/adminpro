@@ -126,7 +126,7 @@
 | ADMIN-09 | Phase 29 | Pending |
 | ADMIN-10 | Phase 29 | Pending |
 | ADMIN-11 | Phase 29 | Pending |
-| ADMIN-12 | Phase 30 | Pending |
+| ADMIN-12 | Phase 29 | Pending |
 | ECON-01 | Phase 30 | Pending |
 | ECON-02 | Phase 30 | Pending |
 | ECON-03 | Phase 30 | Pending |
@@ -160,4 +160,4 @@
 ---
 
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-02-26 after initial definition*
+*Last updated: 2026-02-26 after roadmap creation*

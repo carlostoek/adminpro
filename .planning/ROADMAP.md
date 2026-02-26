@@ -11,7 +11,7 @@ Transformación desde un bot Telegram local con SQLite hacia una solución produ
 - ✅ **v1.2 Primer Despliegue** - Phases 14-18 (shipped 2026-01-30)
 - ✅ **v2.0 Gamificación** - Phases 19-24 (shipped 2026-02-17)
 - ✅ **v2.1 Deployment Readiness** - Phases 25-26 (shipped 2026-02-21)
-- 📋 **v2.2+** - Future enhancements (planned)
+- 🔄 **v3.0 Narrativa** - Phases 27-30 (in progress)
 
 ## Phases
 
@@ -89,7 +89,7 @@ Production-ready deployment infrastructure with PostgreSQL migration support, co
 **Key features:**
 - PostgreSQL and SQLite dual-dialect support with automatic dialect detection
 - Alembic migration system with auto-migration on startup
-- FastAPI health check endpoint with database connectivity verification
+- FastAPI health check endpoint (/health) with database connectivity verification
 - Railway deployment configuration (Railway.toml, Dockerfile, .dockerignore)
 - pytest-asyncio testing infrastructure with 7 fixtures and in-memory database
 - 212 system tests covering all critical flows
@@ -248,7 +248,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24 → 25
+Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -278,9 +278,12 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24 → 25
 | 24. Admin Configuration | v2.0 | 9/9 | Complete | 2026-02-21 |
 | 25. Broadcasting Improvements | v2.1 | 1/1 | Complete | 2026-02-21 |
 | 26. Initial Data Migration | v2.1 | 3/3 | Complete | 2026-02-21 |
-| 27. Future Enhancements | v2.2+ | 0/0 | Planned | - |
+| 27. Core Narrative Engine | v3.0 | 0/0 | Planned | - |
+| 28. User Story Experience | v3.0 | 0/0 | Planned | - |
+| 29. Admin Story Editor | v3.0 | 0/0 | Planned | - |
+| 30. Economy & Shop Integration | v3.0 | 0/0 | Planned | - |
 
-**Overall Progress:** 105 plans complete (0 pending)
+**Overall Progress:** 105 plans complete (0 pending), 4 phases planned
 
 <details>
 <summary>✅ v2.1 Deployment Readiness (Phases 25-26) — SHIPPED 2026-02-21</summary>
@@ -304,4 +307,212 @@ Broadcasting improvements with optional reactions/content protection and complet
 
 ---
 
-*Last updated: 2026-02-21 after Phase 26 planning*
+# v3.0 Narrativa - Branching Story System
+
+**Milestone:** v3.0 Narrativa
+**Phases:** 27-30
+**Requirements:** 43 total (NARR: 10, ADMIN: 12, ECON: 8, TIER: 5, SHOP: 5, UX: 6)
+**Depth:** Standard
+
+## Overview
+
+This milestone delivers a modular narrative system with branching stories integrated into the existing gamification infrastructure. The system allows admins to create interactive stories with nodes and choices, while users experience personalized narratives with progress tracking, tiered access (Free/VIP), and economy integration (besitos costs/rewards).
+
+**Architecture approach:** Service-oriented with Dependency Injection via ServiceContainer. Two new services (NarrativeService, StoryEditorService) integrate with 19 existing services. Self-referential SQLAlchemy relationships handle tree-structured stories. Zero new dependencies required.
+
+---
+
+## Phase 27: Core Narrative Engine
+
+**Goal:** Foundation database models and core service for story storage, retrieval, and user progress tracking.
+
+**Dependencies:** None (builds on existing v2.1 infrastructure)
+
+**Requirements:**
+| ID | Requirement |
+|----|-------------|
+| NARR-01 | Admin can create a story with metadata (title, description, is_premium) |
+| NARR-02 | Admin can create story nodes with content (text, media_file_ids) |
+| NARR-03 | Admin can define choices for a node (text, target_node_id, optional cost) |
+| NARR-09 | System tracks user story progress (current_node, decisions_made, status) |
+| TIER-01 | Stories can be marked as Free (levels 1-3) or Premium (levels 4-6) |
+
+**Success Criteria:**
+1. Database schema includes Story, StoryNode, StoryChoice, and UserStoryProgress tables with proper relationships
+2. NarrativeService provides API to create stories, add nodes, define choices, and track user progress
+3. StoryEditorService provides admin CRUD operations for story/node/choice management
+4. User progress is persisted to database immediately after each choice (dual-track persistence)
+5. Stories can be marked as Free or Premium and filtered accordingly
+
+---
+
+## Phase 28: User Story Experience
+
+**Goal:** Complete user-facing story reading experience with progress tracking, tier filtering, and polished UX.
+
+**Dependencies:** Phase 27 (Core Narrative Engine)
+
+**Requirements:**
+| ID | Requirement |
+|----|-------------|
+| NARR-04 | User can start an available story from the story list |
+| NARR-05 | User sees current node content with inline button choices |
+| NARR-06 | User choice transitions to next node and saves progress |
+| NARR-07 | User can resume a story from where they left off |
+| NARR-08 | User has escape hatch button to exit story at any time |
+| NARR-10 | System handles story completion (end nodes) and records ending reached |
+| TIER-02 | Free users see only Free stories in their list |
+| TIER-03 | VIP users see both Free and Premium stories |
+| TIER-04 | Free users attempting Premium story see upsell message with VIP info |
+| UX-01 | User sees progress indicator ("Escena 3 de 12") during story |
+| UX-02 | User sees story list with completion status (not started, in progress, completed) |
+| UX-03 | User can restart a completed story (with confirmation) |
+| UX-04 | Story content uses Diana's voice (🫦), system messages use Lucien's (🎩) |
+| UX-05 | Choices are presented as inline keyboard buttons (max 3 per row, max 10 total) |
+| UX-06 | Media content (photos/videos) displays correctly in sequence with text |
+
+**Success Criteria:**
+1. User can view list of available stories filtered by their tier (Free/VIP)
+2. User can start a story and see node content with inline choice buttons
+3. Selecting a choice transitions to next node and persists progress automatically
+4. User can resume in-progress stories from where they left off
+5. Universal "Salir" escape hatch button visible at all times during story
+6. Story completion is detected and recorded when reaching end nodes
+7. Progress indicator shows current position (e.g., "Escena 3 de 12")
+8. Story list shows completion status badges (not started, in progress, completed)
+9. Diana's voice (🫦) used for story content, Lucien's (🎩) for system messages
+10. Media attachments display correctly with text content
+
+---
+
+## Phase 29: Admin Story Editor
+
+**Goal:** Complete admin interface for creating, editing, validating, and publishing stories.
+
+**Dependencies:** Phase 27 (Core Narrative Engine), Phase 28 (User Story Experience - for testing)
+
+**Requirements:**
+| ID | Requirement |
+|----|-------------|
+| ADMIN-01 | Admin can list all stories with status (draft/published/archived) |
+| ADMIN-02 | Admin can edit story metadata (title, description, premium flag) |
+| ADMIN-03 | Admin can publish/unpublish stories (only published visible to users) |
+| ADMIN-04 | Admin can delete draft stories (soft delete with is_active) |
+| ADMIN-05 | Admin can create nodes via FSM wizard with content input |
+| ADMIN-06 | Admin can edit node content and media attachments |
+| ADMIN-07 | Admin can delete nodes (with cascade handling for choices) |
+| ADMIN-08 | Admin can create choices linking nodes with optional besitos cost |
+| ADMIN-09 | Admin can edit choice text and target node |
+| ADMIN-10 | Admin can delete choices |
+| ADMIN-11 | System validates stories (detect cycles, orphaned nodes, dead ends) |
+| ADMIN-12 | Admin can view story statistics (total nodes, completion count) |
+| TIER-05 | Individual nodes can have tier restrictions (early levels Free, later Premium) |
+
+**Success Criteria:**
+1. Admin can list all stories with status badges (draft/published/archived)
+2. Admin can create/edit story metadata via FSM wizard
+3. Admin can publish/unpublish stories; only published stories appear to users
+4. Admin can soft-delete draft stories
+5. Admin can create/edit/delete nodes via FSM wizard with content and media
+6. Admin can create/edit/delete choices linking nodes with optional costs
+7. Story validation detects cycles, orphaned nodes, and dead ends before publishing
+8. Admin can view story statistics (total nodes, user completions)
+9. Individual nodes can be marked with tier restrictions beyond story-level tier
+
+---
+
+## Phase 30: Economy & Shop Integration
+
+**Goal:** Full integration with existing gamification systems - choice costs, rewards, conditions, and shop connectivity.
+
+**Dependencies:** Phase 27 (Core Narrative Engine), Phase 28 (User Story Experience), existing WalletService/RewardService/ShopService
+
+**Requirements:**
+| ID | Requirement |
+|----|-------------|
+| ECON-01 | Choices can have besitos cost (deducted on selection) |
+| ECON-02 | Users with insufficient besitos see locked choices with cost displayed |
+| ECON-03 | Story completion can trigger reward (besitos, items, VIP extension) |
+| ECON-04 | Story nodes can unlock rewards when reached |
+| ECON-05 | Choices can have conditions (level, streak, total earned) via extended condition system |
+| ECON-06 | Conditions are evaluated using existing cascading condition system (AND/OR groups) |
+| ECON-07 | Economy operations are atomic (no double-charging on rapid clicks) |
+| ECON-08 | Reward notifications are batched (not spam per node) |
+| SHOP-01 | Shop products can unlock specific story levels/nodes as purchase bonus |
+| SHOP-02 | Story completion can grant shop products as reward |
+| SHOP-03 | Story nodes can require ownership of specific shop product to access |
+| SHOP-04 | Product ownership is checked via existing UserContentAccess model |
+| SHOP-05 | Shop integration uses existing condition system (extend with PRODUCT_OWNED condition) |
+
+**Success Criteria:**
+1. Choices display besitos cost; insufficient balance shows locked state with cost
+2. Selecting a costly choice atomically deducts besitos (no double-charging)
+3. Story completion triggers configurable rewards via existing RewardService
+4. Individual nodes can unlock rewards when reached
+5. Choices support conditions (level, streak, total earned) using cascading condition system
+6. Conditions evaluated with AND/OR group logic as per existing pattern
+7. Reward notifications batched into single message instead of per-node spam
+8. Shop products can unlock story nodes as purchase bonus
+9. Story completion can grant shop products
+10. Nodes can require specific product ownership (checked via UserContentAccess)
+11. PRODUCT_OWNED condition type added to existing condition system
+
+---
+
+## v3.0 Progress Tracking
+
+| Phase | Status | Requirements | Success Criteria Met |
+|-------|--------|--------------|---------------------|
+| 27 - Core Narrative Engine | Planned | 5/5 | 0/5 |
+| 28 - User Story Experience | Planned | 15/15 | 0/10 |
+| 29 - Admin Story Editor | Planned | 13/13 | 0/9 |
+| 30 - Economy & Shop Integration | Planned | 10/10 | 0/11 |
+
+**Coverage:** 43/43 requirements mapped (100%)
+
+---
+
+## Dependency Graph
+
+```
+Phase 27 (Core Engine)
+    ↓
+Phase 28 (User Experience)
+    ↓
+Phase 29 (Admin Editor)
+    ↓
+Phase 30 (Economy Integration)
+```
+
+**Key Dependencies:**
+- Models must exist before services (Phase 27)
+- Services before handlers (Phase 27-28)
+- User experience before admin editor (admins need to test stories)
+- Core engine before economy integration (stable foundation required)
+
+---
+
+## Research Flags
+
+Per research/SUMMARY.md:
+
+| Phase | Research Flag | Notes |
+|-------|---------------|-------|
+| 27 | Standard patterns | Skip deep research - well-documented tree structures |
+| 28 | Standard patterns | Skip deep research - existing handler patterns |
+| 29 | Needs UX validation | Admin workflow for story structure needs prototyping |
+| 30 | Standard patterns | Skip deep research - existing WalletService integration |
+
+---
+
+## Out of Scope (v3.1+)
+
+- ADV-01 through ADV-04: Advanced narrative (consequences, hidden paths, variables, timed choices)
+- ANAL-01 through ANAL-03: Analytics (choice popularity, completion rates, time tracking)
+- SOC-01 through SOC-02: Social features (story sharing, community choices)
+- Sentiment analysis, NLP, procedural generation
+
+---
+
+*Last updated: 2026-02-26 after v3.0 roadmap creation*
+*Next step: `/gsd:plan-phase 27` to begin Core Narrative Engine*
