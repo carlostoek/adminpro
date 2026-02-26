@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.enums import UserRole
-from bot.middlewares import DatabaseMiddleware, AdminAuthMiddleware
+from bot.middlewares import AdminAuthMiddleware
 from bot.services.container import ServiceContainer
 from bot.states.admin import UserManagementStates
 from bot.utils import CallbackParser, CallbackData
@@ -22,9 +22,7 @@ USER_LIST_PAGE_SIZE = 20
 # Router for user management handlers
 users_router = Router(name="admin_users")
 
-# Apply middleware (AdminAuth already on admin_router, this integrates into it)
-users_router.callback_query.middleware(DatabaseMiddleware())
-users_router.message.middleware(DatabaseMiddleware())
+# Apply middleware (DatabaseMiddleware is global in main.py, only AdminAuth needed locally)
 users_router.callback_query.middleware(AdminAuthMiddleware())
 users_router.message.middleware(AdminAuthMiddleware())
 

@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.enums import ContentCategory
-from bot.middlewares import DatabaseMiddleware, AdminAuthMiddleware
+from bot.middlewares import AdminAuthMiddleware
 from bot.services.container import ServiceContainer
 
 logger = logging.getLogger(__name__)
@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 # Router for interest management handlers
 interests_router = Router(name="admin_interests")
 
-# Apply middleware (AdminAuth already on admin_router, this integrates into it)
-interests_router.callback_query.middleware(DatabaseMiddleware())
+# Apply middleware (DatabaseMiddleware is global in main.py, only AdminAuth needed locally)
 interests_router.callback_query.middleware(AdminAuthMiddleware())
 interests_router.message.middleware(AdminAuthMiddleware())
 

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.enums import ContentCategory, PackageType
 from bot.database.models import ContentPackage
-from bot.middlewares import DatabaseMiddleware, AdminAuthMiddleware
+from bot.middlewares import AdminAuthMiddleware
 from bot.services.container import ServiceContainer
 from bot.states.admin import ContentPackageStates
 from bot.utils.pagination import Paginator, create_pagination_keyboard
@@ -24,9 +24,7 @@ logger = logging.getLogger(__name__)
 # Router for content management handlers
 content_router = Router(name="admin_content")
 
-# Apply middleware (AdminAuth already on admin_router, this integrates into it)
-content_router.callback_query.middleware(DatabaseMiddleware())
-content_router.message.middleware(DatabaseMiddleware())
+# Apply middleware (DatabaseMiddleware is global in main.py, only AdminAuth needed locally)
 content_router.callback_query.middleware(AdminAuthMiddleware())
 content_router.message.middleware(AdminAuthMiddleware())
 
