@@ -265,3 +265,95 @@ class NarrativeService:
         logger.debug(f"Node has {len(active_choices)} active choices")
 
         return (True, "Node retrieved", node, active_choices)
+
+    async def make_choice(
+        self,
+        user_id: int,
+        progress: UserStoryProgress,
+        choice_id: int
+    ) -> Tuple[bool, str, Optional[StoryNode], Optional[UserStoryProgress]]:
+        """
+        Procesa la eleccion de un usuario y avanza la historia.
+
+        Persiste el progreso inmediatamente (aunque el commit real lo hace el handler).
+        Actualiza: historial de decisiones, nodo actual, estado si llega a un final.
+
+        Args:
+            user_id: ID del usuario (para verificacion de propiedad)
+            progress: Registro de progreso del usuario
+            choice_id: ID de la opcion elegida
+
+        Returns:
+            Tuple[bool, str, Optional[StoryNode], Optional[UserStoryProgress]]:
+            - (True, "Choice made", target_node, progress) - Exito
+            - (True, "Story completed", target_node, progress) - Llego a un final
+            - (False, "Invalid choice", None, None) - Opcion invalida
+            - (False, "Progress belongs to different user", None, None) - Error de seguridad
+        """
+        # 1. Verificar que el progreso pertenece al usuario
+        if progress.user_id != user_id:
+            logger.warning(
+                f"User {user_id} attempted to access progress belonging to {progress.user_id}"
+            )
+            return (False, "Progress belongs to different user", None, None)
+
+        # 2. Fetch la opcion con eager loading del nodo destino
+        result = await self.session.execute(
+            select(StoryChoice)
+            .where(StoryChoice.id == choice_id)
+            .options(selectinload(StoryChoice.target_node))
+        )
+        choice = result.scalar_one_or_none()
+
+        # 3. Validar la opcion
+        if not choice:
+            logger.warning(f"Choice {choice_id} not found for user {user_id}")
+            return (False, "Invalid choice", None, None)
+
+        if not choice.is_active:
+            logger.warning(f"Choice {choice_id} is not active for user {user_id}")
+            return (False, "Invalid choice", None, None)
+
+        if choice.source_node_id != progress.current_node_id:
+            logger.warning(
+                f"Choice {choice_id} does not belong to current node "
+                f"{progress.current_node_id} for user {user_id}"
+            )
+            return (False, "Invalid choice", None, None)
+
+        # 4. Registrar la decision
+        decision_record = {
+            "choice_id": choice_id,
+            "node_id": progress.current_node_id,
+            "made_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+        }
+
+        if progress.decisions_made is None:
+            progress.decisions_made = []
+        progress.decisions_made.append(decision_record)
+
+        # 5. Avanzar al nodo destino
+        target_node = choice.target_node
+        progress.current_node_id = choice.target_node_id
+
+        # 6. Verificar si llego a un final
+        if target_node and target_node.node_type == NodeType.ENDING:
+            progress.status = StoryProgressStatus.COMPLETED
+            progress.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            progress.ending_reached = f"ending_{target_node.id}"
+            logger.info(
+                f"User {user_id} completed story {progress.story_id}, "
+                f"ending: ending_{target_node.id}"
+            )
+
+        # 7. Actualizar timestamp
+        progress.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        # 8. Marcar como modificado (el handler hara el commit)
+        # SQLAlchemy detecta automaticamente los cambios en objetos attached
+
+        logger.info(
+            f"User {user_id} made choice {choice_id} in story {progress.story_id}"
+        )
+
+        return (True, "Choice made", target_node, progress)
