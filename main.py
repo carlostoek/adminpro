@@ -317,8 +317,12 @@ async def main() -> None:
     dp = Dispatcher(storage=storage)
 
     # Registrar middlewares ANTES de los handlers (orden crítico)
-    from bot.middlewares import DatabaseMiddleware, RoleDetectionMiddleware
+    # 1. DatabaseMiddleware: inyecta session y container
+    # 2. UserRegistrationMiddleware: registra usuario si no existe (requiere session)
+    # 3. RoleDetectionMiddleware: detecta rol del usuario (requiere que usuario exista)
+    from bot.middlewares import DatabaseMiddleware, RoleDetectionMiddleware, UserRegistrationMiddleware
     dp.update.middleware(DatabaseMiddleware())
+    dp.update.middleware(UserRegistrationMiddleware())
     dp.update.middleware(RoleDetectionMiddleware())
     # AdminAuthMiddleware se aplica solo al router admin (ver bot/handlers/admin/main.py)
 

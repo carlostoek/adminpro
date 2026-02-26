@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models import UserReaction, BotConfig
 from bot.database.enums import TransactionType, ContentCategory, UserRole
+from bot.services.channel import ChannelService
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class ReactionService:
     # Configuración de rate limiting y límites
     REACTION_COOLDOWN_SECONDS = 30
 
-    def __init__(self, session: AsyncSession, wallet_service=None, streak_service=None):
+    def __init__(self, session: AsyncSession, wallet_service=None, streak_service=None, bot=None):
         """
         Inicializa el ReactionService.
 
@@ -52,10 +53,12 @@ class ReactionService:
             session: Sesión de base de datos async
             wallet_service: WalletService opcional para otorgar besitos
             streak_service: StreakService opcional para tracking de rachas
+            bot: Instancia del bot de Telegram (opcional, para ChannelService)
         """
         self.session = session
         self.wallet = wallet_service
         self.streak = streak_service
+        self.bot = bot
         self.logger = logging.getLogger(__name__)
 
     async def _get_config_value(self, key: str, default: int) -> int:

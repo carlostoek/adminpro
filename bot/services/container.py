@@ -456,7 +456,8 @@ class ServiceContainer:
             self._reaction_service = ReactionService(
                 self._session,
                 wallet_service=self.wallet,
-                streak_service=self.streak
+                streak_service=self.streak,
+                bot=self._bot
             )
 
         return self._reaction_service
