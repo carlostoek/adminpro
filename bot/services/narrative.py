@@ -216,3 +216,52 @@ class NarrativeService:
         logger.info(f"Story {story_id} started for user {user_id}")
 
         return (True, "Story started", progress)
+
+    async def get_current_node(
+        self,
+        progress: UserStoryProgress
+    ) -> Tuple[bool, str, Optional[StoryNode], List[StoryChoice]]:
+        """
+        Obtiene el nodo actual con sus opciones disponibles para un usuario.
+
+        Usa eager loading para cargar las opciones del nodo y evitar N+1 queries.
+        Filtra solo las opciones activas.
+
+        Args:
+            progress: Registro de progreso del usuario
+
+        Returns:
+            Tuple[bool, str, Optional[StoryNode], List[StoryChoice]]:
+            - (True, "Node retrieved", node, active_choices) - Exito
+            - (False, "No current node", None, []) - Sin nodo actual
+            - (False, "Node not found", None, []) - Nodo no existe
+        """
+        user_id = progress.user_id
+        node_id = progress.current_node_id
+
+        # 1. Verificar que hay un nodo actual
+        if node_id is None:
+            logger.debug(f"No current node for user {user_id}")
+            return (False, "No current node", None, [])
+
+        logger.debug(f"Getting current node {node_id} for user {user_id}")
+
+        # 2. Query con eager loading de opciones
+        result = await self.session.execute(
+            select(StoryNode)
+            .where(StoryNode.id == node_id)
+            .options(selectinload(StoryNode.choices))
+        )
+        node = result.scalar_one_or_none()
+
+        # 3. Verificar que el nodo existe
+        if not node:
+            logger.warning(f"Node {node_id} not found for user {user_id}")
+            return (False, "Node not found", None, [])
+
+        # 4. Filtrar opciones activas
+        active_choices = [c for c in node.choices if c.is_active]
+
+        logger.debug(f"Node has {len(active_choices)} active choices")
+
+        return (True, "Node retrieved", node, active_choices)
