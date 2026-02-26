@@ -18,15 +18,13 @@ from aiogram.types import CallbackQuery
 
 from bot.database.enums import ContentCategory
 from bot.handlers.utils import send_admin_interest_notification
-from bot.middlewares import DatabaseMiddleware
 
 logger = logging.getLogger(__name__)
 
 # Create router
 free_callbacks_router = Router()
 
-# Apply middleware to this router (required for container injection)
-free_callbacks_router.callback_query.middleware(DatabaseMiddleware())
+# DatabaseMiddleware is applied globally in main.py - no local middleware needed
 
 
 @free_callbacks_router.callback_query(lambda c: c.data == "free:approved:enter")

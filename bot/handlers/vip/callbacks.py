@@ -19,15 +19,13 @@ from aiogram.types import CallbackQuery
 
 from bot.database.enums import ContentCategory, UserRole
 from bot.handlers.utils import send_admin_interest_notification, require_vip
-from bot.middlewares import DatabaseMiddleware
 
 logger = logging.getLogger(__name__)
 
 # Create router
 vip_callbacks_router = Router()
 
-# Apply middleware to this router (required for container injection)
-vip_callbacks_router.callback_query.middleware(DatabaseMiddleware())
+# DatabaseMiddleware is applied globally in main.py - no local middleware needed
 
 
 @vip_callbacks_router.callback_query(lambda c: c.data == "vip:premium")
