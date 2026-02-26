@@ -15,7 +15,6 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.enums import UserRole
-from bot.middlewares import DatabaseMiddleware
 from bot.services.container import ServiceContainer
 from bot.utils.formatters import format_currency
 from config import Config
@@ -25,9 +24,7 @@ logger = logging.getLogger(__name__)
 # Router para handlers de usuario
 user_router = Router(name="user")
 
-# Aplicar middleware de database (NO AdminAuth, estos son usuarios normales)
-user_router.message.middleware(DatabaseMiddleware())
-user_router.callback_query.middleware(DatabaseMiddleware())
+# DatabaseMiddleware is applied globally in main.py - no local middleware needed
 
 
 @user_router.message(Command("start"))
@@ -61,6 +58,10 @@ async def cmd_start(message: Message, session: AsyncSession):
         default_role=UserRole.FREE
     )
     logger.debug(f"👤 Usuario en sistema: {user.user_id} - Rol: {user.role.value}")
+
+    # Commit inmediato para asegurar que el usuario existe en BD
+    # antes de procesar el token (evita perdida de usuario en errores de token)
+    await session.commit()
 
     # Verificar si es admin PRIMERO
     is_admin = Config.is_admin(user_id)

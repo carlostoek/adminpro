@@ -18,16 +18,13 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 
 from bot.services.container import ServiceContainer
 from bot.database.enums import RewardStatus, RewardType
-from bot.middlewares import DatabaseMiddleware
 
 logger = logging.getLogger(__name__)
 
 # Router para handlers de recompensas
 rewards_router = Router(name="rewards")
 
-# Apply middleware to this router (required for container injection)
-rewards_router.callback_query.middleware(DatabaseMiddleware())
-rewards_router.message.middleware(DatabaseMiddleware())
+# DatabaseMiddleware is applied globally in main.py - no local middleware needed
 
 
 # ============================================================================

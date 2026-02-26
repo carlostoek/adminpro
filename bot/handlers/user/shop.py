@@ -25,7 +25,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.services.container import ServiceContainer
 from bot.database.enums import ContentTier, ContentType, TransactionType
 from bot.database.models import ShopProduct, UserContentAccess
-from bot.middlewares import DatabaseMiddleware
 from datetime import datetime, timezone
 from sqlalchemy import update as sa_update
 
@@ -34,9 +33,7 @@ logger = logging.getLogger(__name__)
 # Router para handlers de tienda
 shop_router = Router(name="shop")
 
-# Apply middleware to this router (required for container injection)
-shop_router.callback_query.middleware(DatabaseMiddleware())
-shop_router.message.middleware(DatabaseMiddleware())
+# DatabaseMiddleware is applied globally in main.py - no local middleware needed
 
 
 # ============================================================================

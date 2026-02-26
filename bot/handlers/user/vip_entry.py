@@ -35,16 +35,13 @@ from bot.states.user import VIPEntryStates
 from bot.services.container import ServiceContainer
 from bot.services.message.vip_entry import VIPEntryFlowMessages
 from bot.database.enums import UserRole, RoleChangeReason
-from bot.middlewares import DatabaseMiddleware
 
 logger = logging.getLogger(__name__)
 
 # Router for VIP entry handlers
 vip_entry_router = Router(name="vip_entry")
 
-# Middleware registration
-vip_entry_router.message.middleware(DatabaseMiddleware())
-vip_entry_router.callback_query.middleware(DatabaseMiddleware())
+# DatabaseMiddleware is applied globally in main.py - no local middleware needed
 
 
 async def show_vip_entry_stage(

@@ -19,15 +19,13 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from bot.services.container import ServiceContainer
 from bot.states.user import StreakStates
 from bot.database.enums import StreakType
-from bot.middlewares import DatabaseMiddleware
 
 logger = logging.getLogger(__name__)
 
 # Router para handlers de rachas
 streak_router = Router(name="streak")
 
-# Apply middleware to this router (required for container injection)
-streak_router.callback_query.middleware(DatabaseMiddleware())
+# DatabaseMiddleware is applied globally in main.py - no local middleware needed
 
 
 # ============================================================================
