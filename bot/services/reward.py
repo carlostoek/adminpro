@@ -409,15 +409,17 @@ class RewardService:
             return []
 
         # Query rewards that have conditions matching the event type
+        # NOTE: Using unique() instead of distinct() because PostgreSQL
+        # doesn't support DISTINCT with JSON columns
         result = await self.session.execute(
-            select(Reward).distinct()
+            select(Reward)
             .join(RewardCondition)
             .where(
                 Reward.is_active == True,
                 RewardCondition.condition_type.in_(condition_types)
             )
         )
-        return list(result.scalars().all())
+        return list(result.scalars().unique().all())
 
     async def _get_or_create_user_reward(
         self,
