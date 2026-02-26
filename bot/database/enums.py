@@ -492,3 +492,117 @@ class RewardStatus(str, Enum):
             RewardStatus.EXPIRED: "⏰"
         }
         return emojis[self]
+
+
+class StoryStatus(str, Enum):
+    """
+    Estados de ciclo de vida para historias.
+
+    Estados:
+        DRAFT: En creación/edición (no visible a usuarios)
+        PUBLISHED: Publicada y disponible para usuarios
+        ARCHIVED: Archivada (no disponible para nuevos lectores)
+    """
+
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
+
+    def __str__(self) -> str:
+        """Retorna valor string del enum."""
+        return self.value
+
+    @property
+    def display_name(self) -> str:
+        """Retorna nombre legible del estado."""
+        names = {
+            StoryStatus.DRAFT: "Borrador",
+            StoryStatus.PUBLISHED: "Publicada",
+            StoryStatus.ARCHIVED: "Archivada"
+        }
+        return names[self]
+
+    @property
+    def emoji(self) -> str:
+        """Retorna emoji del estado."""
+        emojis = {
+            StoryStatus.DRAFT: "✏️",
+            StoryStatus.PUBLISHED: "📖",
+            StoryStatus.ARCHIVED: "📦"
+        }
+        return emojis[self]
+
+
+class NodeType(str, Enum):
+    """
+    Tipos de nodos en una historia.
+
+    Tipos:
+        START: Punto de entrada de la historia
+        STORY: Nodo de contenido narrativo
+        CHOICE: Punto de decisión
+        ENDING: Nodo terminal (final de historia)
+    """
+
+    START = "start"
+    STORY = "story"
+    CHOICE = "choice"
+    ENDING = "ending"
+
+    def __str__(self) -> str:
+        """Retorna valor string del enum."""
+        return self.value
+
+    @property
+    def display_name(self) -> str:
+        """Retorna nombre legible del tipo de nodo."""
+        names = {
+            NodeType.START: "Inicio",
+            NodeType.STORY: "Narrativa",
+            NodeType.CHOICE: "Decisión",
+            NodeType.ENDING: "Final"
+        }
+        return names[self]
+
+
+class StoryProgressStatus(str, Enum):
+    """
+    Estados de progreso de un usuario en una historia.
+
+    Estados:
+        ACTIVE: Leyendo activamente
+        PAUSED: Temporalmente detenido
+        COMPLETED: Completó un final
+        ABANDONED: Abandonado explícitamente
+    """
+
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    ABANDONED = "abandoned"
+
+    def __str__(self) -> str:
+        """Retorna valor string del enum."""
+        return self.value
+
+    @property
+    def display_name(self) -> str:
+        """Retorna nombre legible del estado de progreso."""
+        names = {
+            StoryProgressStatus.ACTIVE: "En progreso",
+            StoryProgressStatus.PAUSED: "Pausada",
+            StoryProgressStatus.COMPLETED: "Completada",
+            StoryProgressStatus.ABANDONED: "Abandonada"
+        }
+        return names[self]
+
+    @property
+    def emoji(self) -> str:
+        """Retorna emoji del estado de progreso."""
+        emojis = {
+            StoryProgressStatus.ACTIVE: "📖",
+            StoryProgressStatus.PAUSED: "⏸️",
+            StoryProgressStatus.COMPLETED: "✅",
+            StoryProgressStatus.ABANDONED: "🚪"
+        }
+        return emojis[self]
