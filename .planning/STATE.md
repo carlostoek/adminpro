@@ -11,8 +11,8 @@
 | Attribute | Value |
 |-----------|-------|
 | Phase | 27-core-narrative-engine |
-| Plan | 04 (ServiceContainer integration) |
-| Status | Completed - ready for Plan 05
+| Plan | 02 (NarrativeService) |
+| Status | Completed - ready for Plan 03
 
 **Progress Bar:**
 ```
@@ -23,7 +23,7 @@ v2.0 Gamification:     [██████████] 100% ✅
 v2.1 Deployment Ready: [██████████] 100% ✅
 v3.0 Narrativa:        [██░░░░░░░░] 20%  🔄
 
-Phase 27: [████████____________] 40% (2/5 tasks - ServiceContainer integration complete)
+Phase 27: [██████______________] 30% (2/5 plans - NarrativeService complete)
 ```
 
 ---
@@ -39,7 +39,7 @@ Phase 27: [████████____________] 40% (2/5 tasks - ServiceContain
 - Leverage existing WalletService for economy operations
 - Follow established voice architecture (Diana 🫦 for content, Lucien 🎩 for system)
 
-**Current Focus:** Plan 27-05 - Next phase
+**Current Focus:** Plan 27-03 - StoryEditorService implementation
 
 ---
 
@@ -90,14 +90,17 @@ Phase 27: [████████____________] 40% (2/5 tasks - ServiceContain
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 27-04 - ServiceContainer integration
-**Next Action:** Plan 27-05 - Next phase
+**Last Action:** Completed Plan 27-02 - NarrativeService implementation
+**Next Action:** Plan 27-03 - StoryEditorService implementation
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
-- feat(27-03): implement StoryEditorService for admin story management
-- feat(27-04): add narrative and story_editor services to ServiceContainer
-- feat(27-04): export NarrativeService and StoryEditorService from services package
+- feat(27-02): implement get_story_progress and abandon_story methods
+- feat(27-02): implement make_choice method with immediate persistence
+- feat(27-02): implement get_current_node method
+- feat(27-02): implement start_story method
+- feat(27-02): implement get_available_stories method
+- feat(27-02): create NarrativeService skeleton and imports
 - feat(27-01): add narrative system models (Story, StoryNode, StoryChoice, UserStoryProgress)
 - feat(27-01): add narrative system enums (StoryStatus, NodeType, StoryProgressStatus)
 
@@ -136,6 +139,29 @@ Phase 27: [████████____________] 40% (2/5 tasks - ServiceContain
 ---
 
 *State file updated: 2026-02-26*
+
+## Plan 27-02 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~25 minutes |
+| Tasks | 6/6 |
+| Commits | 6 |
+| Files Created | 1 |
+| Lines Added | ~420 |
+
+**Deliverables:**
+- NarrativeService with 6 methods:
+  - get_available_stories() - List stories by user tier
+  - start_story() - Begin or resume stories
+  - get_current_node() - Get current node with choices
+  - make_choice() - Process choices with immediate persistence
+  - get_story_progress() - Check user's progress
+  - abandon_story() - Mark story as abandoned
+- Dual-track persistence pattern implementation
+- Security checks for user ownership
+
+**SUMMARY:** `.planning/phases/27-core-narrative-engine/27-02-SUMMARY.md`
 
 ## Plan 27-04 Completion
 
