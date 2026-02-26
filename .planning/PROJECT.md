@@ -99,16 +99,17 @@ Infraestructura existente que funciona y ha sido preservada:
 
 ### Active
 
-**Next Milestone (v2.2):**
+**Current Milestone: v3.0 Narrativa (In Progress)**
 
-Potential areas for enhancement:
-- Analytics dashboard for economy health (faucet vs sink rates)
-- Enhanced reward types (badges, cosmetic items)
-- Streak recovery mechanic (one-time forgiveness)
-- VIP besitos multiplier (2x earnings for VIP)
-- Limited-time shop items (seasonal/flash sales)
-- Complex achievement system with events
-- User-facing reward notifications and progress tracking
+Building a modular narrative system with branching stories integrated into existing gamification:
+
+- Narrative engine for multiple stories with nodes and branching paths
+- Extended condition system (reactions, timing, activity) for fragment unlocks
+- User narrative state tracking (progression, decisions, endings)
+- Admin panel integrated with existing cascading configuration
+- Economy integration (besitos unlock paths, decisions trigger rewards)
+- Multimedia support in narrative fragments
+- Tiered access: Free (levels 1-3), VIP (levels 4-6)
 
 ### Out of Scope
 
@@ -162,4 +163,25 @@ Características explícitamente excluidas:
 
 ---
 
-*Last updated: 2026-02-21 after v2.1 milestone completion*
+## Current Milestone: v3.0 Narrativa
+
+**Goal:** Sistema narrativo modular con historias ramificadas, integrado con gamificación mediante condiciones en cascada.
+
+**Target features:**
+- Motor narrativo para múltiples historias con nodos y ramificaciones
+- Sistema de condiciones extendido (reacciones, tiempo, actividad) para desbloqueo de fragmentos
+- Tracking de estado narrativo por usuario (progresión, decisiones, finales)
+- Admin panel integrado con configuración en cascada existente
+- Integración con economía (besitos desbloquean caminos, decisiones otorgan recompensas)
+- Soporte para contenido multimedia en fragmentos narrativos
+- Tiered access: Free (niveles 1-3), VIP (niveles 4-6)
+
+**Out of scope for v3:**
+- Análisis de sentimientos en texto
+- NLP avanzado
+- Reconocimiento de intenciones en lenguaje natural
+- Generación procedural de historias
+
+---
+
+*Last updated: 2026-02-26 - Milestone v3.0 started*
