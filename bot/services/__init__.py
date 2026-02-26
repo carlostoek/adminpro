@@ -13,6 +13,8 @@ from bot.services.reaction import ReactionService
 from bot.services.streak import StreakService
 from bot.services.shop import ShopService
 from bot.services.reward import RewardService
+from bot.services.narrative import NarrativeService
+from bot.services.story_editor import StoryEditorService
 
 __all__ = [
     "ServiceContainer",
@@ -31,4 +33,6 @@ __all__ = [
     "StreakService",
     "ShopService",
     "RewardService",
+    "NarrativeService",
+    "StoryEditorService",
 ]
