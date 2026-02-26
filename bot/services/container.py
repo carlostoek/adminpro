@@ -64,6 +64,8 @@ class ServiceContainer:
         self._streak_service = None
         self._shop_service = None
         self._reward_service = None
+        self._narrative_service = None
+        self._story_editor_service = None
 
         logger.debug("🏭 ServiceContainer inicializado (modo lazy)")
 
@@ -567,6 +569,74 @@ class ServiceContainer:
 
         return self._reward_service
 
+    # ===== NARRATIVE SERVICE =====
+
+    @property
+    def narrative(self):
+        """
+        Service de narrativa interactiva para usuarios.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            NarrativeService: Instancia del service
+
+        Usage:
+            # Get available stories
+            stories, total = await container.narrative.get_available_stories(
+                user_tier=1, is_premium_user=False
+            )
+
+            # Start a story
+            success, msg, progress = await container.narrative.start_story(
+                user_id=123, story_id=456
+            )
+
+            # Make a choice
+            success, msg, node, progress = await container.narrative.make_choice(
+                user_id=123, progress=progress, choice_id=789
+            )
+        """
+        if self._narrative_service is None:
+            from bot.services.narrative import NarrativeService
+            logger.debug("🔄 Lazy loading: NarrativeService")
+            self._narrative_service = NarrativeService(self._session)
+
+        return self._narrative_service
+
+    # ===== STORY EDITOR SERVICE =====
+
+    @property
+    def story_editor(self):
+        """
+        Service de gestión de historias para administradores.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            StoryEditorService: Instancia del service
+
+        Usage:
+            # Create a story
+            success, msg, story = await container.story_editor.create_story(
+                title="Mi Historia", description="...", is_premium=False
+            )
+
+            # Create nodes
+            success, msg, node = await container.story_editor.create_node(
+                story_id=story.id, node_type=NodeType.START, content_text="..."
+            )
+
+            # Publish story
+            success, msg = await container.story_editor.publish_story(story.id)
+        """
+        if self._story_editor_service is None:
+            from bot.services.story_editor import StoryEditorService
+            logger.debug("🔄 Lazy loading: StoryEditorService")
+            self._story_editor_service = StoryEditorService(self._session)
+
+        return self._story_editor_service
+
     # ===== UTILIDADES =====
 
     def get_loaded_services(self) -> list[str]:
@@ -618,6 +688,10 @@ class ServiceContainer:
             loaded.append("shop")
         if self._reward_service is not None:
             loaded.append("reward")
+        if self._narrative_service is not None:
+            loaded.append("narrative")
+        if self._story_editor_service is not None:
+            loaded.append("story_editor")
 
         return loaded
 
