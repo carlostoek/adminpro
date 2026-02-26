@@ -357,3 +357,82 @@ class NarrativeService:
         )
 
         return (True, "Choice made", target_node, progress)
+
+    async def get_story_progress(
+        self,
+        user_id: int,
+        story_id: int
+    ) -> Optional[UserStoryProgress]:
+        """
+        Obtiene el progreso de un usuario en una historia especifica.
+
+        Args:
+            user_id: ID del usuario
+            story_id: ID de la historia
+
+        Returns:
+            UserStoryProgress si existe, None si no tiene progreso
+        """
+        result = await self.session.execute(
+            select(UserStoryProgress).where(
+                and_(
+                    UserStoryProgress.user_id == user_id,
+                    UserStoryProgress.story_id == story_id
+                )
+            )
+        )
+        progress = result.scalar_one_or_none()
+
+        if progress:
+            logger.debug(
+                f"Progress found for user {user_id} in story {story_id}: "
+                f"{progress.status.value}"
+            )
+        else:
+            logger.debug(f"No progress for user {user_id} in story {story_id}")
+
+        return progress
+
+    async def abandon_story(
+        self,
+        user_id: int,
+        progress: UserStoryProgress
+    ) -> Tuple[bool, str]:
+        """
+        Marca una historia como abandonada por el usuario.
+
+        No se puede abandonar una historia completada.
+
+        Args:
+            user_id: ID del usuario (para verificacion)
+            progress: Registro de progreso a abandonar
+
+        Returns:
+            Tuple[bool, str]:
+            - (True, "Story abandoned") - Exito
+            - (False, "Cannot abandon completed story") - Ya completada
+            - (False, "Progress belongs to different user") - Error de seguridad
+        """
+        # 1. Verificar que el progreso pertenece al usuario
+        if progress.user_id != user_id:
+            logger.warning(
+                f"User {user_id} attempted to abandon progress belonging to "
+                f"{progress.user_id}"
+            )
+            return (False, "Progress belongs to different user")
+
+        # 2. Verificar que no este completada
+        if progress.status == StoryProgressStatus.COMPLETED:
+            logger.info(
+                f"User {user_id} attempted to abandon completed story "
+                f"{progress.story_id}"
+            )
+            return (False, "Cannot abandon completed story")
+
+        # 3. Marcar como abandonada
+        progress.status = StoryProgressStatus.ABANDONED
+        progress.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        logger.info(f"User {user_id} abandoned story {progress.story_id}")
+
+        return (True, "Story abandoned")
