@@ -58,3 +58,61 @@ class NarrativeService:
         """
         self.session = session
         logger.debug("NarrativeService inicializado")
+
+    async def get_available_stories(
+        self,
+        user_tier: int = 1,
+        is_premium_user: bool = False,
+        limit: int = 50,
+        offset: int = 0
+    ) -> Tuple[List[Story], int]:
+        """
+        Retorna historias disponibles para un usuario segun su tier.
+
+        Filtra historias publicadas y aplica restriccion de premium.
+        Las historias premium solo son visibles para usuarios premium.
+
+        Args:
+            user_tier: Nivel del usuario (1-6, afecta ordenamiento futuro)
+            is_premium_user: True si el usuario tiene acceso premium
+            limit: Maximo de resultados (default: 50)
+            offset: Desplazamiento para paginacion (default: 0)
+
+        Returns:
+            Tuple[List[Story], int] - (lista de historias, total count)
+        """
+        logger.debug(
+            f"Fetching available stories for tier={user_tier}, premium={is_premium_user}"
+        )
+
+        # Base query: solo historias publicadas
+        query = select(Story).where(Story.status == StoryStatus.PUBLISHED)
+
+        # Filtrar por premium si el usuario no es premium
+        if not is_premium_user:
+            query = query.where(Story.is_premium == False)
+
+        # Ordenar por fecha de creacion (mas recientes primero)
+        query = query.order_by(Story.created_at.desc())
+
+        # Contar total antes de aplicar limit/offset
+        count_query = select(func.count(Story.id)).where(
+            Story.status == StoryStatus.PUBLISHED
+        )
+        if not is_premium_user:
+            count_query = count_query.where(Story.is_premium == False)
+
+        # Ejecutar conteo
+        count_result = await self.session.execute(count_query)
+        total = count_result.scalar_one()
+
+        # Aplicar paginacion
+        query = query.limit(limit).offset(offset)
+
+        # Ejecutar query principal
+        result = await self.session.execute(query)
+        stories = list(result.scalars().all())
+
+        logger.info(f"Found {len(stories)} available stories (total: {total})")
+
+        return (stories, total)
