@@ -1,567 +1,297 @@
-# Pitfalls Research: Adding Gamification to Telegram Bot
+# Pitfalls Research: Adding Narrative Systems to Existing Applications
 
-**Domain:** Virtual Currency Economy + Gamification in Existing Subscription Bot
-**Researched:** 2026-02-08
-**Confidence:** HIGH (based on established patterns in virtual economies and Telegram bot architecture)
+**Domain:** Interactive Fiction / Branching Story System for Telegram Bot
+**Researched:** 2026-02-26
+**Confidence:** HIGH (based on existing codebase analysis + ecosystem research)
 
 ## Executive Summary
 
-Adding gamification (virtual currency "besitos", reactions, streaks, shop) to an existing VIP/Free subscription bot introduces unique integration risks. The existing system has well-defined roles (FREE/VIP/ADMIN), subscription lifecycle, and database models. Gamification must integrate without destabilizing these foundations.
+Adding a branching narrative system (v3 Narrativa) to an existing Telegram bot with 42k lines, 19 services, and 409+ tests introduces unique integration risks. The existing system has mature gamification (besitos economy), VIP/Free tier access, FSM-based flows (VIP entry ritual), and a sophisticated reward condition system. The narrative system must integrate without destabilizing these foundations.
 
-**Key Risk:** Economy inflation/deflation, exploit vectors through reaction tracking, streak calculation edge cases, and database performance degradation under high-volume transactions. The "cascading" admin UI for reward conditions is particularly vulnerable to logic errors and UX fragmentation.
+**Key Risk:** State management conflicts between story progression and existing FSM flows, database query explosion from graph-structured narrative data, economy-narrative race conditions, and admin UX complexity for story authoring.
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Economy Inflation/Deflation (The "Besitos" Death Spiral)
+### Pitfall 1: State Machine Hell (User Stuck in Story)
 
 **What goes wrong:**
-The virtual currency "besitos" becomes worthless (inflation) or too scarce (deflation), making the gamification system meaningless:
-
-```python
-# BAD: No sinks, only faucets - users accumulate infinite besitos
-async def give_daily_reward(user_id: int):
-    user.besitos += 10  # Faucet: +10 daily
-    # No sink: nothing to spend on except expensive shop items
-
-# Result: After 100 days, user has 1000 besitos, shop items cost 50
-# Economy is broken - no meaningful choices
-```
-
-Or the opposite:
-```python
-# BAD: Too expensive, no way to earn enough
-async def give_daily_reward(user_id: int):
-    user.besitos += 1  # Too scarce
-
-# Shop items cost 500 besitos
-# User needs 500 days to afford anything - abandonment
-```
+Users become trapped in narrative FSM states with no escape path. The bot stops responding to normal commands (/start, /menu) because the user is "in a story." Users must complete the narrative or wait for state timeout, creating frustration and support burden.
 
 **Why it happens:**
-- No economic modeling (faucets vs sinks balance)
-- Shop prices set arbitrarily without earning rate analysis
-- Daily rewards not tuned to desired engagement frequency
-- No "soft sink" mechanisms (small recurring costs)
-- Admin can create reward conditions that flood economy
+- Aiogram FSM states are exclusive - a user can only be in one state at a time
+- Story handlers intercept ALL messages while in narrative mode
+- No "emergency exit" pattern implemented
+- State timeouts not configured (RedisStorage defaults to no TTL)
 
 **How to avoid:**
-1. **Define target metrics:** "User should afford 1 shop item per week with daily engagement"
-2. **Calculate faucet rate:** Daily reward + average reaction earnings = weekly income
-3. **Price shop items:** Tiered pricing (small: 3 days, medium: 1 week, large: 2 weeks)
-4. **Implement soft sinks:** Optional cosmetic purchases, streak insurance, reaction boosts
-5. **Admin economy controls:** Max besitos per reward condition, warnings for high-value rewards
-6. **Monitor M0 money supply:** Track total besitos in circulation vs user count
-
-```python
-# GOOD: Economy with balanced faucets and sinks
-class EconomyConfig:
-    # Faucets (sources)
-    DAILY_REWARD_BASE = 5
-    DAILY_REWARD_STREAK_BONUS = 1  # +1 per streak day, max +5
-    REACTION_REWARD = 1  # Per reaction given
-
-    # Sinks (uses)
-    SHOP_SMALL_PRICE = 15    # 3 days of daily
-    SHOP_MEDIUM_PRICE = 35   # 1 week of daily
-    SHOP_LARGE_PRICE = 70    # 2 weeks of daily
-
-    # Soft sinks
-    STREAK_INSURANCE_COST = 10  # Protect streak for 1 day
-    REACTION_BOOST_COST = 5     # Double reaction value for 24h
-
-async def get_weekly_earning_potential() -> int:
-    """Calculate max besitos earnable per week for pricing decisions."""
-    daily_max = EconomyConfig.DAILY_REWARD_BASE + EconomyConfig.DAILY_REWARD_STREAK_BONUS
-    weekly_from_daily = daily_max * 7
-    weekly_from_reactions = EconomyConfig.REACTION_REWARD * 10  # Assume 10 reactions/week
-    return weekly_from_daily + weekly_from_reactions
-```
+1. **Implement a universal escape hatch**: Every story node must offer "Salir de la historia" button that clears FSM state and returns to main menu
+2. **Use state hierarchy**: Track story state separately from UI state using a composite pattern:
+   ```python
+   # Instead of: user in "story_node_5" state
+   # Use: user in "in_story" state + story_progress stored in data
+   ```
+3. **Set aggressive TTLs**: Configure RedisStorage with `state_ttl=1800` (30 min) to auto-recover stuck users
+4. **Command override**: Ensure /start and /menu commands work from ANY state using `State("*")` or explicit state checks
 
 **Warning signs:**
-- Average user balance grows >20% week-over-week (inflation)
-- <5% of users can afford cheapest shop item (deflation)
-- Shop purchase rate <1% per active user per week
-- Admin creates reward conditions giving 100+ besitos
+- Support tickets: "El bot no me responde"
+- Users sending multiple /start commands in succession
+- High bounce rate on first story node
 
-**Phase to address:** Phase 1 (Economy Design) - Define faucet/sink rates before implementing features
-
-**Impact if ignored:** CRITICAL - Entire gamification system becomes meaningless, user abandonment
+**Phase to address:** Phase 1 (Core Story Engine) - MUST be in foundation
 
 ---
 
-### Pitfall 2: Reaction Tracking Exploits (The "Button Masher" Problem)
+### Pitfall 2: Progress Loss on Bot Restart
 
 **What goes wrong:**
-Users exploit the reaction system (inline buttons) to farm besitos:
-
-```python
-# BAD: No rate limiting, no deduplication
-@router.callback_query(F.data.startswith("react:"))
-async def handle_reaction(callback: CallbackQuery):
-    content_id = int(callback.data.split(":")[1])
-
-    # User can click same reaction 100 times
-    await add_besitos(callback.from_user.id, 1)
-    await callback.answer("+1 besito!")
-
-# Exploit: Script to click reaction 1000 times = 1000 besitos
-```
-
-Or:
-```python
-# BAD: No verification user actually viewed content
-async def handle_reaction(callback: CallbackQuery):
-    # User can react to content without seeing it
-    # (just by knowing the callback_data pattern)
-    await add_besitos(callback.from_user.id, 1)
-```
+Users lose their story progress when the bot restarts (deployment, crash, or maintenance). With default MemoryStorage, ALL FSM states are lost. Even with Redis, story progress stored only in FSM data (not database) evaporates.
 
 **Why it happens:**
-- Reactions tracked via inline buttons without session validation
-- No rate limiting per user per content
-- No verification that user has access to content being reacted to
-- Reaction rewards processed synchronously (can be spammed)
-- No unique constraint on (user_id, content_id, reaction_type)
+- Default aiogram setup uses MemoryStorage
+- Story progress tracked only in FSM context, not persisted to database
+- No separation between "session state" (ephemeral) and "story progress" (persistent)
 
 **How to avoid:**
-1. **Deduplicate reactions:** One reward per (user, content, reaction_type)
-2. **Rate limit:** Max 1 reaction per minute per user globally
-3. **Validate access:** Verify user can view content before rewarding
-4. **Async processing:** Queue reaction rewards, process in background
-5. **Anomaly detection:** Flag users with >20 reactions per hour for review
-
-```python
-# GOOD: Secure reaction tracking
-class ReactionService:
-    async def process_reaction(
-        self,
-        user_id: int,
-        content_id: int,
-        reaction_type: str
-    ) -> Tuple[bool, str]:
-        # 1. Verify user has access to content
-        if not await self.user_can_access_content(user_id, content_id):
-            return False, "No access to content"
-
-        # 2. Check for duplicate (user, content, type)
-        existing = await self.session.execute(
-            select(UserReaction).where(
-                UserReaction.user_id == user_id,
-                UserReaction.content_id == content_id,
-                UserReaction.reaction_type == reaction_type
-            )
-        )
-        if existing.scalar_one_or_none():
-            return False, "Already reacted"
-
-        # 3. Rate limit check (1 reaction per 30 seconds)
-        recent = await self.session.execute(
-            select(UserReaction).where(
-                UserReaction.user_id == user_id,
-                UserReaction.created_at > datetime.utcnow() - timedelta(seconds=30)
-            )
-        )
-        if recent.scalars().first():
-            return False, "Too fast - slow down!"
-
-        # 4. Record reaction (reward processed async)
-        reaction = UserReaction(
-            user_id=user_id,
-            content_id=content_id,
-            reaction_type=reaction_type,
-            reward_pending=True  # Processed by background task
-        )
-        self.session.add(reaction)
-        await self.session.commit()
-
-        return True, "Reaction recorded!"
-
-# Background task processes rewards with batching
-async def process_pending_reaction_rewards():
-    pending = await get_pending_reactions(limit=100)
-    for reaction in pending:
-        await add_besitos(reaction.user_id, REACTION_REWARD)
-        reaction.reward_pending = False
-    await session.commit()
-```
+1. **Dual-track persistence**:
+   - FSM state: ephemeral UI state (current menu, input waiting)
+   - Database: persistent story progress (current_node_id, choices_made, flags)
+2. **Auto-save pattern**: After every choice, persist to database BEFORE sending next node
+3. **Recovery on startup**: Handler checks database story state on entry, resumes from last node
+4. **Use RedisStorage**: Mandatory for production; configure with appropriate TTL
 
 **Warning signs:**
-- User with >50 reactions in 1 hour
-- Reaction pattern shows robotic timing (every 1.0 seconds exactly)
-- User reacting to content they don't have access to
-- Database table `user_reactions` growing faster than `content_views`
+- Users report "me hizo empezar de nuevo"
+- Story completion rates drop after deployments
+- Inconsistent story state across devices (if user switches phones)
 
-**Phase to address:** Phase 2 (Reaction System) - Design with security from start
-
-**Impact if ignored:** HIGH - Economy flooded with illegitimate currency, legitimate users disadvantaged
+**Phase to address:** Phase 1 (Core Story Engine) - Database schema must support this
 
 ---
 
-### Pitfall 3: Streak Calculation Edge Cases (The "Timezone Hell")
+### Pitfall 3: N+1 Query Explosion in Story Traversal
 
 **What goes wrong:**
-Streaks break in unexpected ways due to timezone, daylight saving, or edge cases:
-
-```python
-# BAD: Naive streak calculation
-async def check_streak(user_id: int):
-    user = await get_user(user_id)
-    last_claim = user.last_daily_claim
-
-    # This breaks across midnight, DST, timezone changes
-    if last_claim.date() == datetime.utcnow().date() - timedelta(days=1):
-        user.streak += 1
-    else:
-        user.streak = 1  # Reset - WRONG if same day claim
-```
-
-Problems:
-- User claims at 23:59 UTC, then 00:01 UTC next day = streak reset (should continue)
-- User travels, timezone changes = streak behavior unpredictable
-- Daylight saving time shift = duplicate or missing day
-- User claims at 23:59 local time (but UTC is next day) = confusion
+Story navigation becomes unbearably slow as complexity grows. Loading a story node with 3 choices triggers 5+ database queries (node + 3 choice texts + conditions + rewards). At 100 concurrent users, database connection pool exhausts.
 
 **Why it happens:**
-- Using UTC for user-facing daily boundaries
-- No grace period for "same day" claims across midnight
-- Not storing timezone per user
-- Edge case: claiming twice in same calendar day (should be blocked)
-- Edge case: missing exactly one day (should reset, but users expect grace)
+- Naive ORM usage: `node.choices` triggers lazy loading of each relationship
+- No prefetching of related nodes
+- Condition checking queries database for each choice
+- Reward evaluation queries economy tables per choice
 
 **How to avoid:**
-1. **Store user timezone:** Default to UTC, allow override
-2. **Define "day":** 00:00-23:59 in user's local timezone
-3. **Grace period:** Allow claim within 6 hours of previous claim to maintain streak
-4. **Idempotent claims:** Same-day claim returns "already claimed" not error
-5. **Visual clarity:** Show "next claim available in X hours" not just date
-
-```python
-# GOOD: Robust streak calculation
-class StreakService:
-    GRACE_PERIOD_HOURS = 6  # Claim within 6h of previous to maintain streak
-
-    async def process_daily_claim(self, user_id: int) -> Dict[str, any]:
-        user = await self.get_user(user_id)
-        now = datetime.utcnow()
-        user_tz = pytz.timezone(user.timezone or 'UTC')
-        now_local = now.astimezone(user_tz)
-
-        # Check if already claimed today (local time)
-        if user.last_daily_claim:
-            last_claim_local = user.last_daily_claim.astimezone(user_tz)
-            if last_claim_local.date() == now_local.date():
-                return {
-                    "success": False,
-                    "reason": "already_claimed",
-                    "next_claim_at": self._get_next_midnight(user_tz)
-                }
-
-        # Calculate streak
-        streak = user.streak or 0
-        if user.last_daily_claim:
-            hours_since = (now - user.last_daily_claim).total_seconds() / 3600
-
-            if hours_since <= 24 + self.GRACE_PERIOD_HOURS:
-                # Within grace period - continue streak
-                streak += 1
-            elif hours_since <= 48:
-                # Missed one day exactly - reset (or use streak insurance)
-                streak = 1
-            else:
-                # Missed multiple days - reset
-                streak = 1
-        else:
-            streak = 1
-
-        # Calculate reward with streak bonus
-        base_reward = EconomyConfig.DAILY_REWARD_BASE
-        streak_bonus = min(streak - 1, 5)  # Max +5 for streak
-        total_reward = base_reward + streak_bonus
-
-        # Update user
-        user.besitos += total_reward
-        user.streak = streak
-        user.last_daily_claim = now
-        await self.session.commit()
-
-        return {
-            "success": True,
-            "reward": total_reward,
-            "streak": streak,
-            "streak_bonus": streak_bonus
-        }
-```
+1. **Eager loading pattern**:
+   ```python
+   result = await session.execute(
+       select(StoryNode)
+       .options(
+           selectinload(StoryNode.choices),
+           selectinload(StoryNode.conditions),
+           selectinload(StoryNode.rewards)
+       )
+       .where(StoryNode.id == node_id)
+   )
+   ```
+2. **Story cache**: Cache complete story graph in memory (stories are small, reads are frequent)
+3. **Denormalized choice preview**: Store choice text inline with node, not separate query
+4. **Batch condition evaluation**: Pre-load all user progress data in one query, evaluate conditions in Python
 
 **Warning signs:**
-- Users complaining about streak resets they didn't expect
-- Support tickets: "I claimed daily but streak reset"
-- Streaks >100 days (possible but suspicious without grace period)
-- Duplicate claims on same day (database constraint missing)
+- Story navigation latency > 2 seconds
+- Database connection pool warnings in logs
+- CPU spikes during story peak usage
 
-**Phase to address:** Phase 3 (Daily Rewards) - Design streak logic with edge cases
-
-**Impact if ignored:** HIGH - User frustration, loss of engagement, support burden
+**Phase to address:** Phase 1 (Core Story Engine) - Query patterns established early
 
 ---
 
-### Pitfall 4: Database Performance Collapse (The "Transaction Avalanche")
+### Pitfall 4: Circular Reference Death Trap
 
 **What goes wrong:**
-High-frequency gamification transactions overwhelm SQLite (or even PostgreSQL):
-
-```python
-# BAD: Synchronous transaction per reaction
-@router.callback_query(F.data.startswith("react:"))
-async def handle_reaction(callback: CallbackQuery, session: AsyncSession):
-    # Each reaction = one transaction
-    await add_besitos(session, user_id, 1)  # UPDATE users SET besitos = besitos + 1
-    await add_reaction_record(session, user_id, content_id)  # INSERT
-    await session.commit()  # SYNC WRITE - blocks other operations
-
-# With 100 concurrent users clicking reactions:
-# - 100 concurrent transactions
-# - SQLite WAL mode helps but still serializes writes
-# - Response time: 500ms+ per reaction
-```
+Admins create story loops (Node A -> B -> C -> A) either intentionally (retry paths) or accidentally. The story engine enters infinite loops, consuming memory and CPU. Users get spammed with the same messages.
 
 **Why it happens:**
-- SQLite WAL mode has limits (concurrent readers, single writer)
-- Each gamification action = immediate database write
-- No batching of small transactions
-- No read replicas for balance queries
-- Missing indexes on (user_id, created_at) for reaction lookups
+- No validation on story graph structure during admin creation
+- Story editor allows arbitrary connections
+- No cycle detection in the graph validation
+- Visit tracking not implemented
 
 **How to avoid:**
-1. **Batch writes:** Accumulate rewards, flush every 10 seconds
-2. **In-memory counters:** Use Redis/caching for hot paths, persist periodically
-3. **Background processing:** Queue rewards, process async
-4. **Proper indexing:** Index all gamification query patterns
-5. **Connection pooling:** For PostgreSQL; connection limits for SQLite
-
-```python
-# GOOD: Batched transaction approach
-class BesitosLedger:
-    """Accumulate changes, flush periodically."""
-
-    def __init__(self):
-        self._pending: Dict[int, int] = {}  # user_id -> delta
-        self._last_flush = datetime.utcnow()
-
-    def add(self, user_id: int, delta: int):
-        self._pending[user_id] = self._pending.get(user_id, 0) + delta
-
-        # Flush if accumulated enough or time elapsed
-        if (len(self._pending) >= 50 or
-            (datetime.utcnow() - self._last_flush).seconds > 10):
-            asyncio.create_task(self._flush())
-
-    async def _flush(self):
-        if not self._pending:
-            return
-
-        pending = self._pending.copy()
-        self._pending.clear()
-        self._last_flush = datetime.utcnow()
-
-        async with get_session() as session:
-            for user_id, delta in pending.items():
-                await session.execute(
-                    update(User)
-                    .where(User.user_id == user_id)
-                    .values(besitos=User.besitos + delta)
-                )
-            await session.commit()
-
-# Usage in handlers - non-blocking
-ledger = BesitosLedger()
-
-@router.callback_query(F.data.startswith("react:"))
-async def handle_reaction(callback: CallbackQuery):
-    # Fast - just add to in-memory ledger
-    ledger.add(callback.from_user.id, 1)
-    await callback.answer("+1 besito!")
-```
+1. **DAG validation on save**: When admin saves story, run cycle detection (DFS with visited set)
+2. **Max visit counter**: Each node tracks visit count; hard limit (e.g., 3 visits) before forcing exit
+3. **Loop detection in engine**: Track node history in session; detect repeated pattern and break
+4. **Admin warning**: Visual indicator in editor when creating backward links
 
 **Warning signs:**
-- Reaction handler latency >200ms
-- "Database is locked" errors (SQLite)
-- Connection pool exhaustion (PostgreSQL)
-- CPU usage spikes during peak activity
+- Users receiving duplicate messages
+- Memory usage climbing for specific users
+- "La historia se repite" user reports
 
-**Phase to address:** Phase 2 (Reaction System) + Phase 4 (Shop) - Design for write throughput
-
-**Impact if ignored:** CRITICAL - Bot becomes unresponsive, timeouts, data corruption
+**Phase to address:** Phase 2 (Admin Story Editor) - Validation layer
 
 ---
 
-### Pitfall 5: Cascading Reward Logic Errors (The "Admin Footgun")
+### Pitfall 5: Economy-Narrative Race Conditions
 
 **What goes wrong:**
-The "cascading" admin UI for reward conditions creates complex logic that's hard to validate:
-
-```python
-# BAD: Nested conditions with ambiguous evaluation
-class RewardCondition:
-    if_role = "VIP"  # AND
-    if_streak_min = 7  # AND
-    if_content_reacted = [1, 2, 3]  # OR within list?
-    # What does this mean?
-    # (role=VIP AND streak>=7 AND (reacted_to_1 OR reacted_to_2 OR reacted_to_3))?
-    # Or all conditions must be met including ALL reactions?
-
-# Admin creates condition:
-# "Give 100 besitos if VIP AND streak>7"
-# But also creates:
-# "Give 50 besitos if streak>7"
-# Result: VIP with streak>7 gets 150 besitos - intended?
-```
+Story choices that cost besitos create race conditions. User has 100 besitos, two parallel story sessions (rare but possible with quick clicks) both deduct 80 besitos. Result: -60 balance or duplicate purchases.
 
 **Why it happens:**
-- No clear semantics for AND vs OR in condition lists
-- Multiple matching conditions stack (unintended compound rewards)
-- No validation that conditions are achievable
-- No preview/test mode for conditions
-- UI shows conditions but not "effective reward" calculation
+- Check-then-act pattern: read balance -> check sufficient -> deduct -> save
+- No database-level locking on wallet operations
+- Story engine and wallet service use separate transactions
 
 **How to avoid:**
-1. **Explicit condition types:** AND group, OR group, NOT
-2. **Single evaluation path:** Conditions evaluated in priority order, first match wins
-3. **Preview mode:** Admin can test condition against any user
-4. **Conflict detection:** Warn if multiple conditions match same scenario
-5. **Reward caps:** Max besitos per action regardless of conditions matched
-
-```python
-# GOOD: Explicit condition evaluation with priority
-class RewardRule:
-    """Single rule with clear semantics."""
-    priority: int  # Lower = evaluated first
-    conditions: List[Condition]  # All must match (AND)
-    reward_besitos: int
-    max_applications_per_user: int = 1  # Prevent farming
-
-class Condition:
-    type: ConditionType  # ROLE, STREAK_MIN, STREAK_MAX, CONTENT_REACTED, etc.
-    operator: Operator   # EQ, NEQ, GT, LT, IN, NOT_IN
-    value: Any
-
-class RewardEngine:
-    async def evaluate_rules(self, user_id: int, context: RewardContext) -> int:
-        """Evaluate all rules, return total reward (with cap)."""
-        user = await self.get_user(user_id)
-        total_reward = 0
-        applied_rules = []
-
-        # Sort by priority
-        rules = sorted(await self.get_active_rules(), key=lambda r: r.priority)
-
-        for rule in rules:
-            if await self._rule_matches(rule, user, context):
-                # Check max applications
-                applications = await self._count_rule_applications(rule.id, user_id)
-                if applications < rule.max_applications_per_user:
-                    total_reward += rule.reward_besitos
-                    applied_rules.append(rule)
-
-                    # Hard cap per action
-                    if total_reward >= 100:  # Max 100 besitos per action
-                        logger.warning(f"Reward cap hit for user {user_id}")
-                        break
-
-        return min(total_reward, 100)  # Absolute cap
-
-    async def _rule_matches(self, rule: RewardRule, user: User, context: RewardContext) -> bool:
-        """All conditions must match (AND semantics)."""
-        for condition in rule.conditions:
-            if not await self._evaluate_condition(condition, user, context):
-                return False
-        return True
-```
+1. **Atomic wallet operations** (already implemented in WalletService):
+   ```python
+   # Use UPDATE with WHERE clause for optimistic locking
+   UPDATE user_gamification_profiles
+   SET balance = balance - {cost}
+   WHERE user_id = {user_id} AND balance >= {cost}
+   ```
+2. **Story choice as transaction**: Wrap choice selection + reward/cost in single database transaction
+3. **Idempotency keys**: Each choice button includes unique idempotency token; duplicate clicks ignored
+4. **Pre-validation**: Check conditions BEFORE showing choice button (not after click)
 
 **Warning signs:**
-- Admin confusion: "Why did this user get 500 besitos?"
-- Support tickets about unexpected reward amounts
-- Users gaming the system by meeting multiple conditions
-- Database table `reward_rule_applications` growing exponentially
+- Negative balance reports in economy stats
+- Duplicate reward claims from same user
+- "Me cobro dos veces" support tickets
 
-**Phase to address:** Phase 5 (Admin Reward Configuration) - Design clear semantics
-
-**Impact if ignored:** HIGH - Economy destabilization, admin distrust of system
+**Phase to address:** Phase 1 (Core Story Engine) - Integration with existing WalletService
 
 ---
 
-### Pitfall 6: Admin UX Fragmentation (The "Cascading Confusion")
+### Pitfall 6: The Overwhelming Story Editor
 
 **What goes wrong:**
-Despite the "cascading" goal, admin UX becomes fragmented across multiple menus:
-
-```
-Current admin flow (without gamification):
-/admin → Content Management → Package List → Package Detail
-
-With gamification added poorly:
-/admin → Content Management → Package List → Package Detail
-     ↓
-   Gamification (separate menu)
-     ↓
-   Reward Rules (another menu)
-     ↓
-   Shop Management (another menu)
-     ↓
-   Economy Stats (yet another menu)
-
-Admin must navigate 4 separate sections to understand full picture
-```
+Admin story editor becomes unusable as stories grow. 50+ nodes with branching create spaghetti visualization. Admins lose track of story structure, create dead ends, and accidentally break existing paths when adding new content.
 
 **Why it happens:**
-- Gamification features added as afterthought (separate menus)
-- No unified view of "user journey with economy"
-- Shop management separate from content management
-- Reward rules not visible from content detail
-- Stats scattered across multiple reports
+- Linear list view of nodes (table with parent_id)
+- No visual graph representation
+- No story organization (chapters, scenes)
+- No validation of story completeness (orphaned nodes, unreachable branches)
 
 **How to avoid:**
-1. **Unified content-economy view:** Content detail shows reactions, rewards, shop status
-2. **Contextual reward configuration:** Configure rewards from content management
-3. **User 360 view:** See all user data (subscription, besitos, streak, purchases) in one place
-4. **Economy dashboard:** Single view of faucets, sinks, circulation
-
-```
-GOOD: Cascading admin UX
-
-/admin
-  └── Content Management
-        ├── Package List
-        │     └── Package Detail
-        │           ├── Content Info (existing)
-        │           ├── Reactions (view counts)
-        │           ├── Reward Rules (configure here)
-        │           └── Shop Settings (if sellable)
-        │
-        └── Economy Dashboard
-              ├── Circulation Stats
-              ├── Active Rules
-              └── Recent Purchases
-
-/admin
-  └── User Management
-        └── User Detail
-              ├── Subscription (existing)
-              ├── Besitos Balance
-              ├── Streak Status
-              └── Purchase History
-```
+1. **Hierarchical organization**: Stories -> Chapters -> Scenes -> Nodes
+2. **Visual graph editor**: Mini-map showing node connections (even if text-based)
+3. **Validation suite**: On save, check for:
+   - Orphaned nodes (no incoming edges)
+   - Dead ends (no choices, not marked as ending)
+   - Unreachable branches
+4. **Story templates**: Pre-defined patterns (linear, diamond, hub-and-spoke) admins can start from
+5. **Test playthrough**: Admin can walk through story before publishing
 
 **Warning signs:**
-- Admin asks "Where do I configure X?" repeatedly
-- Need to open 3+ menus to answer "How much is this user worth?"
-- Duplicate configuration in multiple places
-- Admin bypasses UI, asks dev to "just run a query"
+- Admins avoid using story features
+- Stories have simple linear structure despite branching capability
+- Frequent "arregla la historia X" requests
 
-**Phase to address:** Phase 5 (Admin UI) - Design integrated, not fragmented
+**Phase to address:** Phase 2 (Admin Story Editor) - UX critical
 
-**Impact if ignored:** MEDIUM - Admin inefficiency, configuration errors, system underutilization
+---
+
+### Pitfall 7: Tier Access Logic Sprawl
+
+**What goes wrong:**
+VIP/Free tier checks scattered across story engine, handlers, and templates. Adding a new tier (Premium) requires changes in 15+ files. Inconsistent access rules lead to Free users seeing VIP content and vice versa.
+
+**Why it happens:**
+- Tier checks inline in story loading code
+- No centralized access control for narrative content
+- Story nodes store tier as string, not referencing canonical tier system
+
+**How to avoid:**
+1. **Centralized access service**: `StoryAccessService` that encapsulates all tier logic
+2. **Use existing role system**: Leverage `UserRole` enum already in codebase
+3. **Condition composition**: Tier access is just another condition type in the condition system
+4. **Single source of truth**: Story nodes reference `ContentTier` enum (already exists in models)
+
+**Warning signs:**
+- Free users reporting VIP story content
+- Inconsistent "Necesitas VIP" messages
+- Code search for "VIP" returns 100+ results across story code
+
+**Phase to address:** Phase 1 (Core Story Engine) - Design integration point
+
+---
+
+### Pitfall 8: Reward Notification Spam
+
+**What goes wrong:**
+Story completion triggers 5 separate reward notifications (level up, achievement, besitos, streak bonus, new content unlock). User receives flood of messages, misses important info, and perceives bot as spammy.
+
+**Why it happens:**
+- Each system (wallet, reward, streak) sends separate notification
+- No coordination between reward triggers
+- Story completion triggers multiple reward checks simultaneously
+
+**How to avoid:**
+1. **Batch reward notifications**: Collect all rewards from story completion, send single consolidated message
+2. **Notification queue**: Story engine adds to queue; single sender processes batch
+3. **Priority filtering**: Only show "significant" rewards (>50 besitos, new tier, rare achievement)
+4. **Digest mode**: Option to receive reward summary at end of session vs. real-time
+
+**Warning signs:**
+- Users disabling bot notifications
+- "Me llegaron muchos mensajes" reports
+- Low engagement with reward messages
+
+**Phase to address:** Phase 3 (Story-Economy Integration) - Notification architecture
+
+---
+
+### Pitfall 9: Implicit Story State Dependencies
+
+**What goes wrong:**
+Story nodes reference flags/variables set by other nodes, creating invisible dependencies. When admin modifies one node, seemingly unrelated story paths break. Debugging requires tracing entire story graph.
+
+**Why it happens:**
+- No explicit declaration of node inputs/outputs
+- Flags created ad-hoc during story writing
+- No validation that referenced flags exist
+
+**How to avoid:**
+1. **Explicit variable schema**: Each story declares required variables upfront
+2. **Static analysis**: Editor validates all flag references on save
+3. **Default values**: All flags have defaults; missing flag doesn't crash story
+4. **Dependency graph**: Visualize which nodes set/consume which flags
+
+**Warning signs:**
+- "Esa opcion no aparecia antes" user reports
+- Story behavior changes without code deployment
+- Admins confused why stories behave differently than expected
+
+**Phase to address:** Phase 2 (Admin Story Editor) - Variable management system
+
+---
+
+### Pitfall 10: Message Length Limits in Story Nodes
+
+**What goes wrong:**
+Story nodes with long text hit Telegram's 4096 character limit for text messages. Bot crashes or truncates story mid-sentence. Admins unaware of limit until users report broken stories.
+
+**Why it happens:**
+- Telegram API limit: 4096 chars for text messages, 1024 for callback button text
+- No validation in story editor
+- Story text includes formatting (HTML tags) that count toward limit
+
+**How to avoid:**
+1. **Editor validation**: Real-time character counter with warning at 3500, hard stop at 4000
+2. **Auto-splitting**: Story engine automatically paginates long nodes with "Continuar..." button
+3. **Template preview**: Admin sees exact message preview before publishing
+4. **Graceful degradation**: If limit exceeded, split at paragraph boundary
+
+**Warning signs:**
+- `MessageIsTooLong` exceptions in logs
+- Stories cutting off mid-word
+- Admins asking "por que no se envia todo el texto"
+
+**Phase to address:** Phase 2 (Admin Story Editor) - Content validation
 
 ---
 
@@ -569,12 +299,11 @@ GOOD: Cascading admin UX
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Immediate DB write on reaction | Simpler code, instant feedback | Performance collapse at scale | Never - always batch or queue |
-| No timezone handling for streaks | Simpler datetime logic | User confusion, support tickets | Never - store user timezone |
-| Hardcoded shop prices | No admin UI needed | Requires deploy to adjust economy | Only for MVP first week |
-| Single reward condition type | Simpler rule engine | Limited flexibility, admin frustration | MVP only, plan for v2 |
-| Skip reaction deduplication | Faster handler response | Economy exploits, inflation | Never - security critical |
-| Inline reward calculation | No background jobs | Blocking handlers, slow UX | Never - always async |
+| Store story progress only in FSM | Simpler code, no DB migration | Progress lost on restart | NEVER in production |
+| Inline tier checks in handlers | Faster to write first story | Inconsistent access control, sprawl | MVP only, refactor by Phase 2 |
+| Simple parent_id tree structure | Easy to understand | Can't handle converging branches, cycles | Linear stories only |
+| Text-based choice matching | No choice ID schema | Breaks when text edited | NEVER - use stable IDs |
+| Synchronous story loading | Simpler async code | Blocks bot for all users during load | NEVER - use async throughout |
 
 ---
 
@@ -582,13 +311,11 @@ GOOD: Cascading admin UX
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Existing User model | Add besitos column without default | Default 0, backfill existing users |
-| Existing VIPSubscriber | Ignore gamification in subscription lifecycle | Award besitos on VIP signup/renewal |
-| ContentPackage | Add gamification fields without migration | Proper Alembic migration for new columns |
-| ServiceContainer | Add GamificationService as god object | Split: EconomyService, StreakService, ShopService |
-| Daily reward job | Run at fixed UTC time | Respect user timezone, or use "last 24h" logic |
-| Shop purchase | Deduct besitos without transaction | Atomic check-and-deduct with balance verification |
-| Reaction tracking | Trust callback_data without validation | Verify user can access content, rate limit |
+| WalletService | Calling spend_besitos without checking return value | Always check `(success, msg, tx)` tuple; handle insufficient balance gracefully |
+| RewardService | Checking rewards AFTER story completion | Check conditions at story milestones, batch notify at end |
+| Existing FSM states | Story state colliding with VIP entry flow | Use separate state groups; story state doesn't block VIP flow |
+| Reaction system | Story choices look like content reactions | Different callback_data prefix (`story:` vs `react:`); separate handlers |
+| Content packages | Story unlocks not integrated with package system | Use existing `UserContentAccess` model for story unlocks |
 
 ---
 
@@ -596,14 +323,11 @@ GOOD: Cascading admin UX
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| N+1 queries in user lists | Slow admin user list | Eager load besitos, streak | >100 users |
-| Synchronous reward processing | Handler timeouts | Queue rewards, process async | >10 reactions/minute |
-| No pagination on transaction history | UI freeze, OOM | Paginate ledger queries | >50 transactions/user |
-| Calculating streak on every read | Slow profile load | Cache streak, update on write | >1000 daily active users |
-| Unindexed reaction queries | Slow content analytics | Index (content_id, created_at) | >1000 reactions |
-| Storing all history forever | DB bloat, slow backups | Archive old transactions | >6 months of data |
-
-**Note:** Termux/SQLite environment has stricter limits. Design for 10x headroom.
+| Loading full story graph per user | Memory usage grows with users | Cache story graph globally, user only stores node pointer | 100+ concurrent users |
+| Recursive story traversal | Stack overflow on deep stories | Iterative traversal with explicit stack; max depth limit | 100+ node depth |
+| Synchronous condition evaluation | Bot freezes during complex checks | Async condition evaluation; timeout on external checks | Complex multi-condition nodes |
+| Storing choice history as JSON array | Querying progress becomes O(n) | Separate table for choice history with proper indexing | Users with 1000+ choices |
+| Real-time story analytics | Every choice triggers analytics write | Buffer analytics, flush async; use background task | High-frequency story usage |
 
 ---
 
@@ -611,13 +335,11 @@ GOOD: Cascading admin UX
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Reaction spoofing | Farm besitos without viewing content | Verify content access before reward |
-| Balance manipulation | User sets own besitos count | Server-side only, never trust client |
-| Shop price tampering | Buy expensive items for cheap | Server validates price at purchase time |
-| Streak freezing | User pauses time to maintain streak | Server-side timestamp only |
-| Admin reward abuse | Admin gives unlimited besitos | Log all admin rewards, alerts for >1000 |
-| Race condition in purchase | Double-spend besitos | Atomic check-and-deduct transaction |
-| Replay attacks | Reuse old purchase confirmations | Unique transaction IDs, idempotent processing |
+| Story node IDs exposed in callbacks | Users can skip ahead by crafting callback_data | Use opaque tokens or validate node reachable from current position |
+| Admin bypasses not logged | Can't audit admin story testing | Log all admin story access with `is_test=true` flag |
+| Story content not sanitized | XSS via story text | Sanitize HTML in story editor; whitelist allowed tags |
+| Choice conditions client-side | Users can send "valid" choice that should be locked | Always re-validate conditions server-side on choice receipt |
+| Story flag injection | Malicious flag names collide with system | Namespace story flags (`story_{id}_{flag}`) |
 
 ---
 
@@ -625,28 +347,27 @@ GOOD: Cascading admin UX
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| No visual balance indicator | Users forget currency exists | Show besitos in all menus |
-| Streak reset without warning | Frustration, abandonment | "Claim in 2 hours or streak resets" |
-| Shop purchase without confirmation | Accidental purchases | Confirm for items >20 besitos |
-| Reaction spam feedback | "+1" 50 times = notification spam | Batch: "+10 besitos from reactions" |
-| No purchase history | Users don't trust system | Show last 10 transactions |
-| Daily reward hidden | Users forget to claim | Prominent "Claim Daily" button |
-| Streak bonus unclear | Users don't understand reward | Show breakdown: "5 base + 3 streak bonus" |
+| No "save and continue later" | Users must complete story in one sitting | Auto-save progress; "Continuar historia" button in menu |
+| Story interrupts VIP entry flow | Users confused between story and onboarding | Don't offer stories during VIP entry ritual (stages 1-3) |
+| Choices not visible without scroll | Users miss options | Max 3 choices visible; use pagination for more |
+| No progress indicator | Users don't know story length | Progress bar: "Escena 3 de 12" |
+| Story text too dense | Users don't read | Max 2 paragraphs per node; use pacing (delay between messages) |
+| Inconsistent tone | Breaks immersion | Story content uses Diana voice (intimate), system messages use Lucien |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Daily Rewards:** Streak survives DST transitions and timezone changes
-- [ ] **Reactions:** Duplicate clicks don't award multiple besitos
-- [ ] **Shop:** Purchase validates balance atomically (no negative balances)
-- [ ] **Economy:** Admin can see total besitos in circulation
-- [ ] **Streaks:** Grace period works (claim within 6h of previous)
-- [ ] **Performance:** 100 concurrent reactions don't lock database
-- [ ] **Security:** User can't award themselves besitos via crafted callback
-- [ ] **Admin UX:** Configure reward rules from content management screen
-- [ ] **Migration:** Existing users have besitos=0, not NULL
-- [ ] **Monitoring:** Alert when single user earns >100 besitos in 1 hour
+- [ ] **Story persistence:** Progress saved to database, not just FSM - verify by restarting bot mid-story
+- [ ] **State recovery:** User can resume story after /start - verify with fresh test user
+- [ ] **Escape hatch:** Every node has working "Salir" option - verify from 3+ different nodes
+- [ ] **Economy integration:** Choice costs actually deduct besitos - verify balance changes
+- [ ] **Tier enforcement:** Free user can't access VIP story - verify with role downgrade test
+- [ ] **Cycle protection:** Story with loop doesn't infinite loop - verify with intentional cycle
+- [ ] **Message limits:** 4000+ char node handles gracefully - verify with edge case content
+- [ ] **Concurrent safety:** Rapid double-click doesn't double-charge - verify with automated test
+- [ ] **Admin validation:** Invalid story (orphan node) can't be published - verify in editor
+- [ ] **Notification batching:** Story completion doesn't spam - verify reward notification count
 
 ---
 
@@ -654,12 +375,12 @@ GOOD: Cascading admin UX
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Economy inflation | HIGH | 1. Audit all besitos sources<br>2. Remove illegitimate balances<br>3. Rebalance shop prices<br>4. Add more sinks |
-| Reaction exploit | MEDIUM | 1. Identify exploited users<br>2. Deduct illegitimate besitos<br>3. Add deduplication constraint<br>4. Rate limit going forward |
-| Streak calculation bug | MEDIUM | 1. Fix calculation logic<br>2. Recalculate all streaks from history<br>3. Compensate affected users<br>4. Add grace period |
-| Database performance | LOW | 1. Add missing indexes<br>2. Implement batching<br>3. Archive old data<br>4. Add caching layer |
-| Admin UX fragmentation | HIGH | 1. Map current flows<br>2. Design unified navigation<br>3. Migrate configuration<br>4. Retrain admins |
-| Cascading logic errors | MEDIUM | 1. Audit all reward rules<br>2. Fix ambiguous conditions<br>3. Add reward caps<br>4. Notify users of corrections |
+| User stuck in story | LOW | Clear FSM state via admin command; user resumes from last saved node |
+| Progress lost | MEDIUM | Restore from backup if available; compensate user with besitos; apologize |
+| Story has cycle | LOW | Admin edits story to break cycle; republish; no user impact if caught early |
+| Economy exploit found | HIGH | Emergency bot shutdown; audit logs; fix exploit; rollback illegitimate transactions |
+| Story editor corruption | MEDIUM | Restore story from JSON export; implement auto-export on save |
+| Database query overload | LOW | Add missing indexes; implement caching; no data loss |
 
 ---
 
@@ -667,26 +388,31 @@ GOOD: Cascading admin UX
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Economy Inflation/Deflation | Phase 1 (Economy Design) | Faucet/sink spreadsheet, shop prices justified |
-| Reaction Tracking Exploits | Phase 2 (Reaction System) | Unit tests for deduplication, rate limiting |
-| Streak Calculation Edge Cases | Phase 3 (Daily Rewards) | Test cases for DST, timezone change, grace period |
-| Database Performance | Phase 2 + 4 (Reaction + Shop) | Load test 100 concurrent reactions, <100ms latency |
-| Cascading Reward Logic | Phase 5 (Admin Configuration) | Admin can preview rule evaluation for any user |
-| Admin UX Fragmentation | Phase 5 (Admin UI) | Navigation flow shows <3 clicks to any gamification feature |
+| State Machine Hell | Phase 1: Core Story Engine | Test: User can /start from any story node |
+| Progress Loss | Phase 1: Core Story Engine | Test: Restart bot, verify story resumes |
+| N+1 Query Explosion | Phase 1: Core Story Engine | Test: 100 concurrent story users, <100ms latency |
+| Circular Reference | Phase 2: Admin Story Editor | Test: Attempt to save cyclic story, verify rejected |
+| Economy Race Conditions | Phase 1: Core Story Engine | Test: Double-click choice, verify single charge |
+| Overwhelming Editor | Phase 2: Admin Story Editor | UX testing with admin users |
+| Tier Access Sprawl | Phase 1: Core Story Engine | Code review: tier checks centralized |
+| Reward Notification Spam | Phase 3: Story-Economy Integration | Test: Complete story, verify single notification |
+| Implicit Dependencies | Phase 2: Admin Story Editor | Test: Delete flag, verify validation error |
+| Message Length Limits | Phase 2: Admin Story Editor | Test: Enter 5000 chars, verify validation |
 
 ---
 
 ## Sources
 
-- Virtual Economy Design Patterns - Game Developer Magazine (HIGH confidence)
-- SQLite Performance Best Practices - sqlite.org (HIGH confidence)
-- Telegram Bot API Documentation - core.telegram.org (HIGH confidence)
-- SQLAlchemy Async Patterns - docs.sqlalchemy.org (HIGH confidence)
-- Anti-patterns in Gamification - GDC Vault presentations (MEDIUM confidence)
-- Personal experience with bot economy systems (HIGH confidence)
+- [aiogram FSM Storage Documentation](https://docs.aiogram.dev/en/latest/dispatcher/finite_state_machine/storages.html) - Official storage options and Redis configuration
+- [Save Game Architecture Best Practices](https://www.intelligent-artifice.com/2024/a-presentation-on-save-games/) - Persistent systems and state management patterns
+- [Graph Data Modeling Best Practices](https://memgraph.com/docs/data-modeling/best-practices) - Node-edge relationship modeling
+- [Gamification Pitfalls](https://www.commlabindia.com/blog/elearning-gamification-pitfalls-avoid) - Common gamification mistakes
+- [The Dark Side of Gamification](https://www.growthengineering.co.uk/dark-side-of-gamification/) - Reward system failures
+- [Open Design Challenges for Interactive Emergent Narrative](https://eis.ucsc.edu/papers/ryanEtAl_OpenDesignChallengesForInteractiveEmergentNarrative.pdf) - Narrative system complexity
+- [Existing codebase analysis] - WalletService atomic operations, RewardService condition evaluation, FSM state patterns
 
 ---
 
-*Pitfalls research for: Gamification Milestone (Besitos Economy)*
-*Researched: 2026-02-08*
+*Pitfalls research for: Narrativa v3 - Branching Story System*
+*Researched: 2026-02-26*
 *Confidence: HIGH*

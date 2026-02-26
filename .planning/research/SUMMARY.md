@@ -1,184 +1,159 @@
 # Project Research Summary
 
-**Project:** Telegram Bot VIP/Free - Gamification Milestone
-**Domain:** Virtual currency economy, reaction tracking, daily rewards, streaks, shop system
-**Researched:** 2026-02-08
+**Project:** DianaBot Narrativa v3 - Branching Story System
+**Domain:** Interactive Fiction / Branching Narrative System for Telegram Bot
+**Researched:** 2026-02-26
 **Confidence:** HIGH
 
 ## Executive Summary
 
-The gamification milestone adds a virtual currency economy ("besitos") to the existing VIP/Free Telegram bot. This is a content creator monetization bot where users earn currency through engagement (reactions, daily check-ins, streaks) and spend it in a shop for content packages and VIP perks. Research shows this type of system requires careful economic balancing and robust anti-exploit measures.
+The narrative system (Narrativa v3) is a branching interactive fiction engine that integrates with an existing gamified Telegram bot. Unlike simple linear stories, this system supports tree-structured narratives with conditional choices, economy integration (besitos costs/rewards), and progression tracking. The existing codebase provides a solid foundation with 19 lazy-loaded services, a sophisticated reward condition system, and a virtual economy (WalletService).
 
-The recommended approach leverages the existing aiogram 3.x + SQLAlchemy 2.x stack with no new dependencies. The architecture follows established patterns: ServiceContainer DI for dependency injection, atomic database updates for currency operations, and cascading FSM flows for admin configuration. Key architectural decisions include using atomic `UPDATE SET col = col + delta` patterns for besito transactions (preventing race conditions) and implementing wizard-style FSM states for the "cascading" reward condition configuration requirement.
+Research confirms that **zero new dependencies** are required. The existing stack (Python 3.11+, SQLAlchemy 2.0.25, aiogram 3.4.1, SQLite/PostgreSQL with JSON support) provides all necessary capabilities. The narrative system should follow established patterns: Dependency Injection via ServiceContainer, lazy loading for services, and FSM states for multi-step flows. Integration points include extending RewardConditionType for story conditions, leveraging WalletService for choice costs, and reusing the existing reaction/engagement system.
 
-The primary risks are economy inflation/deflation (if faucet/sink rates aren't balanced), reaction tracking exploits (if deduplication and rate limiting are skipped), and streak calculation edge cases (timezone/DST issues). These can be mitigated through careful economic modeling upfront, strict validation in reaction handlers, and UTC-based streak calculation with grace periods.
+The primary risks are state management conflicts between story progression and existing FSM flows, database query explosion from graph-structured data, and economy-narrative race conditions. These can be mitigated by implementing dual-track persistence (FSM for ephemeral UI state, database for persistent story progress), eager loading patterns for story queries, and atomic wallet operations with idempotency keys.
 
 ## Key Findings
 
 ### Recommended Stack
 
-**No new dependencies required.** The existing stack (aiogram 3.4.1+, SQLAlchemy 2.0.25, APScheduler 3.10.4, aiosqlite 0.19.0) handles all gamification requirements. Aiogram's `InlineKeyboardMarkup` with callback_data supports reaction tracking natively. SQLAlchemy's atomic update patterns prevent race conditions in currency operations. APScheduler's CronTrigger handles daily reward reset and streak expiration jobs.
+The narrative system requires **no new core dependencies**. Existing SQLAlchemy JSON columns (already used for `reward_value`, `transaction_metadata`) can store node choices and user decisions. Self-referential relationships (SQLAlchemy `relationship()` with `remote_side`) handle the tree structure. Telegram's existing file_id system stores media without needing external CDN.
 
 **Core technologies:**
-- **aiogram 3.4.1+**: Inline reaction buttons, callback queries — already in use, handles reaction tracking natively
-- **SQLAlchemy 2.0.25**: Atomic besito updates, transaction audit — existing ORM with atomic `UPDATE SET col = col + delta` pattern
-- **APScheduler 3.10.4**: Daily rewards, streak expiration jobs — already configured in background tasks
-- **aiosqlite 0.19.0**: Async SQLite for gamification tables — existing driver with WAL mode for concurrent reads
+- **SQLAlchemy 2.0.25 (existing)**: JSON storage for choices, self-referential relationships for tree structure — already in use, proven pattern
+- **aiogram 3.4.1 (existing)**: Media sending via `send_photo()`, `send_video()` — no new dependencies
+- **SQLite/PostgreSQL JSON**: Node choices, decision history, conditions — native JSON support
 
-**What NOT to add:** Redis (overkill for single-bot), external payment processors (scope creep), pydantic (dataclasses sufficient), Celery (APScheduler handles jobs), web dashboard (Telegram admin menus sufficient).
+**Optional enhancements (defer):**
+- **pydantic 2.5.0+**: Validate node/choice schemas if adding admin API — not needed for MVP
+- **python-slugify 8.0.0+**: URL-safe story IDs — not required for MVP
 
 ### Expected Features
 
 **Must have (table stakes):**
-- Virtual currency balance display — users need to see their "besitos" clearly
-- Currency earning methods (reactions, daily gift, streaks) — core economy loop
-- Currency spending (shop) — economy needs a sink or it's meaningless
-- Transaction history — audit trail prevents disputes, builds trust
-- Daily gift with 24h cooldown — standard retention mechanic
-- Streak system — rewards consistent engagement
-- Reaction buttons on content — simple engagement mechanic
-- Level/progress indicator — users want to see their standing
-- Anti-farming protections — prevent abuse of earning mechanics
+- **Story nodes with choices** — Core of branching narrative; users expect meaningful decisions
+- **Progress tracking** — Users must be able to resume stories; auto-save after each choice
+- **Conditional choice availability** — Some choices locked behind conditions (VIP, besitos minimum)
+- **Economy integration** — Choice costs and story rewards in besitos
+- **Escape hatch** — Universal "Salir de la historia" button to prevent users getting stuck
 
 **Should have (competitive):**
-- "Besitos" branded currency — creates emotional connection, fits Diana's voice
-- Reaction-to-currency conversion — engagement directly rewarded
-- Streak recovery (one-time) — compassion for broken streaks increases retention
-- Level-based shop discounts — incentive to engage long-term
-- VIP-only shop items — creates aspiration for VIP status
-- VIP besitos multiplier (2x) — VIP status enhances gamification
+- **Visual story editor for admins** — Hierarchical organization (Stories -> Chapters -> Scenes)
+- **Story validation** — Cycle detection, orphaned node detection, dead end warnings
+- **Progress indicator** — "Escena 3 de 12" so users know story length
+- **Batch reward notifications** — Single consolidated message instead of spam
 
 **Defer (v2+):**
-- Configurable achievement system — complex event system, conditions
-- Currency gifting between users — social economy layer, abuse risk
-- Leaderboard — social competition, privacy concerns
-- Quests/missions — time-limited challenges
-- Economy analytics dashboard — sink vs source rates, inflation tracking
+- **Advanced achievement integration** — Event system for narrative achievements
+- **Story gifting between users** — Social features
+- **Shop rotations for stories** — Limited-time narrative content
+- **Quest/mission system** — Time-limited challenges
 
 ### Architecture Approach
 
-The gamification module integrates with the existing Layered Service-Oriented Architecture with Dependency Injection. New services (ReactionService, WalletService, ShopService, RewardService, StreakService) follow the lazy-loading pattern in ServiceContainer. The "cascading" admin requirement is implemented via nested FSM states with state data persistence — allowing admins to create reward conditions inline without leaving the reward creation flow.
+The narrative system integrates cleanly with the existing service-oriented architecture. Two new services are added to ServiceContainer: `NarrativeService` (story delivery, progress tracking, choice processing) and `StoryEditorService` (admin CRUD operations). The existing RewardCondition system is extended with new condition types (`STORY_NODE_REACHED`, `STORY_CHOICE_MADE`, `STORY_COMPLETED`).
 
 **Major components:**
-1. **ReactionService** — Track and manage inline button reactions on channel content, hooks into ChannelService
-2. **WalletService** — Virtual currency management with atomic transactions and audit trail
-3. **ShopService** — Product catalog and purchase processing, links to ContentPackage
-4. **RewardService** — Achievement system with configurable conditions using strategy pattern
-5. **StreakService** — Daily activity tracking with streak mechanics and background checks
+1. **NarrativeService** — Story delivery, progress tracking, choice processing with WalletService integration
+2. **StoryEditorService** — Admin CRUD for stories/nodes/choices, validation, publishing
+3. **Story/StoryNode/StoryChoice models** — Tree-structured narrative data with self-referential relationships
+4. **UserStoryProgress model** — Persistent story state (current node, decision history, status)
+5. **Narrative handlers** — `story_reader.py` for users, `story_editor.py` and `node_manager.py` for admins
 
 ### Critical Pitfalls
 
-1. **Economy Inflation/Deflation** — Virtual currency becomes worthless (too many faucets) or too scarce (too few). *Avoid by:* defining target metrics (user affords 1 shop item per week), calculating faucet/sink rates, implementing soft sinks, monitoring M0 money supply.
+1. **State Machine Hell (User Stuck in Story)** — Users trapped in narrative FSM states with no escape. *Avoid by:* Universal escape hatch button, command override with `State("*")`, aggressive Redis TTL (30 min).
 
-2. **Reaction Tracking Exploits** — Users farm besitos by spamming reaction buttons. *Avoid by:* deduplicating reactions (one per user/content/type), rate limiting (1 per 30 seconds), validating content access, async reward processing.
+2. **Progress Loss on Bot Restart** — FSM state lost on deployment. *Avoid by:* Dual-track persistence (FSM for UI, database for story progress), auto-save after every choice, recovery on startup.
 
-3. **Streak Calculation Edge Cases** — Timezone changes, DST shifts, and midnight boundaries break streaks unexpectedly. *Avoid by:* storing user timezone, defining "day" in local time, 6-hour grace period, idempotent same-day claims.
+3. **N+1 Query Explosion** — Story navigation triggers 5+ queries per node. *Avoid by:* Eager loading with `selectinload()`, story graph cache in memory, batch condition evaluation.
 
-4. **Database Performance Collapse** — High-frequency gamification transactions overwhelm SQLite. *Avoid by:* batching writes, background processing, proper indexing on (user_id, created_at), connection pooling.
+4. **Economy-Narrative Race Conditions** — Double-charging for choices with rapid clicks. *Avoid by:* Atomic wallet operations (UPDATE with WHERE), idempotency keys on choice buttons, pre-validation before showing choices.
 
-5. **Cascading Reward Logic Errors** — Complex AND/OR conditions create ambiguous evaluation and unintended compound rewards. *Avoid by:* explicit condition types, priority-ordered evaluation, preview mode, reward caps (max 100 besitos per action).
+5. **The Overwhelming Story Editor** — Admins lose track of story structure at 50+ nodes. *Avoid by:* Hierarchical organization, visual graph representation, story templates, validation suite for orphans/dead ends.
 
 ## Implications for Roadmap
 
 Based on research, suggested phase structure:
 
-### Phase 1: Economy Foundation
-**Rationale:** Database models and core currency service must exist before any gamification features. Economic parameters must be defined before implementation.
-**Delivers:** UserEconomy model, WalletService with atomic transactions, Transaction audit table, economy configuration constants
-**Addresses:** Virtual currency balance, transaction history, anti-farming foundations
-**Avoids:** Economy inflation/deflation (by designing faucets/sinks upfront)
+### Phase 1: Core Story Engine (Foundation)
+**Rationale:** Database schema and core service must exist before any UI work. Foundation for all narrative features.
+**Delivers:** Story/StoryNode/StoryChoice/UserStoryProgress models, NarrativeService with progress tracking, basic story reader handler.
+**Addresses:** Story nodes with choices, progress tracking, escape hatch
+**Avoids:** Progress loss (dual-track persistence), state machine hell (escape hatch), N+1 queries (eager loading patterns)
+**Research flag:** Standard patterns — skip deep research
 
-### Phase 2: Reaction System
-**Rationale:** Reactions are the primary engagement faucet; must be secure from exploits before earning begins.
-**Delivers:** ReactionService, deduplication logic, rate limiting, content reaction tracking
-**Uses:** SQLAlchemy atomic updates, aiogram callback queries
-**Implements:** ReactionService component
-**Avoids:** Reaction tracking exploits (deduplication, rate limiting built in from start)
+### Phase 2: Admin Story Editor
+**Rationale:** Admins need tooling to create stories before users can read them. Depends on Phase 1 models.
+**Delivers:** StoryEditorService, admin handlers for story/node/choice CRUD, story validation (cycle detection, orphans).
+**Addresses:** Visual story editor, story validation
+**Avoids:** Circular reference death trap (DAG validation), overwhelming editor (hierarchical organization), message length limits (editor validation)
+**Research flag:** Needs UX research — admin workflow validation recommended
 
-### Phase 3: Daily Rewards & Streaks
-**Rationale:** Secondary earning source; depends on WalletService. Streak logic is complex and needs thorough edge case testing.
-**Delivers:** Daily gift handler, UserStreak model, StreakService, background jobs for streak expiration
-**Uses:** APScheduler CronTrigger, UTC datetime handling
-**Implements:** StreakService component
-**Avoids:** Streak calculation edge cases (timezone handling, grace period)
+### Phase 3: Economy Integration
+**Rationale:** Gamification is a key differentiator; requires stable core engine first.
+**Delivers:** Choice costs via WalletService, story rewards, condition evaluation for choices, RewardCondition extensions.
+**Addresses:** Economy integration, conditional choice availability
+**Avoids:** Economy race conditions (atomic operations, idempotency), reward notification spam (batching)
+**Research flag:** Standard patterns — existing WalletService integration
 
-### Phase 4: Shop System
-**Rationale:** Economy sink; requires WalletService for payments. Shop must be available before users accumulate too many besitos.
-**Delivers:** ShopProduct model, ShopService, purchase flow, inventory management
-**Uses:** Atomic check-and-deduct transactions
-**Implements:** ShopService component
-**Avoids:** Database performance collapse (batching, async processing)
-
-### Phase 5: Rewards & Admin Configuration
-**Rationale:** Most complex phase; requires all previous services. Cascading admin UI needs careful FSM design.
-**Delivers:** RewardService, RewardCondition model, cascading FSM wizard, admin handlers
-**Uses:** Nested FSM states, condition evaluator strategy pattern
-**Implements:** RewardService component, cascading admin flow
-**Avoids:** Cascading reward logic errors (explicit AND semantics, preview mode, reward caps)
-
-### Phase 6: Integration & Polish
-**Rationale:** Connect all components, add level system, ensure unified admin UX.
-**Delivers:** Level system, unified admin views, economy dashboard, user 360 view
-**Uses:** All gamification services
-**Avoids:** Admin UX fragmentation (unified content-economy view, contextual configuration)
+### Phase 4: Polish & Advanced Features
+**Rationale:** Quality-of-life improvements after core system is stable.
+**Delivers:** Progress indicators, batch notifications, story templates, analytics.
+**Addresses:** Progress indicator, batch reward notifications
+**Avoids:** Tier access sprawl (centralized StoryAccessService)
+**Research flag:** Optional — can defer to v2
 
 ### Phase Ordering Rationale
 
-- **Foundation first:** Database models and WalletService must exist before any earning or spending features
-- **Security second:** Reaction system with exploit prevention before users can earn
-- **Sinks before inflation:** Shop system before users accumulate unspendable currency
-- **Complexity last:** Reward conditions and cascading admin UI after core economy is stable
-- **Integration final:** Polish and unified views after all components exist
+- **Models first:** Story/StoryNode/UserStoryProgress must exist before services can use them
+- **Services before handlers:** NarrativeService provides API that handlers consume
+- **Admin before user:** Admins need to create content before users can consume it
+- **Core before polish:** Economy integration depends on stable story engine; advanced features can wait
 
 ### Research Flags
 
 Phases likely needing deeper research during planning:
-- **Phase 5 (Rewards & Admin):** Cascading FSM wizard is complex nested state management; may need UI flow research
-- **Phase 6 (Integration):** Economy balancing may need tuning based on early metrics
+- **Phase 2 (Admin Story Editor):** Admin UX workflow — how admins actually think about story structure; may need prototyping
+- **Phase 4 (Analytics):** Story completion metrics — what data matters for narrative engagement
 
 Phases with standard patterns (skip research-phase):
-- **Phase 1 (Foundation):** Standard SQLAlchemy models, established Service pattern
-- **Phase 2 (Reaction System):** Well-documented aiogram callback patterns
-- **Phase 3 (Daily Rewards):** Standard APScheduler job pattern
-- **Phase 4 (Shop System):** Standard e-commerce patterns, atomic transactions
+- **Phase 1 (Core Story Engine):** Well-documented tree structures, SQLAlchemy patterns established
+- **Phase 3 (Economy Integration):** Existing WalletService provides clear integration pattern
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Existing codebase uses these exact versions; no new dependencies needed |
-| Features | MEDIUM | Based on established gamification patterns + existing codebase analysis |
-| Architecture | HIGH | Follows existing ServiceContainer DI pattern; clear integration points |
-| Pitfalls | HIGH | Virtual economy anti-patterns well-documented; mitigation strategies established |
+| Stack | HIGH | Zero new dependencies; existing JSON and relationship patterns proven in codebase |
+| Features | HIGH | Clear table stakes from gamification research; anti-features explicitly excluded per requirements |
+| Architecture | HIGH | ServiceContainer pattern established; 19 existing services provide clear integration model |
+| Pitfalls | HIGH | Existing codebase analysis (42k lines, 409 tests) reveals specific integration risks |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Economy tuning parameters:** Exact besito values for daily rewards, reactions, shop prices need validation during Phase 1. Create a faucet/sink spreadsheet and test with hypothetical user scenarios.
-- **Streak grace period duration:** 6-hour grace period is recommended but may need adjustment based on user behavior. Monitor support tickets.
-- **Reaction rate limits:** 30-second cooldown is conservative; may need tuning for engagement vs. exploit balance.
-- **Admin preview mode for rewards:** Phase 5 requires testing rule evaluation against sample users before deployment.
+- **Admin story editor UX:** Research shows visual graph editors are critical, but specific admin workflow needs validation during Phase 2 planning
+- **Story complexity limits:** No clear guidance on maximum recommended nodes per story; may need load testing
+- **Media storage scaling:** Telegram file_id system sufficient for MVP, but CDN may be needed at 100K+ users
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- `/data/data/com.termux/files/home/repos/adminpro/requirements.txt` — Existing dependency versions verified
-- `/data/data/com.termux/files/home/repos/adminpro/bot/services/container.py` — DI pattern reference
-- `/data/data/com.termux/files/home/repos/adminpro/bot/background/tasks.py` — APScheduler integration pattern
-- `/data/data/com.termux/files/home/repos/adminpro/bot/database/models.py` — Existing model patterns
-- aiogram 3.x documentation — CallbackQuery handling patterns
-- SQLAlchemy 2.0 documentation — Atomic update patterns
+- Existing codebase analysis (`bot/services/container.py`, `bot/database/models.py`) — Service patterns, existing JSON column usage
+- SQLAlchemy 2.0 documentation — JSON type support, self-referential relationships
+- aiogram 3.x documentation — Media sending methods, FSM storage options
 
 ### Secondary (MEDIUM confidence)
-- Octalysis Framework (yukaichou.com) — Core drives for engagement
+- Octalysis Framework — Gamification engagement drives
 - Virtual Economy Design (Gamasutra) — Currency flow principles
-- Mobile Game Retention mechanics — Daily rewards, streaks patterns
+- Graph Data Modeling Best Practices (Memgraph) — Node-edge relationships
 
 ### Tertiary (LOW confidence)
-- Anti-patterns in Gamification (GDC Vault) — UX pitfalls, needs validation with actual users
+- Open Design Challenges for Interactive Emergent Narrative (UCSC) — Narrative system complexity patterns
 
 ---
 
-*Research completed: 2026-02-08*
+*Research completed: 2026-02-26*
 *Ready for roadmap: yes*
