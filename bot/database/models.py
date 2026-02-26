@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from bot.database.base import Base
-from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType, TransactionType, StreakType, ContentType, ContentTier, RewardType, RewardConditionType, RewardStatus
+from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType, TransactionType, StreakType, ContentType, ContentTier, RewardType, RewardConditionType, RewardStatus, StoryStatus, NodeType, StoryProgressStatus
 
 logger = logging.getLogger(__name__)
 
@@ -1518,3 +1518,409 @@ class UserReward(Base):
             f"<UserReward(id={self.id}, user={self.user_id}, "
             f"reward={self.reward_id}, status={self.status.value})>"
         )
+
+
+class Story(Base):
+    """
+    Historia narrativa del sistema.
+
+    Almacena:
+    - Información básica de la historia (título, descripción)
+    - Estado de publicación (draft, published, archived)
+    - Nivel de acceso (gratis/premium)
+    - Relaciones con nodos y progreso de usuarios
+
+    Attributes:
+        id: ID único de la historia (Primary Key)
+        title: Título de la historia
+        description: Descripción opcional
+        is_premium: True = Premium (niveles 4-6), False = Free (niveles 1-3)
+        status: Estado de publicación (StoryStatus enum)
+        created_at: Fecha de creación
+        updated_at: Última actualización
+
+    Relaciones:
+        nodes: Nodos que componen la historia
+        user_progress: Registros de progreso de usuarios
+    """
+
+    __tablename__ = "stories"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Basic info
+    title = Column(String(200), nullable=False)
+    description = Column(String(1000), nullable=True)
+
+    # Access tier (Free = levels 1-3, Premium = levels 4-6)
+    is_premium = Column(Boolean, nullable=False, default=False)
+
+    # Publication status
+    status = Column(
+        Enum(StoryStatus),
+        nullable=False,
+        default=StoryStatus.DRAFT
+    )
+
+    # Timestamps
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+    # Relationships
+    nodes = relationship(
+        "StoryNode",
+        back_populates="story",
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
+    user_progress = relationship(
+        "UserStoryProgress",
+        back_populates="story",
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
+
+    # Indexes
+    __table_args__ = (
+        # Index for filtering published stories by tier
+        Index('idx_story_status_premium', 'status', 'is_premium'),
+        # Index for sorting by creation date
+        Index('idx_story_created', 'created_at'),
+    )
+
+    @property
+    def is_published(self) -> bool:
+        """Retorna True si la historia está publicada."""
+        return self.status == StoryStatus.PUBLISHED
+
+    def __repr__(self) -> str:
+        return f"<Story(id={self.id}, title='{self.title}', status={self.status.value})>"
+
+
+class StoryNode(Base):
+    """
+    Nodo de una historia narrativa.
+
+    Representa un punto en la historia con contenido y posibles decisiones.
+    Puede ser de tipo START (inicio), STORY (narrativa), CHOICE (decisión), o ENDING (final).
+
+    Attributes:
+        id: ID único del nodo (Primary Key)
+        story_id: ID de la historia a la que pertenece (Foreign Key)
+        node_type: Tipo de nodo (NodeType enum)
+        content_text: Contenido narrativo principal
+        media_file_ids: Lista de IDs de archivos de Telegram (fotos/videos)
+        tier_required: Nivel requerido para acceder (1-6)
+        order_index: Orden del nodo dentro de la historia
+        is_active: Si el nodo está activo
+        created_at: Fecha de creación
+        updated_at: Última actualización
+
+    Relaciones:
+        story: Historia a la que pertenece
+        choices: Opciones de decisión que salen de este nodo
+        incoming_choices: Opciones que llegan a este nodo
+    """
+
+    __tablename__ = "story_nodes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Story relationship
+    story_id = Column(
+        Integer,
+        ForeignKey("stories.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Node type
+    node_type = Column(
+        Enum(NodeType),
+        nullable=False,
+        default=NodeType.STORY
+    )
+
+    # Content
+    content_text = Column(String(4000), nullable=True)
+    media_file_ids = Column(JSON, nullable=True)
+
+    # Access tier (1-3 for Free, 4-6 for Premium)
+    tier_required = Column(Integer, nullable=False, default=1)
+
+    # Ordering within story
+    order_index = Column(Integer, nullable=False, default=0)
+
+    # Status
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+
+    # Timestamps
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+    # Relationships
+    story = relationship(
+        "Story",
+        back_populates="nodes",
+        lazy="selectin"
+    )
+    choices = relationship(
+        "StoryChoice",
+        foreign_keys="StoryChoice.source_node_id",
+        back_populates="source_node",
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
+    incoming_choices = relationship(
+        "StoryChoice",
+        foreign_keys="StoryChoice.target_node_id",
+        back_populates="target_node",
+        lazy="selectin"
+    )
+
+    # Indexes
+    __table_args__ = (
+        # Index for ordering nodes within a story
+        Index('idx_story_node_story_order', 'story_id', 'order_index'),
+        # Index for finding start/ending nodes
+        Index('idx_story_node_story_type', 'story_id', 'node_type'),
+    )
+
+    @property
+    def has_media(self) -> bool:
+        """Retorna True si el nodo tiene archivos multimedia."""
+        return bool(self.media_file_ids)
+
+    def __repr__(self) -> str:
+        return f"<StoryNode(id={self.id}, story={self.story_id}, type={self.node_type.value})>"
+
+
+class StoryChoice(Base):
+    """
+    Opción de decisión entre nodos de una historia.
+
+    Representa una elección que el usuario puede hacer en un nodo de tipo CHOICE,
+    llevándolo desde un nodo origen a un nodo destino.
+
+    Attributes:
+        id: ID único de la opción (Primary Key)
+        source_node_id: ID del nodo origen (Foreign Key)
+        target_node_id: ID del nodo destino (Foreign Key)
+        choice_text: Texto mostrado al usuario para esta opción
+        cost_besitos: Costo en besitos para elegir esta opción
+        conditions: Condiciones opcionales para mostrar esta opción (JSON)
+        is_active: Si la opción está activa
+        created_at: Fecha de creación
+
+    Relaciones:
+        source_node: Nodo desde donde sale esta opción
+        target_node: Nodo al que llega esta opción
+    """
+
+    __tablename__ = "story_choices"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Source node (where the choice originates)
+    source_node_id = Column(
+        Integer,
+        ForeignKey("story_nodes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Target node (where the choice leads)
+    target_node_id = Column(
+        Integer,
+        ForeignKey("story_nodes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Choice display
+    choice_text = Column(String(500), nullable=False)
+
+    # Cost to make this choice
+    cost_besitos = Column(Integer, nullable=False, default=0)
+
+    # Optional conditions for showing this choice
+    conditions = Column(JSON, nullable=True)
+
+    # Status
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+
+    # Timestamps
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+    # Relationships
+    source_node = relationship(
+        "StoryNode",
+        foreign_keys=[source_node_id],
+        back_populates="choices",
+        lazy="selectin"
+    )
+    target_node = relationship(
+        "StoryNode",
+        foreign_keys=[target_node_id],
+        back_populates="incoming_choices",
+        lazy="selectin"
+    )
+
+    # Indexes
+    __table_args__ = (
+        # Index for finding active choices from a node
+        Index('idx_story_choice_source_active', 'source_node_id', 'is_active'),
+    )
+
+    @property
+    def is_free(self) -> bool:
+        """Retorna True si la opción es gratuita."""
+        return self.cost_besitos == 0
+
+    def __repr__(self) -> str:
+        return f"<StoryChoice(id={self.id}, source={self.source_node_id}, target={self.target_node_id})>"
+
+
+class UserStoryProgress(Base):
+    """
+    Progreso de un usuario en una historia.
+
+    Registra el estado de avance de un usuario en una historia específica,
+    incluyendo el nodo actual, decisiones tomadas y estado general.
+
+    Attributes:
+        id: ID único del registro (Primary Key)
+        user_id: ID del usuario (Foreign Key)
+        story_id: ID de la historia (Foreign Key)
+        current_node_id: ID del nodo actual (Foreign Key, nullable)
+        decisions_made: Historial de decisiones tomadas (JSON)
+        status: Estado del progreso (StoryProgressStatus enum)
+        started_at: Fecha de inicio
+        completed_at: Fecha de completitud (si aplica)
+        ending_reached: Identificador del final alcanzado
+        updated_at: Última actualización
+
+    Relaciones:
+        user: Usuario asociado
+        story: Historia asociada
+        current_node: Nodo actual en la historia
+
+    Constraints:
+        - Un usuario solo puede tener un registro de progreso por historia
+    """
+
+    __tablename__ = "user_story_progress"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # User relationship
+    user_id = Column(
+        BigInteger,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Story relationship
+    story_id = Column(
+        Integer,
+        ForeignKey("stories.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Current position in story (null if not started or completed)
+    current_node_id = Column(
+        Integer,
+        ForeignKey("story_nodes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+
+    # Decision history: array of {choice_id, node_id, made_at}
+    decisions_made = Column(JSON, nullable=False, default=list)
+
+    # Progress status
+    status = Column(
+        Enum(StoryProgressStatus),
+        nullable=False,
+        default=StoryProgressStatus.ACTIVE
+    )
+
+    # Timestamps
+    started_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+    completed_at = Column(DateTime, nullable=True)
+    ending_reached = Column(String(100), nullable=True)
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+    # Relationships
+    user = relationship(
+        "User",
+        uselist=False,
+        lazy="selectin"
+    )
+    story = relationship(
+        "Story",
+        back_populates="user_progress",
+        lazy="selectin"
+    )
+    current_node = relationship(
+        "StoryNode",
+        foreign_keys=[current_node_id],
+        lazy="selectin"
+    )
+
+    # Indexes and constraints
+    __table_args__ = (
+        # Unique constraint: one progress record per user-story pair
+        Index('idx_user_story_progress_user_story', 'user_id', 'story_id', unique=True),
+        # Index for finding active stories for a user
+        Index('idx_user_story_progress_user_status', 'user_id', 'status'),
+        # Index for analytics
+        Index('idx_user_story_progress_story_status', 'story_id', 'status'),
+    )
+
+    @property
+    def is_completed(self) -> bool:
+        """Retorna True si la historia fue completada."""
+        return self.status == StoryProgressStatus.COMPLETED
+
+    @property
+    def decision_count(self) -> int:
+        """Retorna cantidad de decisiones tomadas."""
+        return len(self.decisions_made) if self.decisions_made else 0
+
+    def __repr__(self) -> str:
+        return f"<UserStoryProgress(id={self.id}, user={self.user_id}, story={self.story_id}, status={self.status.value})>"
+
