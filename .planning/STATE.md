@@ -11,8 +11,8 @@
 | Attribute | Value |
 |-----------|-------|
 | Phase | 28-user-story-experience |
-| Plan | 02 (Story Reader Handlers) |
-| Status | Completed - ready for Plan 03
+| Plan | 03 (Story Handler Integration) |
+| Status | Completed - ready for Plan 04
 
 **Progress Bar:**
 ```
@@ -21,10 +21,10 @@ v1.1 Menu System:      [██████████] 100% ✅
 v1.2 Deployment:       [██████████] 100% ✅
 v2.0 Gamification:     [██████████] 100% ✅
 v2.1 Deployment Ready: [██████████] 100% ✅
-v3.0 Narrativa:        [████░░░░░░] 30%  🔄
+v3.0 Narrativa:        [█████░░░░░] 40%  🔄
 
 Phase 27: [████████████________] 60% (3/5 plans - Core engine complete)
-Phase 28: [████________________] 20% (2/5 plans - Story reader handlers complete)
+Phase 28: [██████______________] 30% (3/5 plans - Story handler integration complete)
 ```
 
 ---
@@ -40,7 +40,7 @@ Phase 28: [████________________] 20% (2/5 plans - Story reader handlers 
 - Leverage existing WalletService for economy operations
 - Follow established voice architecture (Diana 🫦 for content, Lucien 🎩 for system)
 
-**Current Focus:** Plan 28-03 - Story Progress Tracking implementation
+**Current Focus:** Plan 28-04 - Story Progress Tracking implementation
 
 ---
 
@@ -91,11 +91,13 @@ Phase 28: [████________________] 20% (2/5 plans - Story reader handlers 
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 28-02 - Story Reader Handlers
-**Next Action:** Plan 28-03 - Story Progress Tracking implementation
+**Last Action:** Completed Plan 28-03 - Story Handler Integration
+**Next Action:** Plan 28-04 - Story Progress Tracking implementation
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
+- feat(28-03): add race condition protection and edge case handling
+- feat(28-03): add stories button to VIP and Free main menus
 - feat(28-01): add story keyboard utilities to keyboards.py
 - feat(28-01): add StoryReadingStates FSM states for story reading flow
 - feat(27-04): add narrative services to ServiceContainer
@@ -275,3 +277,29 @@ Phase 28: [████________________] 20% (2/5 plans - Story reader handlers 
 - Router registration in `bot/handlers/user/__init__.py`
 
 **SUMMARY:** `.planning/phases/28-user-story-experience/28-02-SUMMARY.md`
+
+## Plan 28-03 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~10 minutes |
+| Tasks | 5/5 |
+| Commits | 2 |
+| Files Modified | 3 |
+| Lines Added | ~50 |
+
+**Deliverables:**
+- Menu integration: "📖 Historias" button added to VIP and Free main menus
+- Race condition protection: `processing_choice` FSM state prevents double-clicks
+- Edge case handling:
+  - Progress status validation before processing choices
+  - Proper state reset on all error paths
+  - Handling for nodes without choices that aren't endings
+- All 14 requirements (NARR-04 to UX-06) verified implemented
+
+**Key Changes:**
+- `bot/services/message/user_menu.py`: Added stories buttons to both VIP and Free menus
+- `bot/handlers/user/story.py`: Added `handle_stories_menu` callback and race condition protection
+- `bot/states/user.py`: Added `processing_choice` state to StoryReadingStates
+
+**SUMMARY:** `.planning/phases/28-user-story-experience/28-03-SUMMARY.md`
