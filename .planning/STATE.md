@@ -11,8 +11,8 @@
 | Attribute | Value |
 |-----------|-------|
 | Phase | 28-user-story-experience |
-| Plan | 01 (Story Reading Infrastructure) |
-| Status | Completed - ready for Plan 02
+| Plan | 02 (Story Reader Handlers) |
+| Status | Completed - ready for Plan 03
 
 **Progress Bar:**
 ```
@@ -21,10 +21,10 @@ v1.1 Menu System:      [██████████] 100% ✅
 v1.2 Deployment:       [██████████] 100% ✅
 v2.0 Gamification:     [██████████] 100% ✅
 v2.1 Deployment Ready: [██████████] 100% ✅
-v3.0 Narrativa:        [███░░░░░░░] 25%  🔄
+v3.0 Narrativa:        [████░░░░░░] 30%  🔄
 
 Phase 27: [████████████________] 60% (3/5 plans - Core engine complete)
-Phase 28: [██__________________] 10% (1/5 plans - Story infrastructure started)
+Phase 28: [████________________] 20% (2/5 plans - Story reader handlers complete)
 ```
 
 ---
@@ -40,7 +40,7 @@ Phase 28: [██__________________] 10% (1/5 plans - Story infrastructure start
 - Leverage existing WalletService for economy operations
 - Follow established voice architecture (Diana 🫦 for content, Lucien 🎩 for system)
 
-**Current Focus:** Plan 28-02 - Story Reader Handlers implementation
+**Current Focus:** Plan 28-03 - Story Progress Tracking implementation
 
 ---
 
@@ -91,8 +91,8 @@ Phase 28: [██__________________] 10% (1/5 plans - Story infrastructure start
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 28-01 - Story Reading Infrastructure
-**Next Action:** Plan 28-02 - Story Reader Handlers implementation
+**Last Action:** Completed Plan 28-02 - Story Reader Handlers
+**Next Action:** Plan 28-03 - Story Progress Tracking implementation
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
@@ -244,3 +244,34 @@ Phase 28: [██__________________] 10% (1/5 plans - Story infrastructure start
   - get_upsell_keyboard() - Premium upsell (TIER-04)
 
 **SUMMARY:** `.planning/phases/28-user-story-experience/28-01-SUMMARY.md`
+
+## Plan 28-02 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~15 minutes |
+| Tasks | 7/7 |
+| Commits | 2 |
+| Files Created | 1 |
+| Files Modified | 1 |
+| Lines Added | ~625 |
+
+**Deliverables:**
+- `bot/handlers/user/story.py` with 7 handlers:
+  - `cmd_stories` - /stories command with tier filtering (NARR-04, TIER-02, TIER-03)
+  - `handle_start_story` - Start/resume story with upsell (NARR-04, NARR-07, TIER-04)
+  - `handle_make_choice` - Process choices and detect completion (NARR-06, NARR-10)
+  - `handle_story_exit` - Escape hatch to exit story (NARR-08)
+  - `handle_back_to_list` - Return to story list
+  - `handle_restart_request` - Show restart confirmation (UX-03)
+  - `handle_confirm_restart` - Confirm and restart completed story
+- Voice architecture implementation:
+  - Lucien (🎩) for all system messages
+  - Diana (🫦) for content nodes
+- Helper functions:
+  - Progress indicator: "Escena X de Y"
+  - Media display: single photo, media group, text-only
+  - Status badges for story list
+- Router registration in `bot/handlers/user/__init__.py`
+
+**SUMMARY:** `.planning/phases/28-user-story-experience/28-02-SUMMARY.md`
