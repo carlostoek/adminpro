@@ -619,3 +619,19 @@ async def handle_confirm_restart(
     except Exception as e:
         logger.error(f"❌ Error reiniciando historia para {user_id}: {e}", exc_info=True)
         await callback.answer("Error al reiniciar", show_alert=True)
+
+
+@story_router.callback_query(lambda c: c.data == "stories:menu")
+async def handle_stories_menu(
+    callback: CallbackQuery,
+    state: FSMContext,
+    container: ServiceContainer
+) -> None:
+    """
+    Handler para acceder a historias desde el menú principal.
+
+    NARR-04: User can start an available story from the story list
+    """
+    # Reuse cmd_stories logic
+    await cmd_stories(callback.message, state, container)
+    await callback.answer()

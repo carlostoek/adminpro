@@ -579,6 +579,7 @@ class UserMenuMessages(BaseMessageProvider):
         """
         content_buttons = [
             [{"text": "🛍️ Tienda", "callback_data": "shop_catalog"}],
+            [{"text": "📖 Historias", "callback_data": "stories:menu"}],
             [{"text": "💎 Contenido Premium", "callback_data": "vip:premium"}],
             [{"text": "📦 Mi contenido", "callback_data": "vip:free_content"}],
             [{"text": "📊 Estado de la Membresía", "callback_data": "vip:status"}],
@@ -620,6 +621,7 @@ class UserMenuMessages(BaseMessageProvider):
         """
         content_buttons = [
             [{"text": "🛍️ Tienda", "callback_data": "shop_catalog"}],
+            [{"text": "📖 Historias", "callback_data": "stories:menu"}],
             [{"text": "📦 Mi contenido", "callback_data": "menu:free:content"}],
             [{"text": "🛋️ El Diván", "callback_data": "menu:free:vip"}],
             [{"text": "🔗 Mis redes", "callback_data": "menu:free:social"}],
