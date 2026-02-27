@@ -445,7 +445,7 @@ async def handle_make_choice(
     container: ServiceContainer
 ) -> None:
     """
-    Procesa elección del usuario.
+    Procesa elección del usuario con manejo de race conditions.
 
     NARR-06: User choice transitions to next node and saves progress
     NARR-10: System handles story completion (end nodes)
@@ -458,10 +458,25 @@ async def handle_make_choice(
     logger.info(f"📖 Usuario {user_id} eligió opción {choice_id} en historia {story_id}")
 
     try:
+        # Set intermediate state to prevent double-clicks (race condition protection)
+        current_state = await state.get_state()
+        if current_state == "StoryReadingStates:processing_choice":
+            await callback.answer("Procesando...", show_alert=False)
+            return
+
+        await state.set_state(StoryReadingStates.processing_choice)
+
         # Get progress
         progress = await container.narrative.get_story_progress(user_id, story_id)
         if not progress:
+            await state.set_state(StoryReadingStates.browsing_stories)
             await callback.answer("Progreso no encontrado", show_alert=True)
+            return
+
+        # Verify progress is active
+        if progress.status != StoryProgressStatus.ACTIVE:
+            await state.set_state(StoryReadingStates.browsing_stories)
+            await callback.answer("Historia no está activa", show_alert=True)
             return
 
         # Make choice
@@ -470,6 +485,7 @@ async def handle_make_choice(
         )
 
         if not success:
+            await state.set_state(StoryReadingStates.reading_node)
             await callback.answer(f"Error: {msg}", show_alert=True)
             return
 
@@ -498,8 +514,15 @@ async def handle_make_choice(
             success, msg, node, choices = await container.narrative.get_current_node(progress)
 
             if not success:
+                await state.set_state(StoryReadingStates.reading_node)
                 await callback.answer(f"Error: {msg}", show_alert=True)
                 return
+
+            # Check if node has no choices (error condition)
+            if not choices and node.node_type != "ending":
+                logger.error(f"Nodo {node.id} sin opciones y no es final")
+                # Still show content but with exit button only
+                choices = []
 
             # Display new node
             progress_text = _format_progress_indicator(node.order_index, 12)
@@ -507,12 +530,14 @@ async def handle_make_choice(
             keyboard = get_story_choice_keyboard(story_id, choices, show_exit=True)
 
             await _display_node_media(callback, node, caption, keyboard)
+            await state.set_state(StoryReadingStates.reading_node)
             await callback.answer()
 
             logger.debug(f"📖 Usuario {user_id} avanzó a nodo {node.id}")
 
     except Exception as e:
         logger.error(f"❌ Error procesando elección para {user_id}: {e}", exc_info=True)
+        await state.set_state(StoryReadingStates.reading_node)
         await callback.answer("Error al procesar elección", show_alert=True)
 
 

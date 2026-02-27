@@ -88,7 +88,9 @@ class StoryReadingStates(StatesGroup):
 
     Transiciones:
     - browsing_stories → reading_node (al iniciar/reanudar historia)
-    - reading_node → reading_node (después de elegir, siguiente nodo)
+    - reading_node → processing_choice (al hacer clic en opción)
+    - processing_choice → reading_node (después de elegir, siguiente nodo)
+    - processing_choice → story_completed (si llega a nodo final)
     - reading_node → story_completed (si llega a nodo final)
     - reading_node → browsing_stories (escape hatch - salir)
     - story_completed → confirm_restart (si quiere reiniciar)
@@ -98,5 +100,6 @@ class StoryReadingStates(StatesGroup):
     """
     browsing_stories = State()      # NARR-04: Story list
     reading_node = State()          # NARR-05, NARR-06: Reading + choices
+    processing_choice = State()     # Race condition protection
     story_completed = State()       # NARR-10: End reached
     confirm_restart = State()       # UX-03: Restart confirmation
