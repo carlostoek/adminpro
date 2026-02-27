@@ -10,9 +10,9 @@
 
 | Attribute | Value |
 |-----------|-------|
-| Phase | 27-core-narrative-engine |
-| Plan | 02 (NarrativeService) |
-| Status | Completed - ready for Plan 03
+| Phase | 28-user-story-experience |
+| Plan | 01 (Story Reading Infrastructure) |
+| Status | Completed - ready for Plan 02
 
 **Progress Bar:**
 ```
@@ -21,9 +21,10 @@ v1.1 Menu System:      [██████████] 100% ✅
 v1.2 Deployment:       [██████████] 100% ✅
 v2.0 Gamification:     [██████████] 100% ✅
 v2.1 Deployment Ready: [██████████] 100% ✅
-v3.0 Narrativa:        [██░░░░░░░░] 20%  🔄
+v3.0 Narrativa:        [███░░░░░░░] 25%  🔄
 
-Phase 27: [██████______________] 30% (2/5 plans - NarrativeService complete)
+Phase 27: [████████████________] 60% (3/5 plans - Core engine complete)
+Phase 28: [██__________________] 10% (1/5 plans - Story infrastructure started)
 ```
 
 ---
@@ -39,7 +40,7 @@ Phase 27: [██████______________] 30% (2/5 plans - NarrativeService c
 - Leverage existing WalletService for economy operations
 - Follow established voice architecture (Diana 🫦 for content, Lucien 🎩 for system)
 
-**Current Focus:** Plan 27-03 - StoryEditorService implementation
+**Current Focus:** Plan 28-02 - Story Reader Handlers implementation
 
 ---
 
@@ -90,11 +91,15 @@ Phase 27: [██████______________] 30% (2/5 plans - NarrativeService c
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 27-02 - NarrativeService implementation
-**Next Action:** Plan 27-03 - StoryEditorService implementation
+**Last Action:** Completed Plan 28-01 - Story Reading Infrastructure
+**Next Action:** Plan 28-02 - Story Reader Handlers implementation
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
+- feat(28-01): add story keyboard utilities to keyboards.py
+- feat(28-01): add StoryReadingStates FSM states for story reading flow
+- feat(27-04): add narrative services to ServiceContainer
+- feat(27-03): implement StoryEditorService with full CRUD operations
 - feat(27-02): implement get_story_progress and abandon_story methods
 - feat(27-02): implement make_choice method with immediate persistence
 - feat(27-02): implement get_current_node method
@@ -138,7 +143,7 @@ Phase 27: [██████______________] 30% (2/5 plans - NarrativeService c
 
 ---
 
-*State file updated: 2026-02-26*
+*State file updated: 2026-02-27*
 
 ## Plan 27-02 Completion
 
@@ -214,3 +219,28 @@ Phase 27: [██████______________] 30% (2/5 plans - NarrativeService c
 - All relationships and indexes properly configured
 
 **SUMMARY:** `.planning/phases/27-core-narrative-engine/27-01-SUMMARY.md`
+
+## Plan 28-01 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~5 minutes |
+| Tasks | 3/3 |
+| Commits | 2 |
+| Files Modified | 2 |
+| Lines Added | ~198 |
+
+**Deliverables:**
+- StoryReadingStates FSM with 4 states:
+  - browsing_stories - User viewing available stories (NARR-04)
+  - reading_node - User reading a node with choices (NARR-05, NARR-06)
+  - story_completed - Story finished, showing summary (NARR-10)
+  - confirm_restart - Confirmation to restart completed story (UX-03)
+- 5 story keyboard utility functions:
+  - get_story_choice_keyboard() - Max 3 per row (UX-05), exit button (NARR-08)
+  - get_story_list_keyboard() - Status badges (UX-02)
+  - get_story_restart_confirmation_keyboard() - Yes/No confirmation (UX-03)
+  - get_story_completed_keyboard() - Post-completion options
+  - get_upsell_keyboard() - Premium upsell (TIER-04)
+
+**SUMMARY:** `.planning/phases/28-user-story-experience/28-01-SUMMARY.md`
