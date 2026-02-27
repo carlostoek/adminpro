@@ -359,7 +359,14 @@ This milestone delivers a modular narrative system with branching stories integr
 
 **Dependencies:** Phase 27 (Core Narrative Engine)
 
-**Requirements:**
+**Plans:** 3 plans
+
+Plans:
+- [ ] 28-01-PLAN.md — FSM States and Keyboard Utilities (StoryReadingStates, story keyboards)
+- [ ] 28-02-PLAN.md — Story Reading Handler Core Flow (story.py with all handlers)
+- [ ] 28-03-PLAN.md — Handler Integration and Edge Cases (router registration, menu integration)
+
+**Requirements:
 | ID | Requirement |
 |----|-------------|
 | NARR-04 | User can start an available story from the story list |
