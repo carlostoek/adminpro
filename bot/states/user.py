@@ -74,3 +74,29 @@ class StreakStates(StatesGroup):
 
     # Regalo reclamado, mostrando tiempo hasta próximo reclamo
     daily_gift_claimed = State()
+
+
+class StoryReadingStates(StatesGroup):
+    """
+    Estados para lectura de historias interactivas.
+
+    Flujo:
+    1. browsing_stories: Usuario viendo lista de historias disponibles
+    2. reading_node: Usuario leyendo un nodo con opciones visibles
+    3. story_completed: Historia terminada, mostrando resumen
+    4. confirm_restart: Confirmación para reiniciar historia completada
+
+    Transiciones:
+    - browsing_stories → reading_node (al iniciar/reanudar historia)
+    - reading_node → reading_node (después de elegir, siguiente nodo)
+    - reading_node → story_completed (si llega a nodo final)
+    - reading_node → browsing_stories (escape hatch - salir)
+    - story_completed → confirm_restart (si quiere reiniciar)
+    - story_completed → browsing_stories (si termina)
+    - confirm_restart → reading_node (reinicio confirmado)
+    - confirm_restart → browsing_stories (cancelado)
+    """
+    browsing_stories = State()      # NARR-04: Story list
+    reading_node = State()          # NARR-05, NARR-06: Reading + choices
+    story_completed = State()       # NARR-10: End reached
+    confirm_restart = State()       # UX-03: Restart confirmation
