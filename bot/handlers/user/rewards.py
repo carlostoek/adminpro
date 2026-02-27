@@ -12,6 +12,7 @@ import logging
 from typing import Optional
 
 from aiogram import Router, F
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -298,7 +299,14 @@ async def rewards_list_handler(
 
         # Send/update message
         if isinstance(event, CallbackQuery):
-            await event.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+            try:
+                await event.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+            except TelegramBadRequest as e:
+                if "message is not modified" in str(e).lower():
+                    # Ignore - content is identical, just acknowledge the callback
+                    pass
+                else:
+                    raise
             await event.answer()
         else:
             await event.answer(text=text, reply_markup=keyboard, parse_mode="HTML")

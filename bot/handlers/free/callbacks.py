@@ -52,13 +52,14 @@ async def handle_free_approved_enter(callback: CallbackQuery, container):
         # Preparar data para el menú
         data = {"container": container}
 
-        # Enviar el menú Free
+        # Enviar el menú Free (editando el mensaje de aprobación)
         from .menu import show_free_menu
         await show_free_menu(
             callback.message,
             data,
             user_id=user.id,
-            user_first_name=user.first_name
+            user_first_name=user.first_name,
+            edit_mode=True
         )
 
         logger.info(f"🆓 Menú Free enviado a usuario aprobado {user.id}")
