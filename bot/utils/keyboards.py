@@ -9,8 +9,11 @@ Funciones:
 
 Centraliza la creación de keyboards para consistencia visual y navegación.
 """
-from typing import List, Optional
+from typing import List, Optional, Dict, TYPE_CHECKING
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+if TYPE_CHECKING:
+    from bot.database.models import Story, StoryChoice, UserStoryProgress
 
 
 # Default reactions for content
@@ -358,3 +361,171 @@ def create_content_with_navigation(
     )
     all_buttons = content_buttons + nav_rows
     return create_inline_keyboard(all_buttons)
+
+
+# ============================================================================
+# STORY KEYBOARDS
+# ============================================================================
+
+def get_story_choice_keyboard(
+    story_id: int,
+    choices: List["StoryChoice"],
+    show_exit: bool = True
+) -> InlineKeyboardMarkup:
+    """
+    Genera teclado para opciones de historia.
+
+    Layout según UX-05:
+    - Opciones organizadas en filas de máximo 3 botones
+    - Botón de salida siempre al final (escape hatch - NARR-08)
+
+    Args:
+        story_id: ID de la historia
+        choices: Lista de StoryChoice activas para el nodo actual
+        show_exit: Mostrar botón "Salir de la historia" (default: True)
+
+    Returns:
+        InlineKeyboardMarkup con botones de opciones + botón salir
+
+    Example:
+        keyboard = get_story_choice_keyboard(
+            story_id=123,
+            choices=node.choices,
+            show_exit=True
+        )
+    """
+    buttons = []
+
+    # Choice buttons (max 3 per row - UX-05)
+    choice_buttons = []
+    for choice in choices:
+        # Truncate text to 50 chars (Telegram button text limit)
+        text = choice.choice_text[:50] if len(choice.choice_text) > 50 else choice.choice_text
+        callback_data = f"story:choice:{story_id}:{choice.id}"
+
+        choice_buttons.append(InlineKeyboardButton(
+            text=text,
+            callback_data=callback_data
+        ))
+
+    # Arrange in rows of 3
+    for i in range(0, len(choice_buttons), 3):
+        buttons.append(choice_buttons[i:i+3])
+
+    # Exit button (escape hatch - NARR-08)
+    if show_exit:
+        buttons.append([InlineKeyboardButton(
+            text="🚪 Salir de la historia",
+            callback_data=f"story:exit:{story_id}"
+        )])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_story_list_keyboard(
+    stories: List["Story"],
+    user_progress: Dict[int, "UserStoryProgress"]
+) -> InlineKeyboardMarkup:
+    """
+    Genera teclado para lista de historias disponibles.
+
+    Muestra badge de estado según UX-02:
+    - 📖 Nuevo (sin progreso)
+    - 🔴 En progreso (ACTIVE)
+    - ⏸️ Pausada (PAUSED)
+    - ✅ Completada (COMPLETED)
+
+    Args:
+        stories: Lista de historias disponibles
+        user_progress: Dict {story_id: UserStoryProgress} con progreso del usuario
+
+    Returns:
+        InlineKeyboardMarkup con botones para cada historia
+    """
+    from bot.database.enums import StoryProgressStatus
+
+    buttons = []
+
+    for story in stories:
+        progress = user_progress.get(story.id)
+
+        # Determine badge based on progress status (UX-02)
+        if not progress:
+            badge = "📖"
+            status_text = "Nuevo"
+        elif progress.status == StoryProgressStatus.ACTIVE:
+            badge = "🔴"
+            status_text = "En progreso"
+        elif progress.status == StoryProgressStatus.PAUSED:
+            badge = "⏸️"
+            status_text = "Pausada"
+        elif progress.status == StoryProgressStatus.COMPLETED:
+            badge = "✅"
+            status_text = "Completada"
+        else:
+            badge = "📖"
+            status_text = "Nuevo"
+
+        # Premium indicator
+        premium_badge = "💎 " if story.is_premium else ""
+
+        text = f"{badge} {premium_badge}{story.title}"
+        callback_data = f"story:start:{story.id}"
+
+        buttons.append([InlineKeyboardButton(
+            text=text[:64],  # Telegram limit
+            callback_data=callback_data
+        )])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_story_restart_confirmation_keyboard(story_id: int) -> InlineKeyboardMarkup:
+    """
+    Teclado de confirmación para reiniciar historia completada (UX-03).
+
+    Args:
+        story_id: ID de la historia a reiniciar
+
+    Returns:
+        InlineKeyboardMarkup con botones Sí/No
+    """
+    return create_inline_keyboard([
+        [
+            {"text": "✅ Sí, reiniciar", "callback_data": f"story:confirm_restart:{story_id}"},
+            {"text": "❌ No, volver", "callback_data": "story:back_to_list"}
+        ]
+    ])
+
+
+def get_story_completed_keyboard(story_id: int) -> InlineKeyboardMarkup:
+    """
+    Teclado para historia completada.
+
+    Opciones:
+    - Releer historia (pide confirmación)
+    - Volver a lista de historias
+
+    Args:
+        story_id: ID de la historia completada
+
+    Returns:
+        InlineKeyboardMarkup con opciones post-completación
+    """
+    return create_inline_keyboard([
+        [{"text": "🔄 Releer historia", "callback_data": f"story:restart:{story_id}"}],
+        [{"text": "📚 Volver a historias", "callback_data": "story:back_to_list"}]
+    ])
+
+
+def get_upsell_keyboard() -> InlineKeyboardMarkup:
+    """
+    Teclado para mensaje de upsell de contenido Premium (TIER-04).
+
+    Returns:
+        InlineKeyboardMarkup con botón para información VIP
+    """
+    return create_inline_keyboard([
+        [{"text": "💎 Conocer membresía VIP", "callback_data": "vip:info"}],
+        [{"text": "🔙 Volver", "callback_data": "story:back_to_list"}]
+    ])
