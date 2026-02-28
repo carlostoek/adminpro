@@ -19,8 +19,8 @@ from sqlalchemy import select, and_, func, exists
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.database.models import Story, StoryNode, StoryChoice, UserStoryProgress
-from bot.database.enums import StoryStatus, NodeType, StoryProgressStatus
+from bot.database.models import Story, StoryNode, StoryChoice, UserStoryProgress, NodeCondition, NodeReward, Reward
+from bot.database.enums import StoryStatus, NodeType, StoryProgressStatus, RewardConditionType
 
 logger = logging.getLogger(__name__)
 
@@ -506,3 +506,362 @@ class StoryEditorService:
         logger.debug(f"Retrieved stats for story {story_id}")
 
         return (True, "Stats retrieved", stats)
+
+    # ===== NODE CONDITIONS =====
+
+    async def create_node_condition(
+        self,
+        node_id: int,
+        condition_type: RewardConditionType,
+        condition_value: Optional[int] = None,
+        condition_group: int = 0
+    ) -> Tuple[bool, str, Optional[NodeCondition]]:
+        """
+        Create a condition for node access.
+
+        Args:
+            node_id: ID of the node
+            condition_type: Type of condition (from RewardConditionType)
+            condition_value: Numeric threshold value (optional)
+            condition_group: Logic group (0=AND, 1+=OR)
+
+        Returns:
+            Tuple[bool, str, Optional[NodeCondition]]: (success, message, condition)
+        """
+        # Verify node exists
+        result = await self.session.execute(
+            select(StoryNode).where(StoryNode.id == node_id)
+        )
+        node = result.scalar_one_or_none()
+
+        if not node:
+            return (False, "Node not found", None)
+
+        # Create condition
+        condition = NodeCondition(
+            node_id=node_id,
+            condition_type=condition_type,
+            condition_value=condition_value,
+            condition_group=condition_group,
+            is_active=True
+        )
+
+        self.session.add(condition)
+
+        logger.info(f"Created condition {condition_type.value} for node {node_id}")
+
+        return (True, "Condition created", condition)
+
+    async def get_node_conditions(
+        self,
+        node_id: int
+    ) -> List[NodeCondition]:
+        """
+        Get all conditions for a node.
+
+        Args:
+            node_id: ID of the node
+
+        Returns:
+            List[NodeCondition]: List of conditions
+        """
+        result = await self.session.execute(
+            select(NodeCondition)
+            .where(
+                and_(
+                    NodeCondition.node_id == node_id,
+                    NodeCondition.is_active == True
+                )
+            )
+            .order_by(NodeCondition.condition_group, NodeCondition.id)
+        )
+
+        return list(result.scalars().all())
+
+    # ===== NODE REWARDS =====
+
+    async def attach_reward_to_node(
+        self,
+        node_id: int,
+        reward_id: int
+    ) -> Tuple[bool, str]:
+        """
+        Attach a reward to a node.
+
+        Args:
+            node_id: ID of the node
+            reward_id: ID of the reward
+
+        Returns:
+            Tuple[bool, str]: (success, message)
+        """
+        # Verify node exists
+        result = await self.session.execute(
+            select(StoryNode).where(StoryNode.id == node_id)
+        )
+        node = result.scalar_one_or_none()
+
+        if not node:
+            return (False, "Node not found")
+
+        # Verify reward exists
+        result = await self.session.execute(
+            select(Reward).where(Reward.id == reward_id)
+        )
+        reward = result.scalar_one_or_none()
+
+        if not reward:
+            return (False, "Reward not found")
+
+        # Check for existing association
+        result = await self.session.execute(
+            select(NodeReward).where(
+                and_(
+                    NodeReward.node_id == node_id,
+                    NodeReward.reward_id == reward_id
+                )
+            )
+        )
+        existing = result.scalar_one_or_none()
+
+        if existing:
+            if existing.is_active:
+                return (False, "Reward is already attached to this node")
+            # Reactivate if previously deactivated
+            existing.is_active = True
+            logger.info(f"Reactivated reward {reward_id} for node {node_id}")
+            return (True, "Reward reattached to node")
+
+        # Create new association
+        node_reward = NodeReward(
+            node_id=node_id,
+            reward_id=reward_id,
+            is_active=True
+        )
+
+        self.session.add(node_reward)
+
+        logger.info(f"Attached reward {reward_id} to node {node_id}")
+
+        return (True, "Reward attached to node")
+
+    async def detach_reward_from_node(
+        self,
+        node_id: int,
+        reward_id: int
+    ) -> Tuple[bool, str]:
+        """
+        Detach a reward from a node (soft delete).
+
+        Args:
+            node_id: ID of the node
+            reward_id: ID of the reward
+
+        Returns:
+            Tuple[bool, str]: (success, message)
+        """
+        result = await self.session.execute(
+            select(NodeReward).where(
+                and_(
+                    NodeReward.node_id == node_id,
+                    NodeReward.reward_id == reward_id,
+                    NodeReward.is_active == True
+                )
+            )
+        )
+        node_reward = result.scalar_one_or_none()
+
+        if not node_reward:
+            return (False, "Reward is not attached to this node")
+
+        node_reward.is_active = False
+
+        logger.info(f"Detached reward {reward_id} from node {node_id}")
+
+        return (True, "Reward detached from node")
+
+    async def get_node_rewards(
+        self,
+        node_id: int
+    ) -> List[Reward]:
+        """
+        Get all rewards attached to a node.
+
+        Args:
+            node_id: ID of the node
+
+        Returns:
+            List[Reward]: List of rewards
+        """
+        result = await self.session.execute(
+            select(Reward)
+            .join(NodeReward, Reward.id == NodeReward.reward_id)
+            .where(
+                and_(
+                    NodeReward.node_id == node_id,
+                    NodeReward.is_active == True,
+                    Reward.is_active == True
+                )
+            )
+            .order_by(Reward.sort_order, Reward.id)
+        )
+
+        return list(result.scalars().all())
+
+    # ===== NODE MANAGEMENT =====
+
+    async def update_node(
+        self,
+        node_id: int,
+        **kwargs
+    ) -> Tuple[bool, str, Optional[StoryNode]]:
+        """
+        Update node fields.
+
+        Args:
+            node_id: ID of the node
+            **kwargs: Fields to update (content_text, media_file_ids, tier_required, etc.)
+
+        Returns:
+            Tuple[bool, str, Optional[StoryNode]]: (success, message, node)
+        """
+        result = await self.session.execute(
+            select(StoryNode).where(StoryNode.id == node_id)
+        )
+        node = result.scalar_one_or_none()
+
+        if not node:
+            return (False, "Node not found", None)
+
+        # Allowed fields to update
+        allowed_fields = {
+            'content_text', 'media_file_ids', 'tier_required',
+            'order_index', 'node_type', 'is_start_node', 'is_ending'
+        }
+
+        updated_fields = []
+
+        for key, value in kwargs.items():
+            if key in allowed_fields and hasattr(node, key):
+                setattr(node, key, value)
+                updated_fields.append(key)
+
+        if updated_fields:
+            node.updated_at = datetime.now(timezone.utc)
+            logger.info(f"Updated node {node_id}: {', '.join(updated_fields)}")
+            return (True, f"Updated: {', '.join(updated_fields)}", node)
+
+        return (True, "No fields updated", node)
+
+    async def delete_node(
+        self,
+        node_id: int
+    ) -> Tuple[bool, str]:
+        """
+        Soft delete a node and cascade to choices.
+
+        Args:
+            node_id: ID of the node
+
+        Returns:
+            Tuple[bool, str]: (success, message)
+        """
+        result = await self.session.execute(
+            select(StoryNode).where(StoryNode.id == node_id)
+        )
+        node = result.scalar_one_or_none()
+
+        if not node:
+            return (False, "Node not found")
+
+        # Soft delete node
+        node.is_active = False
+        node.updated_at = datetime.now(timezone.utc)
+
+        # Cascade to choices (both outgoing and incoming)
+        result = await self.session.execute(
+            select(StoryChoice).where(
+                and_(
+                    StoryChoice.is_active == True,
+                    (StoryChoice.source_node_id == node_id) | (StoryChoice.target_node_id == node_id)
+                )
+            )
+        )
+        choices = result.scalars().all()
+
+        for choice in choices:
+            choice.is_active = False
+
+        logger.info(f"Soft deleted node {node_id} and {len(choices)} associated choices")
+
+        return (True, f"Node deleted ({len(choices)} choices deactivated)")
+
+    # ===== CHOICE MANAGEMENT =====
+
+    async def update_choice(
+        self,
+        choice_id: int,
+        **kwargs
+    ) -> Tuple[bool, str, Optional[StoryChoice]]:
+        """
+        Update choice fields.
+
+        Args:
+            choice_id: ID of the choice
+            **kwargs: Fields to update (choice_text, target_node_id, cost_besitos, etc.)
+
+        Returns:
+            Tuple[bool, str, Optional[StoryChoice]]: (success, message, choice)
+        """
+        result = await self.session.execute(
+            select(StoryChoice).where(StoryChoice.id == choice_id)
+        )
+        choice = result.scalar_one_or_none()
+
+        if not choice:
+            return (False, "Choice not found", None)
+
+        # Allowed fields to update
+        allowed_fields = {
+            'choice_text', 'target_node_id', 'cost_besitos', 'conditions'
+        }
+
+        updated_fields = []
+
+        for key, value in kwargs.items():
+            if key in allowed_fields and hasattr(choice, key):
+                setattr(choice, key, value)
+                updated_fields.append(key)
+
+        if updated_fields:
+            logger.info(f"Updated choice {choice_id}: {', '.join(updated_fields)}")
+            return (True, f"Updated: {', '.join(updated_fields)}", choice)
+
+        return (True, "No fields updated", choice)
+
+    async def delete_choice(
+        self,
+        choice_id: int
+    ) -> Tuple[bool, str]:
+        """
+        Soft delete a choice.
+
+        Args:
+            choice_id: ID of the choice
+
+        Returns:
+            Tuple[bool, str]: (success, message)
+        """
+        result = await self.session.execute(
+            select(StoryChoice).where(StoryChoice.id == choice_id)
+        )
+        choice = result.scalar_one_or_none()
+
+        if not choice:
+            return (False, "Choice not found")
+
+        choice.is_active = False
+
+        logger.info(f"Soft deleted choice {choice_id}")
+
+        return (True, "Choice deleted")
