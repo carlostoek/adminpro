@@ -405,6 +405,14 @@ Plans:
 
 **Dependencies:** Phase 27 (Core Narrative Engine), Phase 28 (User Story Experience - for testing)
 
+**Plans:** 4 plans
+
+Plans:
+- [ ] 29-01-PLAN.md — Database extensions (NodeCondition model, NodeReward junction table, PRODUCT_OWNED condition type)
+- [ ] 29-02-PLAN.md — Story management handlers (list, create, edit, publish, delete stories)
+- [ ] 29-03-PLAN.md — Node and choice wizard (content input, conditions, rewards, inline reward creation)
+- [ ] 29-04-PLAN.md — Integration and validation (validation display, preview mode, admin menu integration)
+
 **Requirements:**
 | ID | Requirement |
 |----|-------------|
