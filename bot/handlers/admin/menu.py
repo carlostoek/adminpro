@@ -43,6 +43,9 @@ async def show_admin_menu(message: Message, data: Dict[str, Any]):
     keyboard.button(text="➕ Crear Paquete", callback_data="admin:create_package")
     keyboard.button(text="📋 Listar Paquetes", callback_data="admin:list_packages")
 
+    # Sección Story Management
+    keyboard.button(text="📖 Crear Historia", callback_data="admin:stories")
+
     # Sección Configuración
     keyboard.button(text="⚙️ Configuración", callback_data="admin:config")
     keyboard.button(text="📈 Estadísticas", callback_data="admin:stats")
@@ -53,7 +56,7 @@ async def show_admin_menu(message: Message, data: Dict[str, Any]):
     keyboard.button(text="✅ Procesar Free", callback_data="admin:process_free")
 
     # Ajustar layout (3 columnas)
-    keyboard.adjust(3, 3, 3, 2)
+    keyboard.adjust(3, 3, 3, 3, 1)
 
     # Mensaje de bienvenida
     welcome_text = (

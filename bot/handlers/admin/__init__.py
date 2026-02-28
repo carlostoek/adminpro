@@ -9,6 +9,7 @@ from bot.handlers.admin.content_set_management import content_set_router
 from bot.handlers.admin.user_gamification import user_gamification_router
 from bot.handlers.admin.economy_stats import economy_stats_router
 from bot.handlers.admin.reward_management import reward_router
+from bot.handlers.admin.story_management import story_router
 
 # Include routers
 admin_router.include_router(tests_router)
@@ -19,5 +20,6 @@ admin_router.include_router(content_set_router)
 admin_router.include_router(user_gamification_router)
 admin_router.include_router(economy_stats_router)
 admin_router.include_router(reward_router)
+admin_router.include_router(story_router)
 
 __all__ = ["admin_router", "show_admin_menu"]
