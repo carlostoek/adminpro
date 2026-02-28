@@ -1543,6 +1543,7 @@ class Story(Base):
         description: Descripción opcional
         is_premium: True = Premium (niveles 4-6), False = Free (niveles 1-3)
         status: Estado de publicación (StoryStatus enum)
+        is_active: Soft delete flag (False = eliminada)
         created_at: Fecha de creación
         updated_at: Última actualización
 
@@ -1568,6 +1569,9 @@ class Story(Base):
         nullable=False,
         default=StoryStatus.DRAFT
     )
+
+    # Soft delete flag
+    is_active = Column(Boolean, nullable=False, default=True)
 
     # Timestamps
     created_at = Column(
