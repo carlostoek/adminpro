@@ -353,3 +353,76 @@ class ContentSetCreateState(StatesGroup):
     waiting_for_tier = State()
     waiting_for_files = State()
     waiting_for_confirmation = State()
+
+
+class StoryEditorStates(StatesGroup):
+    """
+    States for story creation and editing flow.
+
+    Flujo de creación de historia:
+    1. Admin selecciona "Crear Historia"
+    2. Bot entra en waiting_for_title
+    3. Admin envía título de la historia
+    4. Bot entra en waiting_for_description
+    5. Admin envía descripción (opcional, /skip)
+    6. Bot entra en waiting_for_premium
+    7. Admin selecciona si es premium: [Sí, Premium] [No, Free]
+    8. Bot crea historia y transiciona a creación de nodos
+
+    Flujo de edición de historia:
+    1. Admin selecciona "Editar" en una historia existente
+    2. Bot entra en waiting_for_edit_field
+    3. Admin selecciona campo a editar: título, descripción, premium
+    4. Bot entra en waiting_for_edit_value
+    5. Admin envía nuevo valor
+    6. Bot actualiza y vuelve a detalles
+
+    Flujo de publicación:
+    1. Admin selecciona "Publicar" en historia draft
+    2. Bot valida historia
+    3. Si válida: publica y confirma
+    4. Si inválida: muestra errores, permanece en draft
+    4. Bot entra en waiting_for_publish_confirm si hay advertencias
+
+    Flujo de eliminación:
+    1. Admin selecciona "Eliminar" en historia draft
+    2. Bot entra en waiting_for_delete_confirm
+    3. Admin confirma o cancela
+    4. Si confirma: soft-delete (is_active=False)
+
+    Estados:
+    - waiting_for_title: Esperando título de la historia (creación)
+    - waiting_for_description: Esperando descripción opcional (creación)
+    - waiting_for_premium: Esperando selección de flag premium (creación)
+    - waiting_for_edit_field: Esperando selección de campo a editar
+    - waiting_for_edit_value: Esperando nuevo valor para el campo
+    - waiting_for_publish_confirm: Confirmación antes de publicar
+    - waiting_for_delete_confirm: Confirmación antes de eliminar
+    """
+
+    # ===== CREACIÓN (3-step wizard) =====
+
+    # Paso 1: Esperando título de la historia (requerido, 1-200 chars)
+    waiting_for_title = State()
+
+    # Paso 2: Esperando descripción opcional (max 1000 chars, /skip para omitir)
+    waiting_for_description = State()
+
+    # Paso 3: Esperando selección de flag premium via botones
+    waiting_for_premium = State()
+
+    # ===== EDICIÓN (inline prompt pattern) =====
+
+    # Selección de campo a editar: title, description, premium
+    waiting_for_edit_field = State()
+
+    # Esperando nuevo valor para el campo seleccionado
+    waiting_for_edit_value = State()
+
+    # ===== CONFIRMACIONES =====
+
+    # Confirmación antes de publicar (si hay advertencias)
+    waiting_for_publish_confirm = State()
+
+    # Confirmación antes de eliminar historia
+    waiting_for_delete_confirm = State()
