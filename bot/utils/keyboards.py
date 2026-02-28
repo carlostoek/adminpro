@@ -529,3 +529,236 @@ def get_upsell_keyboard() -> InlineKeyboardMarkup:
         [{"text": "💎 Conocer membresía VIP", "callback_data": "vip:info"}],
         [{"text": "🔙 Volver", "callback_data": "story:back_to_list"}]
     ])
+
+
+# ============================================================================
+# STORY MANAGEMENT KEYBOARDS (Admin)
+# ============================================================================
+
+def get_story_management_keyboard() -> InlineKeyboardMarkup:
+    """
+    Main story management menu keyboard.
+
+    Buttons:
+    - Crear Historia
+    - Listar Historias
+    - Volver
+
+    Returns:
+        InlineKeyboardMarkup for story management main menu
+    """
+    return create_inline_keyboard([
+        [{"text": "➕ Crear Historia", "callback_data": "admin:story:create:start"}],
+        [{"text": "📋 Listar Historias", "callback_data": "admin:story:list"}],
+        [{"text": "🔙 Volver", "callback_data": "admin:main"}],
+    ])
+
+
+def get_story_list_keyboard_admin(stories: List, page: int = 0) -> InlineKeyboardMarkup:
+    """
+    Paginated story list keyboard for admin.
+
+    One button per story: "{title} ({status_emoji})"
+    callback: "admin:story:details:{id}"
+
+    Args:
+        stories: List of Story objects
+        page: Current page number (0-indexed)
+
+    Returns:
+        InlineKeyboardMarkup with story buttons and pagination
+    """
+    from bot.database.enums import StoryStatus
+
+    keyboard_rows = []
+
+    # Story buttons
+    for story in stories:
+        # Status emoji
+        if story.status == StoryStatus.PUBLISHED:
+            status_emoji = "🟢"
+        elif story.status == StoryStatus.DRAFT:
+            status_emoji = "🟡"
+        elif story.status == StoryStatus.ARCHIVED:
+            status_emoji = "⚠️"
+        else:
+            status_emoji = "⚪"
+
+        # Premium badge
+        premium_badge = "💎" if story.is_premium else "🆓"
+
+        # Button text
+        text = f"{status_emoji} {premium_badge} {story.title[:25]}"
+        callback_data = f"admin:story:details:{story.id}"
+
+        keyboard_rows.append([{
+            "text": text,
+            "callback_data": callback_data
+        }])
+
+    # Pagination row (if needed)
+    pagination_row = []
+    if page > 0:
+        pagination_row.append({
+            "text": "⬅️ Anterior",
+            "callback_data": f"admin:story:list:{page - 1}"
+        })
+    if len(stories) >= 10:  # Assuming page size of 10
+        pagination_row.append({
+            "text": "➡️ Siguiente",
+            "callback_data": f"admin:story:list:{page + 1}"
+        })
+
+    if pagination_row:
+        keyboard_rows.append(pagination_row)
+
+    # Bottom actions
+    keyboard_rows.append([{"text": "➕ Crear Nueva", "callback_data": "admin:story:create:start"}])
+    keyboard_rows.append([{"text": "🔙 Volver", "callback_data": "admin:stories"}])
+
+    return create_inline_keyboard(keyboard_rows)
+
+
+def get_story_detail_keyboard(story, is_valid: bool = True) -> InlineKeyboardMarkup:
+    """
+    Story detail actions keyboard.
+
+    Buttons: Editar, Publicar/Despublicar, Preview, Ver Nodos, Eliminar, Volver
+    Publish button disabled if not valid.
+
+    Args:
+        story: Story object
+        is_valid: Whether story passes validation
+
+    Returns:
+        InlineKeyboardMarkup with story action buttons
+    """
+    from bot.database.enums import StoryStatus
+
+    keyboard_rows = []
+
+    if story.is_active:
+        keyboard_rows.append([{"text": "✏️ Editar", "callback_data": f"admin:story:edit:{story.id}"}])
+
+        if story.status == StoryStatus.DRAFT:
+            keyboard_rows.append([{"text": "🔍 Validar", "callback_data": f"admin:story:validate:{story.id}"}])
+
+            if is_valid:
+                keyboard_rows.append([{"text": "🚀 Publicar", "callback_data": f"admin:story:publish:{story.id}"}])
+            else:
+                keyboard_rows.append([{"text": "❌ Publicar (bloqueado)", "callback_data": f"admin:story:validate:{story.id}"}])
+
+            keyboard_rows.append([{"text": "🗑️ Eliminar", "callback_data": f"admin:story:delete:{story.id}"}])
+        elif story.status == StoryStatus.PUBLISHED:
+            keyboard_rows.append([{"text": "⏸️ Despublicar", "callback_data": f"admin:story:unpublish:{story.id}"}])
+
+        keyboard_rows.append([{"text": "👁️ Preview", "callback_data": f"admin:story:preview:{story.id}"}])
+        keyboard_rows.append([{"text": "📊 Estadísticas", "callback_data": f"admin:story:stats:{story.id}"}])
+
+    keyboard_rows.append([{"text": "🔙 Lista", "callback_data": "admin:story:list"}])
+
+    return create_inline_keyboard(keyboard_rows)
+
+
+def get_node_list_keyboard(nodes: List, story_id: int) -> InlineKeyboardMarkup:
+    """
+    Node list keyboard for story editing.
+
+    One button per node: "{type_emoji} {preview}"
+    callback: "admin:node:edit:{id}"
+
+    Args:
+        nodes: List of StoryNode objects
+        story_id: ID of the parent story
+
+    Returns:
+        InlineKeyboardMarkup with node buttons
+    """
+    from bot.database.enums import NodeType
+
+    keyboard_rows = []
+
+    for node in nodes:
+        # Type emoji
+        if node.node_type == NodeType.START:
+            type_emoji = "🚀"
+        elif node.node_type == NodeType.STORY:
+            type_emoji = "📖"
+        elif node.node_type == NodeType.CHOICE:
+            type_emoji = "🔄"
+        elif node.node_type == NodeType.ENDING:
+            type_emoji = "🏁"
+        else:
+            type_emoji = "📄"
+
+        # Preview text (first 20 chars of content)
+        preview = node.content_text[:20] if node.content_text else "Sin contenido"
+        text = f"{type_emoji} {preview}"
+
+        keyboard_rows.append([{
+            "text": text,
+            "callback_data": f"admin:node:edit:{node.id}"
+        }])
+
+    # Add node button
+    keyboard_rows.append([{"text": "➕ Agregar Nodo", "callback_data": f"admin:story:node:create:{story_id}"}])
+    keyboard_rows.append([{"text": "🔙 Volver", "callback_data": f"admin:story:details:{story_id}"}])
+
+    return create_inline_keyboard(keyboard_rows)
+
+
+def get_node_edit_keyboard(node) -> InlineKeyboardMarkup:
+    """
+    Node edit actions keyboard.
+
+    Buttons: Editar Contenido, Condiciones, Recompensas, Ver Elecciones, Eliminar, Volver
+
+    Args:
+        node: StoryNode object
+
+    Returns:
+        InlineKeyboardMarkup with node edit buttons
+    """
+    keyboard_rows = [
+        [{"text": "📝 Editar Contenido", "callback_data": f"admin:node:edit:content:{node.id}"}],
+        [{"text": "🔒 Condiciones", "callback_data": f"admin:node:conditions:{node.id}"}],
+        [{"text": "🎁 Recompensas", "callback_data": f"admin:node:rewards:{node.id}"}],
+        [{"text": "🔀 Ver Elecciones", "callback_data": f"admin:node:choices:{node.id}"}],
+        [{"text": "🗑️ Eliminar", "callback_data": f"admin:node:delete:{node.id}"}],
+        [{"text": "🔙 Volver", "callback_data": f"admin:story:nodes:{node.story_id}"}],
+    ]
+
+    return create_inline_keyboard(keyboard_rows)
+
+
+def get_choice_list_keyboard(choices: List, node_id: int) -> InlineKeyboardMarkup:
+    """
+    Choice list keyboard for node editing.
+
+    One button per choice: "{text} → {target}"
+    callback: "admin:choice:edit:{id}"
+
+    Args:
+        choices: List of StoryChoice objects
+        node_id: ID of the parent node
+
+    Returns:
+        InlineKeyboardMarkup with choice buttons
+    """
+    keyboard_rows = []
+
+    for choice in choices:
+        # Get target node preview
+        target_preview = choice.target_node.content_text[:15] if choice.target_node and choice.target_node.content_text else "Nodo"
+        text = f"{choice.choice_text[:20]} → {target_preview}"
+
+        keyboard_rows.append([{
+            "text": text,
+            "callback_data": f"admin:choice:edit:{choice.id}"
+        }])
+
+    # Add choice button
+    keyboard_rows.append([{"text": "➕ Agregar Elección", "callback_data": f"admin:choice:create:{node_id}"}])
+    keyboard_rows.append([{"text": "🔙 Volver", "callback_data": f"admin:node:choices:{node_id}"}])
+
+    return create_inline_keyboard(keyboard_rows)
