@@ -39,6 +39,42 @@ story_router = Router(name="story_management")
 
 # ===== HELPER FUNCTIONS =====
 
+def format_validation_status(is_valid: bool, errors: list, info: dict) -> tuple:
+    """
+    Format validation status for display.
+
+    Returns:
+        Tuple of (status_emoji, status_text, detail_text)
+        - ✅ Jugable (no errors)
+        - ⚠️ Revisar (warnings only)
+        - ❌ Bloqueado (errors exist)
+    """
+    if not is_valid and errors:
+        error_count = len(errors)
+        status_emoji = "❌"
+        status_text = f"Bloqueado ({error_count} errores)"
+        detail_text = "\n".join([f"❌ {err}" for err in errors[:5]])
+        if len(errors) > 5:
+            detail_text += f"\n<i>...y {len(errors) - 5} errores más</i>"
+        return status_emoji, status_text, detail_text
+
+    # Check for warnings (unreachable nodes)
+    unreachable = info.get("unreachable_nodes", [])
+    if unreachable:
+        status_emoji = "⚠️"
+        status_text = f"Revisar ({len(unreachable)} nodos inalcanzables)"
+        detail_text = f"<b>Nodos inalcanzables:</b> {', '.join(map(str, unreachable))}"
+        return status_emoji, status_text, detail_text
+
+    # Valid story
+    node_count = info.get("node_count", 0)
+    ending_count = len(info.get("ending_node_ids", []))
+    status_emoji = "✅"
+    status_text = "Jugable"
+    detail_text = f"<b>Resumen:</b> {node_count} nodos, {ending_count} finales"
+    return status_emoji, status_text, detail_text
+
+
 def get_story_status_badge(status: StoryStatus, is_active: bool) -> str:
     """Get status badge emoji for story."""
     if not is_active:
@@ -106,7 +142,7 @@ async def callback_stories_menu(callback: CallbackQuery):
 
 @story_router.callback_query(F.data == "admin:story:list")
 async def callback_story_list(callback: CallbackQuery, session: AsyncSession):
-    """Handler for paginated story list."""
+    """Handler for paginated story list with validation badges."""
     # Get all stories with node count
     result = await session.execute(
         select(Story).order_by(Story.status, Story.title)
@@ -127,15 +163,26 @@ async def callback_story_list(callback: CallbackQuery, session: AsyncSession):
         await callback.answer()
         return
 
-    # Build list text
+    # Build list text with validation status
     text = "🎩 <b>Lista de Historias</b>\n\n"
+    container = ServiceContainer(session, callback.bot)
 
     for story in stories:
         node_count = len(story.nodes) if story.nodes else 0
         badge = get_story_status_badge(story.status, story.is_active)
         premium_badge = "💎" if story.is_premium else "🆓"
 
-        text += f"{badge} <b>{story.title}</b>\n"
+        # Get validation status for draft stories
+        validation_badge = ""
+        if story.status == StoryStatus.DRAFT and node_count > 0:
+            try:
+                is_valid, errors, info = await container.story_editor.validate_story(story.id)
+                val_emoji, val_text, _ = format_validation_status(is_valid, errors, info)
+                validation_badge = f" {val_emoji}"
+            except Exception:
+                validation_badge = " ⚠️"
+
+        text += f"{badge} <b>{story.title}</b>{validation_badge}\n"
         text += f"   {premium_badge} {node_count} nodos • {get_story_status_text(story.status, story.is_active)}\n\n"
 
     # Build keyboard with story buttons
@@ -197,6 +244,18 @@ async def callback_story_details(callback: CallbackQuery, session: AsyncSession)
         f"<b>ID:</b> {story.id}\n"
     )
 
+    # Get validation status for draft stories
+    validation_info = None
+    if story.status == StoryStatus.DRAFT:
+        container = ServiceContainer(session, callback.bot)
+        try:
+            is_valid, errors, info = await container.story_editor.validate_story(story_id)
+            val_emoji, val_text, _ = format_validation_status(is_valid, errors, info)
+            validation_info = (is_valid, val_emoji, val_text)
+            text += f"\n<b>Validación:</b> {val_emoji} {val_text}\n"
+        except Exception:
+            pass
+
     # Build action buttons based on status
     keyboard_rows = []
 
@@ -204,11 +263,22 @@ async def callback_story_details(callback: CallbackQuery, session: AsyncSession)
         keyboard_rows.append([{"text": "✏️ Editar", "callback_data": f"admin:story:edit:{story.id}"}])
 
         if story.status == StoryStatus.DRAFT:
-            keyboard_rows.append([{"text": "🚀 Publicar", "callback_data": f"admin:story:publish:{story.id}"}])
+            # Show validation button
+            keyboard_rows.append([{"text": "🔍 Validar", "callback_data": f"admin:story:validate:{story.id}"}])
+
+            # Publish button - disabled if not valid
+            if validation_info and validation_info[0]:
+                keyboard_rows.append([{"text": "🚀 Publicar", "callback_data": f"admin:story:publish:{story.id}"}])
+            elif validation_info:
+                keyboard_rows.append([{"text": "❌ Publicar (bloqueado)", "callback_data": f"admin:story:validate:{story.id}"}])
+            else:
+                keyboard_rows.append([{"text": "🚀 Publicar", "callback_data": f"admin:story:publish:{story.id}"}])
+
             keyboard_rows.append([{"text": "🗑️ Eliminar", "callback_data": f"admin:story:delete:{story.id}"}])
         elif story.status == StoryStatus.PUBLISHED:
             keyboard_rows.append([{"text": "⏸️ Despublicar", "callback_data": f"admin:story:unpublish:{story.id}"}])
 
+        keyboard_rows.append([{"text": "👁️ Preview", "callback_data": f"admin:story:preview:{story.id}"}])
         keyboard_rows.append([{"text": "📊 Estadísticas", "callback_data": f"admin:story:stats:{story.id}"}])
 
     keyboard_rows.append([{"text": "🔙 Lista", "callback_data": "admin:story:list"}])
@@ -594,6 +664,7 @@ async def callback_story_publish(callback: CallbackQuery, session: AsyncSession)
         )
 
         keyboard = create_inline_keyboard([
+            [{"text": "🔍 Ver Validación", "callback_data": f"admin:story:validate:{story_id}"}],
             [{"text": "🔙 Volver", "callback_data": f"admin:story:details:{story_id}"}],
         ])
 
@@ -601,7 +672,27 @@ async def callback_story_publish(callback: CallbackQuery, session: AsyncSession)
         await callback.answer()
         return
 
-    # Publish story
+    # Check for warnings (unreachable nodes)
+    unreachable = info.get("unreachable_nodes", [])
+    if unreachable:
+        warning_text = (
+            f"🎩 <b>Advertencia antes de publicar</b>\n\n"
+            f"La historia <b>{story.title}</b> es válida pero tiene advertencias:\n\n"
+            f"⚠️ Nodos inalcanzables: {', '.join(map(str, unreachable))}\n\n"
+            f"<i>¿Desea publicar de todos modos?</i>"
+        )
+
+        keyboard = create_inline_keyboard([
+            [{"text": "✅ Sí, publicar", "callback_data": f"admin:story:publish:confirm:{story_id}"}],
+            [{"text": "🔍 Ver Validación", "callback_data": f"admin:story:validate:{story_id}"}],
+            [{"text": "🔙 No, volver", "callback_data": f"admin:story:details:{story_id}"}],
+        ])
+
+        await callback.message.edit_text(text=warning_text, reply_markup=keyboard, parse_mode="HTML")
+        await callback.answer()
+        return
+
+    # Publish story (no warnings)
     success, msg = await container.story_editor.publish_story(story_id)
 
     if success:
@@ -638,6 +729,39 @@ async def callback_story_unpublish(callback: CallbackQuery, session: AsyncSessio
     await session.commit()
 
     await callback.answer("✅ Historia despublicada")
+    await callback_story_details(callback, session)
+
+
+@story_router.callback_query(F.data.startswith("admin:story:publish:confirm:"))
+async def callback_story_publish_confirm(callback: CallbackQuery, session: AsyncSession):
+    """Confirm publish story after warnings."""
+    try:
+        story_id = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ ID inválido", show_alert=True)
+        return
+
+    story = await session.get(Story, story_id)
+    if not story:
+        await callback.answer("❌ Historia no encontrada", show_alert=True)
+        return
+
+    if story.status == StoryStatus.PUBLISHED:
+        await callback.answer("ℹ️ La historia ya está publicada", show_alert=True)
+        return
+
+    # Publish with force=True (user confirmed after warnings)
+    container = ServiceContainer(session, callback.bot)
+    success, msg = await container.story_editor.publish_story(story_id, force=True)
+
+    if success:
+        await session.commit()
+        await callback.answer("✅ Historia publicada")
+    else:
+        await callback.answer(f"❌ Error: {msg}", show_alert=True)
+        return
+
+    # Refresh details
     await callback_story_details(callback, session)
 
 
@@ -707,6 +831,65 @@ async def callback_story_delete_confirm(callback: CallbackQuery, session: AsyncS
 
     # Return to list
     await callback_story_list(callback, session)
+
+
+# ===== VALIDATION DETAIL HANDLER =====
+
+@story_router.callback_query(F.data.startswith("admin:story:validate:"))
+async def callback_story_validation_detail(callback: CallbackQuery, session: AsyncSession):
+    """Show full validation report for a story."""
+    try:
+        story_id = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ ID inválido", show_alert=True)
+        return
+
+    story = await session.get(Story, story_id)
+    if not story:
+        await callback.answer("❌ Historia no encontrada", show_alert=True)
+        return
+
+    # Run validation
+    container = ServiceContainer(session, callback.bot)
+    is_valid, errors, info = await container.story_editor.validate_story(story_id)
+
+    # Format validation report
+    val_emoji, val_text, detail_text = format_validation_status(is_valid, errors, info)
+
+    text = (
+        f"🎩 <b>Validación de Historia</b>\n\n"
+        f"<b>{story.title}</b>\n"
+        f"Estado: {val_emoji} {val_text}\n\n"
+    )
+
+    if errors:
+        text += "<b>Errores:</b>\n" + "\n".join([f"❌ {err}" for err in errors]) + "\n\n"
+
+    # Add info section
+    text += f"<b>Información:</b>\n"
+    text += f"• Nodos totales: {info.get('node_count', 0)}\n"
+    text += f"• Finales: {len(info.get('ending_node_ids', []))}\n"
+    text += f"• Elecciones: {info.get('choice_count', 0)}\n"
+
+    if info.get('start_node_id'):
+        text += f"• Nodo inicial: #{info['start_node_id']}\n"
+
+    if info.get('unreachable_nodes'):
+        text += f"• Nodos inalcanzables: {', '.join(map(str, info['unreachable_nodes']))}\n"
+
+    # Build keyboard
+    keyboard_rows = []
+
+    # If there are errors, show button to edit nodes
+    if errors:
+        keyboard_rows.append([{"text": "🔧 Ver Nodos", "callback_data": f"admin:story:nodes:{story_id}"}])
+
+    keyboard_rows.append([{"text": "🔙 Volver", "callback_data": f"admin:story:details:{story_id}"}])
+
+    keyboard = create_inline_keyboard(keyboard_rows)
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
 
 
 # ===== STATS HANDLER =====
