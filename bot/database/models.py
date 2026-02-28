@@ -1271,6 +1271,7 @@ class Reward(Base):
     Relaciones:
         conditions: Lista de condiciones para desbloquear (RewardCondition)
         user_rewards: Registros de usuarios con esta recompensa (UserReward)
+        node_rewards: Nodos de historia asociados a esta recompensa (NodeReward)
 
     Ejemplos de reward_value:
         - BESITOS: {"amount": 100}
@@ -1323,6 +1324,12 @@ class Reward(Base):
         "UserReward",
         back_populates="reward",
         cascade="all, delete-orphan"
+    )
+    node_rewards = relationship(
+        "NodeReward",
+        back_populates="reward",
+        cascade="all, delete-orphan",
+        lazy="selectin"
     )
 
     # Indexes for efficient queries
@@ -1630,6 +1637,7 @@ class StoryNode(Base):
         choices: Opciones de decisión que salen de este nodo
         incoming_choices: Opciones que llegan a este nodo
         conditions: Condiciones para acceder a este nodo
+        attached_rewards: Recompensas otorgadas al alcanzar este nodo
     """
 
     __tablename__ = "story_nodes"
@@ -1698,6 +1706,12 @@ class StoryNode(Base):
     )
     conditions = relationship(
         "NodeCondition",
+        back_populates="node",
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
+    attached_rewards = relationship(
+        "NodeReward",
         back_populates="node",
         cascade="all, delete-orphan",
         lazy="selectin"
@@ -1884,6 +1898,82 @@ class NodeCondition(Base):
 
     def __repr__(self) -> str:
         return f"<NodeCondition(id={self.id}, node={self.node_id}, type={self.condition_type.value})>"
+
+
+class NodeReward(Base):
+    """
+    Tabla de unión para asignar recompensas a nodos de historia.
+
+    Permite asociar múltiples recompensas a un nodo y que una recompensa
+    esté asociada a múltiples nodos (relación many-to-many).
+    Las recompensas se otorgan cuando el usuario alcanza el nodo.
+
+    Attributes:
+        id: ID único del registro (Primary Key)
+        node_id: ID del nodo (Foreign Key)
+        reward_id: ID de la recompensa (Foreign Key)
+        is_active: Si la asociación está activa (permite desactivar sin borrar)
+        created_at: Fecha de creación
+
+    Relaciones:
+        node: Nodo de historia asociado
+        reward: Recompensa asociada
+    """
+
+    __tablename__ = "node_rewards"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Node relationship
+    node_id = Column(
+        Integer,
+        ForeignKey("story_nodes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Reward relationship
+    reward_id = Column(
+        Integer,
+        ForeignKey("rewards.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Status (allows disabling without deleting)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+
+    # Timestamps
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+    # Relationships
+    node = relationship(
+        "StoryNode",
+        back_populates="attached_rewards",
+        lazy="selectin"
+    )
+    reward = relationship(
+        "Reward",
+        back_populates="node_rewards",
+        lazy="selectin"
+    )
+
+    # Constraints and indexes
+    __table_args__ = (
+        # Unique constraint to prevent duplicate associations
+        Index('idx_node_reward_unique', 'node_id', 'reward_id', unique=True),
+        # Index for finding rewards by node
+        Index('idx_node_reward_node', 'node_id', 'is_active'),
+        # Index for finding nodes by reward
+        Index('idx_node_reward_reward', 'reward_id', 'is_active'),
+    )
+
+    def __repr__(self) -> str:
+        return f"<NodeReward(id={self.id}, node={self.node_id}, reward={self.reward_id})>"
 
 
 class UserStoryProgress(Base):
