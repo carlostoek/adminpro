@@ -11,8 +11,8 @@
 | Attribute | Value |
 |-----------|-------|
 | Phase | 29-admin-story-editor |
-| Plan | 02 (Story Management Handlers) |
-| Status | Completed - ready for Plan 03
+| Plan | 03 (Node Creation Wizard) |
+| Status | Completed - ready for Plan 04
 
 **Progress Bar:**
 ```
@@ -25,7 +25,7 @@ v3.0 Narrativa:        [██████░░░░] 50%  🔄
 
 Phase 27: [████████████________] 60% (3/5 plans - Core engine complete)
 Phase 28: [██████______________] 30% (3/5 plans - Story handler integration complete)
-Phase 29: [████________________] 20% (2/5 plans - Story management handlers complete)
+Phase 29: [██████______________] 40% (3/5 plans - Node creation wizard complete)
 ```
 
 ---
@@ -41,7 +41,7 @@ Phase 29: [████________________] 20% (2/5 plans - Story management handl
 - Leverage existing WalletService for economy operations
 - Follow established voice architecture (Diana 🫦 for content, Lucien 🎩 for system)
 
-**Current Focus:** Plan 29-03 - Node Management Handlers (create nodes, choices)
+**Current Focus:** Plan 29-04 - Story Testing and Preview (test stories before publishing)
 
 ---
 
@@ -92,8 +92,8 @@ Phase 29: [████________________] 20% (2/5 plans - Story management handl
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 29-02 - Story Management Handlers
-**Next Action:** Plan 29-03 - Node Management Handlers
+**Last Action:** Completed Plan 29-03 - Node Creation Wizard with conditions and rewards
+**Next Action:** Plan 29-04 - Story Testing and Preview
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
@@ -153,6 +153,36 @@ Phase 29: [████________________] 20% (2/5 plans - Story management handl
 ---
 
 *State file updated: 2026-02-28*
+
+## Plan 29-03 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~45 minutes |
+| Tasks | 6/6 |
+| Commits | 3 |
+| Files Modified | 3 |
+| Lines Added | ~1400 |
+
+**Deliverables:**
+- `StoryEditorService` extended with 9 new methods:
+  - `create_node_condition()` - Node access conditions
+  - `attach_reward_to_node()` / `detach_reward_from_node()` - Reward management
+  - `get_node_conditions()` / `get_node_rewards()` - Query methods
+  - `update_node()` / `delete_node()` - Node management with soft delete
+  - `update_choice()` / `delete_choice()` - Choice management
+- Node creation wizard with 5-step flow:
+  1. Content input (text, photo, video)
+  2. Type selection (START, STORY, CHOICE, ENDING)
+  3. Condition configuration (reuses RewardConditionState)
+  4. Reward selection with checkbox toggle UI
+  5. Choice creation with target node selection
+- Checkpoint/resume pattern for inline reward creation
+- Node list, edit, delete handlers
+- Choice list and delete handlers
+- All FSM states for node wizard
+
+**SUMMARY:** `.planning/phases/29-admin-story-editor/29-03-SUMMARY.md`
 
 ## Plan 29-02 Completion
 
