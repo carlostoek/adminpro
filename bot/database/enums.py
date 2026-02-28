@@ -386,6 +386,7 @@ class RewardConditionType(str, Enum):
         TOTAL_POINTS: total_earned >= valor
         LEVEL_REACHED: nivel >= valor
         BESITOS_SPENT: total_spent >= valor
+        PRODUCT_OWNED: Posee un producto específico de la tienda
         FIRST_PURCHASE: Ha hecho al menos una compra en tienda
         FIRST_DAILY_GIFT: Ha reclamado regalo diario al menos una vez
         FIRST_REACTION: Ha reaccionado al contenido al menos una vez
@@ -397,6 +398,7 @@ class RewardConditionType(str, Enum):
     TOTAL_POINTS = "TOTAL_POINTS"
     LEVEL_REACHED = "LEVEL_REACHED"
     BESITOS_SPENT = "BESITOS_SPENT"
+    PRODUCT_OWNED = "PRODUCT_OWNED"
     FIRST_PURCHASE = "FIRST_PURCHASE"
     FIRST_DAILY_GIFT = "FIRST_DAILY_GIFT"
     FIRST_REACTION = "FIRST_REACTION"
@@ -415,6 +417,7 @@ class RewardConditionType(str, Enum):
             RewardConditionType.TOTAL_POINTS: "Puntos totales",
             RewardConditionType.LEVEL_REACHED: "Nivel alcanzado",
             RewardConditionType.BESITOS_SPENT: "Besitos gastados",
+            RewardConditionType.PRODUCT_OWNED: "Producto comprado",
             RewardConditionType.FIRST_PURCHASE: "Primera compra",
             RewardConditionType.FIRST_DAILY_GIFT: "Primer regalo diario",
             RewardConditionType.FIRST_REACTION: "Primera reacción",
