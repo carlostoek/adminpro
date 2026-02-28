@@ -426,3 +426,36 @@ class StoryEditorStates(StatesGroup):
 
     # Confirmación antes de eliminar historia
     waiting_for_delete_confirm = State()
+
+    # ===== NODE CREATION WIZARD =====
+
+    # Step 1: Content input (text, photo, video)
+    waiting_for_content = State()
+
+    # Step 2: Node type selection (START, STORY, CHOICE, ENDING)
+    waiting_for_node_type = State()
+
+    # Step 3: Condition configuration
+    waiting_for_conditions = State()
+
+    # Step 4: Reward selection
+    waiting_for_rewards = State()
+
+    # Step 5: Final decision (is ending or create choices)
+    waiting_for_final_decision = State()
+
+    # ===== CHOICE CREATION =====
+
+    # Choice text input
+    waiting_for_choice_text = State()
+
+    # Target node selection
+    waiting_for_target_node = State()
+
+    # Choice cost input
+    waiting_for_cost_besitos = State()
+
+    # ===== NODE EDIT =====
+
+    # Edit node content
+    waiting_for_edit_content = State()
