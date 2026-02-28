@@ -57,8 +57,18 @@ def upgrade() -> None:
     """)
 
     # Seed default rewards (idempotent)
-    # Ensure name is unique for conflict resolution
-    op.create_unique_constraint('uq_rewards_name', 'rewards', ['name'])
+    # Ensure name is unique for conflict resolution (skip if already exists)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'uq_rewards_name' AND conrelid = 'rewards'::regclass
+            ) THEN
+                ALTER TABLE rewards ADD CONSTRAINT uq_rewards_name UNIQUE (name);
+            END IF;
+        END $$;
+    """)
 
     op.execute("""
         INSERT INTO rewards
@@ -74,8 +84,18 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Reset BotConfig economy fields (preserve user data)."""
 
-    # Drop the unique constraint added in upgrade
-    op.drop_constraint('uq_rewards_name', 'rewards', type_='unique')
+    # Drop the unique constraint added in upgrade (skip if already dropped)
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'uq_rewards_name' AND conrelid = 'rewards'::regclass
+            ) THEN
+                ALTER TABLE rewards DROP CONSTRAINT uq_rewards_name;
+            END IF;
+        END $$;
+    """)
 
     # Reset BotConfig economy fields to NULL
     # Do NOT delete rewards or user profiles (production safety)
