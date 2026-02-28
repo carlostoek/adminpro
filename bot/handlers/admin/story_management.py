@@ -765,6 +765,213 @@ async def callback_story_publish_confirm(callback: CallbackQuery, session: Async
     await callback_story_details(callback, session)
 
 
+# ===== PREVIEW MODE HANDLERS =====
+
+@story_router.callback_query(F.data.startswith("admin:story:preview:"))
+async def callback_story_preview(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    """Start preview mode for testing a story."""
+    try:
+        story_id = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ ID inválido", show_alert=True)
+        return
+
+    story = await session.get(Story, story_id)
+    if not story:
+        await callback.answer("❌ Historia no encontrada", show_alert=True)
+        return
+
+    # Initialize preview state
+    await state.set_state(StoryEditorStates.preview_mode)
+    await state.update_data(
+        preview_story_id=story_id,
+        preview_current_node_id=None,
+        preview_is_preview=True
+    )
+
+    # Use NarrativeService to simulate user experience
+    container = ServiceContainer(session, callback.bot)
+
+    # Create a mock progress for preview (not saved to DB)
+    from bot.database.models import StoryNode
+    from bot.database.enums import NodeType
+
+    # Find start node
+    result = await session.execute(
+        select(StoryNode).where(
+            StoryNode.story_id == story_id,
+            StoryNode.node_type == NodeType.START,
+            StoryNode.is_active == True
+        )
+    )
+    start_node = result.scalar_one_or_none()
+
+    if not start_node:
+        await callback.answer("❌ La historia no tiene nodo inicial", show_alert=True)
+        await state.clear()
+        return
+
+    # Update current node in preview state
+    await state.update_data(preview_current_node_id=start_node.id)
+
+    # Display node content (using Diana's voice for content as users see)
+    text = (
+        f"🎩 <b>Modo Preview</b> - Viendo como usuario\n"
+        f"<i>Historia: {story.title}</i>\n\n"
+        f"🫦 <b>{story.title}</b>\n\n"
+        f"{start_node.content_text or '<i>Sin contenido</i>'}"
+    )
+
+    # Get active choices for this node
+    active_choices = [c for c in start_node.choices if c.is_active]
+
+    keyboard_rows = []
+
+    # Add choice buttons (max 3 per row)
+    choice_buttons = []
+    for choice in active_choices:
+        choice_text = choice.choice_text[:50] if len(choice.choice_text) > 50 else choice.choice_text
+        choice_buttons.append({
+            "text": choice_text,
+            "callback_data": f"admin:preview:choice:{choice.id}"
+        })
+
+    # Arrange in rows of 3
+    for i in range(0, len(choice_buttons), 3):
+        keyboard_rows.append(choice_buttons[i:i+3])
+
+    # Add exit button
+    keyboard_rows.append([{"text": "🚪 Salir del Preview", "callback_data": "admin:preview:exit"}])
+
+    keyboard = create_inline_keyboard(keyboard_rows)
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer("👁️ Modo preview activado")
+
+
+@story_router.callback_query(F.data.startswith("admin:preview:choice:"))
+async def callback_preview_choice(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    """Handle choice selection in preview mode."""
+    try:
+        choice_id = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ ID inválido", show_alert=True)
+        return
+
+    # Get preview state
+    data = await state.get_data()
+    story_id = data.get("preview_story_id")
+    preview_is_preview = data.get("preview_is_preview")
+
+    if not preview_is_preview:
+        await callback.answer("❌ No está en modo preview", show_alert=True)
+        return
+
+    # Get the choice and target node
+    from bot.database.models import StoryNode, StoryChoice
+    from bot.database.enums import NodeType
+
+    choice = await session.get(StoryChoice, choice_id)
+    if not choice or not choice.is_active:
+        await callback.answer("❌ Opción no válida", show_alert=True)
+        return
+
+    target_node = await session.get(StoryNode, choice.target_node_id)
+    if not target_node:
+        await callback.answer("❌ Nodo destino no encontrado", show_alert=True)
+        return
+
+    # Update preview state with new node
+    await state.update_data(preview_current_node_id=target_node.id)
+
+    # Get story for title
+    story = await session.get(Story, story_id)
+
+    # Check if this is an ending
+    is_ending = target_node.node_type == NodeType.ENDING
+
+    # Display node content (Diana's voice for content)
+    if is_ending:
+        text = (
+            f"🎩 <b>Modo Preview</b> - Viendo como usuario\n"
+            f"<i>Historia: {story.title}</i>\n\n"
+            f"🫦 <b>{story.title}</b> - <i>Final</i>\n\n"
+            f"{target_node.content_text or '<i>Sin contenido</i>'}\n\n"
+            f"✨ <i>Historia completada</i>"
+        )
+    else:
+        text = (
+            f"🎩 <b>Modo Preview</b> - Viendo como usuario\n"
+            f"<i>Historia: {story.title}</i>\n\n"
+            f"🫦 <b>{story.title}</b>\n\n"
+            f"{target_node.content_text or '<i>Sin contenido</i>'}"
+        )
+
+    # Get active choices for this node
+    active_choices = [c for c in target_node.choices if c.is_active]
+
+    keyboard_rows = []
+
+    if is_ending or not active_choices:
+        # End of story - show restart option
+        keyboard_rows.append([{"text": "🔄 Reiniciar Preview", "callback_data": f"admin:story:preview:{story_id}"}])
+    else:
+        # Add choice buttons (max 3 per row)
+        choice_buttons = []
+        for ch in active_choices:
+            choice_text = ch.choice_text[:50] if len(ch.choice_text) > 50 else ch.choice_text
+            choice_buttons.append({
+                "text": choice_text,
+                "callback_data": f"admin:preview:choice:{ch.id}"
+            })
+
+        # Arrange in rows of 3
+        for i in range(0, len(choice_buttons), 3):
+            keyboard_rows.append(choice_buttons[i:i+3])
+
+    # Add exit button
+    keyboard_rows.append([{"text": "🚪 Salir del Preview", "callback_data": "admin:preview:exit"}])
+
+    keyboard = create_inline_keyboard(keyboard_rows)
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data == "admin:preview:exit")
+async def callback_preview_exit(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    """Exit preview mode and return to story details."""
+    # Get story ID from state before clearing
+    data = await state.get_data()
+    story_id = data.get("preview_story_id")
+
+    # Clear preview state
+    await state.clear()
+
+    # Return to story details
+    if story_id:
+        # Create mock callback for story details
+        class MockCallback:
+            def __init__(self, message, data):
+                self.message = message
+                self.data = data
+                self.bot = message.bot
+
+            async def answer(self, **kwargs):
+                pass
+
+        mock_callback = MockCallback(callback.message, f"admin:story:details:{story_id}")
+        await callback_story_details(mock_callback, session)
+    else:
+        await callback.message.edit_text(
+            "🎩 <b>Preview finalizado</b>\n\n<i>Volviendo al menú de historias...</i>",
+            reply_markup=create_inline_keyboard([[{"text": "🔙 Volver", "callback_data": "admin:story:list"}]]),
+            parse_mode="HTML"
+        )
+
+    await callback.answer("👁️ Preview finalizado")
+
+
 # ===== DELETE HANDLER =====
 
 @story_router.callback_query(F.data.startswith("admin:story:delete:"))

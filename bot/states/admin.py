@@ -459,3 +459,8 @@ class StoryEditorStates(StatesGroup):
 
     # Edit node content
     waiting_for_edit_content = State()
+
+    # ===== PREVIEW MODE =====
+
+    # Modo preview para probar historias sin persistir progreso
+    preview_mode = State()
