@@ -784,7 +784,7 @@ class UserReaction(Base):
 
     Cada reacción:
     - Se vincula a un usuario y un mensaje de canal específico
-    - Usa un emoji específico (no duplicados por usuario/contenido/emoji)
+    - Usa un emoji específico (solo UNA reacción por usuario/contenido)
     - Registra timestamp para rate limiting y análisis
 
     Attributes:
@@ -796,7 +796,7 @@ class UserReaction(Base):
         created_at: Timestamp de la reacción
 
     Constraints:
-        - Un usuario solo puede reaccionar una vez con cada emoji a un contenido
+        - Un usuario solo puede reaccionar UNA VEZ a cada contenido (con cualquier emoji)
         - Rate limiting: 30 segundos entre reacciones del mismo usuario
         - Límite diario: configurable (default 20 reacciones/día)
     """
@@ -825,9 +825,9 @@ class UserReaction(Base):
 
     # Indexes for efficient queries
     __table_args__ = (
-        # Unique constraint: one reaction per user/content/emoji combination
-        # This allows a user to react with different emojis to the same content
-        Index('idx_user_content_emoji', 'user_id', 'content_id', 'emoji', unique=True),
+        # Unique constraint: one reaction per user/content combination
+        # This ensures a user can only react once to each content (with any emoji)
+        Index('idx_user_content', 'user_id', 'content_id', unique=True),
         # Index for "user's recent reactions" queries (rate limiting)
         Index('idx_user_reactions_recent', 'user_id', 'created_at'),
         # Index for "reactions to content" queries

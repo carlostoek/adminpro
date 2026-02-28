@@ -217,13 +217,14 @@ async def _update_keyboard(
             channel_id=channel_id
         )
 
-        # Build new keyboard with user reactions marked
+        # Build new keyboard with user reactions marked and counts displayed
         from bot.utils.keyboards import DEFAULT_REACTIONS
         keyboard = get_reaction_keyboard_with_counts(
             content_id=content_id,
             channel_id=channel_id,
             reactions=DEFAULT_REACTIONS,
-            user_reactions=user_reactions
+            user_reactions=user_reactions,
+            counts=counts
         )
 
         # Try to update the message

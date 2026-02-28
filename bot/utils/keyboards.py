@@ -81,27 +81,42 @@ def get_reaction_keyboard_with_counts(
     content_id: int,
     channel_id: str,
     reactions: List[str],
-    user_reactions: List[str]  # Emojis the user already reacted with
+    user_reactions: List[str],  # Emojis the user already reacted with
+    counts: Optional[dict] = None  # Dict {emoji: count} with reaction counts
 ) -> InlineKeyboardMarkup:
     """
-    Genera teclado mostrando qué reacciones ya hizo el usuario.
+    Genera teclado mostrando qué reacciones ya hizo el usuario y los conteos.
 
     Args:
         content_id: ID del mensaje/contenido
         channel_id: ID del canal
         reactions: Lista de emojis disponibles
         user_reactions: Lista de emojis que el usuario ya usó
+        counts: Dict opcional {emoji: count} con conteos de reacciones
 
     Returns:
-        InlineKeyboardMarkup con indicación visual de reacciones del usuario
+        InlineKeyboardMarkup con indicación visual y conteos de reacciones
     """
+    if counts is None:
+        counts = {}
+
     buttons = []
     for emoji in reactions:
-        # Mark user reactions with checkmark
+        # Get count for this emoji
+        count = counts.get(emoji, 0)
+
+        # Build button text: show count and mark if user reacted
+        # Format: "✓❤️ 5" or "❤️ 5" or "✓❤️" or "❤️"
         if emoji in user_reactions:
-            text = f"✓{emoji}"
+            if count > 0:
+                text = f"✓{emoji} {count}"
+            else:
+                text = f"✓{emoji}"
         else:
-            text = emoji
+            if count > 0:
+                text = f"{emoji} {count}"
+            else:
+                text = emoji
 
         callback_data = f"react:{channel_id}:{content_id}:{emoji}"
 
