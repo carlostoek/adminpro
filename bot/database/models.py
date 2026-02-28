@@ -1629,6 +1629,7 @@ class StoryNode(Base):
         story: Historia a la que pertenece
         choices: Opciones de decisión que salen de este nodo
         incoming_choices: Opciones que llegan a este nodo
+        conditions: Condiciones para acceder a este nodo
     """
 
     __tablename__ = "story_nodes"
@@ -1693,6 +1694,12 @@ class StoryNode(Base):
         "StoryChoice",
         foreign_keys="StoryChoice.target_node_id",
         back_populates="target_node",
+        lazy="selectin"
+    )
+    conditions = relationship(
+        "NodeCondition",
+        back_populates="node",
+        cascade="all, delete-orphan",
         lazy="selectin"
     )
 
@@ -1801,6 +1808,82 @@ class StoryChoice(Base):
 
     def __repr__(self) -> str:
         return f"<StoryChoice(id={self.id}, source={self.source_node_id}, target={self.target_node_id})>"
+
+
+class NodeCondition(Base):
+    """
+    Condición para acceder a un nodo de historia.
+
+    Cada condición representa un requisito que debe cumplirse
+    para que un usuario pueda acceder al nodo asociado.
+    Reutiliza el enum RewardConditionType para consistencia.
+
+    Attributes:
+        id: ID único de la condición (Primary Key)
+        node_id: ID del nodo (Foreign Key)
+        condition_type: Tipo de condición (RewardConditionType enum)
+        condition_value: Valor numérico para comparación (opcional)
+        condition_group: Grupo para lógica OR (0 = AND, 1+ = OR)
+        is_active: Si la condición está activa
+        created_at: Fecha de creación
+
+    Relaciones:
+        node: Nodo de historia asociado
+
+    Lógica de grupos:
+        - Grupo 0: Todas las condiciones deben cumplirse (AND)
+        - Grupo 1, 2, etc.: Al menos una del grupo debe cumplirse (OR)
+    """
+
+    __tablename__ = "node_conditions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Node relationship
+    node_id = Column(
+        Integer,
+        ForeignKey("story_nodes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # Condition details
+    condition_type = Column(
+        Enum(RewardConditionType),
+        nullable=False
+    )
+    condition_value = Column(Integer, nullable=True)  # Threshold value
+
+    # Logic grouping
+    condition_group = Column(Integer, nullable=False, default=0)
+
+    # Status
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+
+    # Timestamps
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+    # Relationships
+    node = relationship(
+        "StoryNode",
+        back_populates="conditions",
+        lazy="selectin"
+    )
+
+    # Indexes for efficient queries
+    __table_args__ = (
+        # Index for node conditions lookup
+        Index('idx_node_condition_node', 'node_id', 'is_active'),
+        # Index for condition type filtering
+        Index('idx_node_condition_type', 'condition_type', 'is_active'),
+    )
+
+    def __repr__(self) -> str:
+        return f"<NodeCondition(id={self.id}, node={self.node_id}, type={self.condition_type.value})>"
 
 
 class UserStoryProgress(Base):
