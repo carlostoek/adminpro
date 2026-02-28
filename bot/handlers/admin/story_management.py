@@ -24,8 +24,8 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.database.models import Story, StoryNode
-from bot.database.enums import StoryStatus
+from bot.database.models import Story, StoryNode, StoryChoice
+from bot.database.enums import StoryStatus, NodeType
 from bot.handlers.admin.main import admin_router
 from bot.services.container import ServiceContainer
 from bot.states.admin import StoryEditorStates
@@ -1145,6 +1145,1036 @@ async def callback_story_stats(callback: CallbackQuery, session: AsyncSession):
 
     await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
     await callback.answer()
+
+
+# =============================================================================
+# NODE CREATION WIZARD
+# =============================================================================
+
+@story_router.callback_query(F.data.startswith("admin:story:node:create:"))
+async def callback_node_create_start(callback: CallbackQuery, state: FSMContext):
+    """Start node creation wizard."""
+    try:
+        story_id = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ ID inválido", show_alert=True)
+        return
+
+    await state.set_state(StoryEditorStates.waiting_for_content)
+    await state.update_data(
+        story_id=story_id,
+        node_content_text=None,
+        node_media_file_ids=[],
+        node_media_type=None
+    )
+
+    text = (
+        "🎩 <b>Crear Nodo de Historia</b>\n\n"
+        "<b>Paso 1:</b> Contenido del nodo\n\n"
+        "Envíe el contenido del nodo:\n"
+        "• Texto (mensaje de texto)\n"
+        "• Foto (con caption opcional)\n"
+        "• Video (con caption opcional)\n\n"
+        "<i>El contenido será mostrado al usuario cuando llegue a este nodo.</i>"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "❌ Cancelar", "callback_data": f"admin:story:details:{story_id}"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.message(StoryEditorStates.waiting_for_content)
+async def process_node_content(message: Message, state: FSMContext):
+    """Handle node content input (text, photo, video)."""
+    content_text = None
+    media_file_ids = []
+    media_type = None
+
+    # Handle photo
+    if message.photo:
+        media_file_ids = [message.photo[-1].file_id]  # Highest resolution
+        media_type = "photo"
+        content_text = message.caption
+    # Handle video
+    elif message.video:
+        media_file_ids = [message.video.file_id]
+        media_type = "video"
+        content_text = message.caption
+    # Handle text
+    elif message.text:
+        content_text = message.text.strip()
+        if content_text.lower() == "/skip":
+            content_text = None
+    else:
+        await message.answer(
+            "🎩 <b>Error:</b> Tipo de contenido no soportado.\n"
+            "Envíe texto, foto o video:"
+        )
+        return
+
+    # Validate: at least text OR media must exist
+    if not content_text and not media_file_ids:
+        await message.answer(
+            "🎩 <b>Error:</b> El nodo debe tener contenido (texto o multimedia).\n"
+            "Intente nuevamente:"
+        )
+        return
+
+    # Store in FSM
+    await state.update_data(
+        node_content_text=content_text,
+        node_media_file_ids=media_file_ids,
+        node_media_type=media_type
+    )
+
+    # Advance to type selection
+    await state.set_state(StoryEditorStates.waiting_for_node_type)
+
+    # Show preview
+    data = await state.get_data()
+    preview = ""
+    if content_text:
+        preview += f"<b>Texto:</b> {content_text[:100]}{'...' if len(content_text) > 100 else ''}\n"
+    if media_file_ids:
+        preview += f"<b>Media:</b> {media_type.capitalize()} ({len(media_file_ids)} archivo(s))\n"
+
+    text = (
+        f"🎩 <b>Crear Nodo de Historia</b>\n\n"
+        f"<b>Contenido recibido:</b>\n{preview}\n"
+        f"<b>Paso 2:</b> Tipo de nodo\n\n"
+        f"¿Qué tipo de nodo es?"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "🚀 Inicio", "callback_data": "node_type:START"}],
+        [{"text": "📖 Historia", "callback_data": "node_type:STORY"}],
+        [{"text": "🎯 Decisión", "callback_data": "node_type:CHOICE"}],
+        [{"text": "🏁 Final", "callback_data": "node_type:ENDING"}],
+        [{"text": "❌ Cancelar", "callback_data": f"admin:story:details:{data['story_id']}"}],
+    ])
+
+    await message.answer(text=text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@story_router.callback_query(F.data.startswith("node_type:"))
+async def callback_node_type_selected(callback: CallbackQuery, state: FSMContext):
+    """Handle node type selection."""
+    try:
+        node_type_str = callback.data.split(":")[-1]
+        node_type = NodeType(node_type_str)
+    except ValueError:
+        await callback.answer("❌ Tipo inválido", show_alert=True)
+        return
+
+    # Store type in FSM
+    await state.update_data(node_type=node_type_str)
+
+    # If ENDING type, skip conditions and go to final confirmation
+    if node_type == NodeType.ENDING:
+        await state.set_state(StoryEditorStates.waiting_for_final_decision)
+
+        data = await state.get_data()
+
+        text = (
+            f"🎩 <b>Crear Nodo de Historia</b>\n\n"
+            f"<b>Tipo:</b> {node_type.display_name}\n\n"
+            f"<b>Confirmación:</b>\n"
+            f"Este nodo será marcado como <b>FINAL</b>.\n"
+            f"Los usuarios terminarán la historia al llegar aquí.\n\n"
+            f"¿Desea crear este nodo?"
+        )
+
+        keyboard = create_inline_keyboard([
+            [{"text": "✅ Crear Nodo", "callback_data": "node:create:confirm"}],
+            [{"text": "❌ Cancelar", "callback_data": f"admin:story:details:{data['story_id']}"}],
+        ])
+
+        await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+        await callback.answer()
+        return
+
+    # For other types, ask about conditions
+    await state.set_state(StoryEditorStates.waiting_for_conditions)
+
+    data = await state.get_data()
+
+    text = (
+        f"🎩 <b>Crear Nodo de Historia</b>\n\n"
+        f"<b>Tipo:</b> {node_type.display_name}\n\n"
+        f"<b>Paso 3:</b> Condiciones de acceso\n\n"
+        f"¿Este nodo tiene condiciones de acceso?\n\n"
+        f"<i>Las condiciones permiten restringir el acceso basado en\n"
+        f"nivel, racha, tier, etc.</i>"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "✅ Sí, configurar", "callback_data": "node:conditions:yes"}],
+        [{"text": "⏭️ No, continuar", "callback_data": "node:conditions:no"}],
+        [{"text": "❌ Cancelar", "callback_data": f"admin:story:details:{data['story_id']}"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+# =============================================================================
+# CONDITION CONFIGURATION FLOW
+# =============================================================================
+
+@story_router.callback_query(F.data == "node:conditions:yes")
+async def callback_node_conditions_start(callback: CallbackQuery, state: FSMContext):
+    """Start condition configuration."""
+    from bot.states.admin import RewardConditionState
+
+    # Store return info for checkpoint/resume pattern
+    await state.update_data(
+        return_to="node_wizard",
+        checkpoint_state="waiting_for_conditions"
+    )
+
+    await state.set_state(RewardConditionState.waiting_for_type)
+
+    text = (
+        "🎩 <b>Configurar Condición</b>\n\n"
+        "<b>Tipo de Condición</b>\n\n"
+        "Seleccione el tipo de condición:\n"
+        "• Nivel requerido\n"
+        "• Tier requerido\n"
+        "• Racha de días\n"
+        "• Puntos totales\n"
+        "• Producto en inventario"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "📊 Nivel requerido", "callback_data": "cond_type:LEVEL_REACHED"}],
+        [{"text": "⭐ Tier requerido", "callback_data": "cond_type:TIER_REQUIRED"}],
+        [{"text": "📅 Racha de días", "callback_data": "cond_type:STREAK_LENGTH"}],
+        [{"text": "💯 Puntos totales", "callback_data": "cond_type:TOTAL_POINTS"}],
+        [{"text": "🛒 Producto en inventario", "callback_data": "cond_type:PRODUCT_OWNED"}],
+        [{"text": "🔙 Volver", "callback_data": "node:conditions:skip"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data == "node:conditions:no")
+async def callback_node_conditions_skip(callback: CallbackQuery, state: FSMContext):
+    """Skip conditions and go to rewards."""
+    await state.set_state(StoryEditorStates.waiting_for_rewards)
+
+    data = await state.get_data()
+
+    text = (
+        "🎩 <b>Crear Nodo de Historia</b>\n\n"
+        "<b>Paso 4:</b> Recompensas\n\n"
+        "¿Desea asignar recompensas a este nodo?\n\n"
+        "<i>Las recompensas se otorgan cuando el usuario\n"
+        f"llega a este nodo.</i>"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "✅ Sí, configurar", "callback_data": "node:rewards:configure"}],
+        [{"text": "⏭️ No, continuar", "callback_data": "node:rewards:skip"}],
+        [{"text": "❌ Cancelar", "callback_data": f"admin:story:details:{data['story_id']}"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data == "node:conditions:skip")
+async def callback_node_conditions_done(callback: CallbackQuery, state: FSMContext):
+    """Finish conditions and go to rewards."""
+    await callback_node_conditions_skip(callback, state)
+
+
+# =============================================================================
+# REWARD CONFIGURATION WITH INLINE CREATION
+# =============================================================================
+
+@story_router.callback_query(F.data == "node:rewards:configure")
+async def callback_node_rewards_question(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    """Show reward selection interface."""
+    data = await state.get_data()
+    selected_rewards = data.get("selected_rewards", [])
+
+    # Get all available rewards
+    from bot.database.models import Reward
+    result = await session.execute(
+        select(Reward).where(Reward.is_active == True).order_by(Reward.sort_order, Reward.id)
+    )
+    rewards = list(result.scalars().all())
+
+    text = (
+        "🎩 <b>Crear Nodo de Historia</b>\n\n"
+        "<b>Paso 4:</b> Recompensas\n\n"
+    )
+
+    if selected_rewards:
+        text += f"<b>Seleccionadas ({len(selected_rewards)}):</b>\n"
+        for reward_id in selected_rewards:
+            reward = await session.get(Reward, reward_id)
+            if reward:
+                text += f"✅ {reward.name}\n"
+        text += "\n"
+
+    text += "Seleccione recompensas para este nodo:"
+
+    # Build keyboard with checkboxes
+    keyboard_rows = []
+    for reward in rewards[:10]:  # Limit to 10
+        is_selected = reward.id in selected_rewards
+        checkbox = "☑️" if is_selected else "⬜️"
+        keyboard_rows.append([{
+            "text": f"{checkbox} {reward.name[:25]}",
+            "callback_data": f"node:reward:toggle:{reward.id}"
+        }])
+
+    keyboard_rows.append([{"text": "➕ Crear nueva recompensa", "callback_data": "node:reward:create:inline"}])
+    keyboard_rows.append([
+        {"text": "✅ Continuar", "callback_data": "node:rewards:done"},
+        {"text": "❌ Cancelar", "callback_data": f"admin:story:details:{data['story_id']}"}
+    ])
+
+    keyboard = create_inline_keyboard(keyboard_rows)
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data.startswith("node:reward:toggle:"))
+async def callback_node_reward_toggle(callback: CallbackQuery, state: FSMContext):
+    """Toggle reward selection."""
+    try:
+        reward_id = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ ID inválido", show_alert=True)
+        return
+
+    data = await state.get_data()
+    selected_rewards = data.get("selected_rewards", [])
+
+    # Toggle
+    if reward_id in selected_rewards:
+        selected_rewards.remove(reward_id)
+    else:
+        selected_rewards.append(reward_id)
+
+    await state.update_data(selected_rewards=selected_rewards)
+
+    # Refresh display
+    await callback_node_rewards_question(callback, state)
+
+
+@story_router.callback_query(F.data == "node:reward:create:inline")
+async def callback_node_reward_create_inline(callback: CallbackQuery, state: FSMContext):
+    """Start inline reward creation with checkpoint pattern."""
+    # Save current state for resume
+    data = await state.get_data()
+    await state.update_data(
+        checkpoint_state="waiting_for_rewards",
+        checkpoint_data={
+            "story_id": data.get("story_id"),
+            "node_content_text": data.get("node_content_text"),
+            "node_media_file_ids": data.get("node_media_file_ids"),
+            "node_media_type": data.get("node_media_type"),
+            "node_type": data.get("node_type"),
+            "selected_rewards": data.get("selected_rewards", []),
+            "conditions": data.get("conditions", [])
+        },
+        return_to="story_editor",
+        return_callback="node:reward:created"
+    )
+
+    # Switch to reward creation flow
+    from bot.states.admin import RewardCreateState
+    await state.set_state(RewardCreateState.waiting_for_name)
+
+    text = (
+        "🎩 <b>Crear Nueva Recompensa</b>\n\n"
+        "<i>(Creación rápida desde editor de nodos)</i>\n\n"
+        "Ingrese el nombre de la recompensa:\n"
+        "<i>(Máximo 200 caracteres)</i>"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "❌ Cancelar", "callback_data": "node:reward:create:cancel"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data == "node:reward:create:cancel")
+async def callback_node_reward_create_cancel(callback: CallbackQuery, state: FSMContext):
+    """Cancel inline reward creation and return to rewards selection."""
+    await state.set_state(StoryEditorStates.waiting_for_rewards)
+    await callback_node_rewards_question(callback, state)
+
+
+@story_router.callback_query(F.data == "node:reward:created")
+async def callback_node_reward_created(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    """Resume after reward creation - auto-select the new reward."""
+    data = await state.get_data()
+
+    # Get created reward ID
+    created_reward_id = data.get("created_reward_id")
+
+    # Restore checkpoint data
+    checkpoint_data = data.get("checkpoint_data", {})
+    await state.update_data(**checkpoint_data)
+
+    # Auto-select the new reward
+    selected_rewards = checkpoint_data.get("selected_rewards", [])
+    if created_reward_id and created_reward_id not in selected_rewards:
+        selected_rewards.append(created_reward_id)
+
+    await state.update_data(
+        selected_rewards=selected_rewards,
+        checkpoint_data=None,
+        checkpoint_state=None,
+        return_to=None,
+        return_callback=None,
+        created_reward_id=None
+    )
+
+    await state.set_state(StoryEditorStates.waiting_for_rewards)
+
+    # Show reward list again
+    await callback_node_rewards_question(callback, state)
+
+    if created_reward_id:
+        await callback.answer("✅ Recompensa creada y seleccionada")
+    else:
+        await callback.answer()
+
+
+@story_router.callback_query(F.data == "node:rewards:skip")
+async def callback_node_rewards_skip(callback: CallbackQuery, state: FSMContext):
+    """Skip rewards and go to final decision."""
+    await state.set_state(StoryEditorStates.waiting_for_final_decision)
+
+    data = await state.get_data()
+    node_type_str = data.get("node_type")
+
+    # If ENDING type, show completion
+    if node_type_str == NodeType.ENDING.value:
+        await callback_node_create_confirm(callback, state)
+        return
+
+    # Otherwise ask about choices
+    text = (
+        "🎩 <b>Crear Nodo de Historia</b>\n\n"
+        "<b>Paso 5:</b> Elecciones\n\n"
+        "¿Este nodo tiene elecciones que llevan a otros nodos?\n\n"
+        "<i>Si es final, el usuario terminará la historia aquí.</i>"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "✅ Sí, crear elecciones", "callback_data": "node:choices:create"}],
+        [{"text": "🏁 No, es final", "callback_data": "node:choices:final"}],
+        [{"text": "❌ Cancelar", "callback_data": f"admin:story:details:{data['story_id']}"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data == "node:rewards:done")
+async def callback_node_rewards_done(callback: CallbackQuery, state: FSMContext):
+    """Finish rewards and go to final decision."""
+    await callback_node_rewards_skip(callback, state)
+
+
+# =============================================================================
+# FINAL NODE DECISION AND CHOICE CREATION
+# =============================================================================
+
+@story_router.callback_query(F.data == "node:choices:final")
+async def callback_node_final_choice(callback: CallbackQuery, state: FSMContext):
+    """Mark node as final (no choices)."""
+    await state.update_data(is_ending=True, create_choices=False)
+    await callback_node_create_confirm(callback, state)
+
+
+@story_router.callback_query(F.data == "node:choices:create")
+async def callback_node_create_choices(callback: CallbackQuery, state: FSMContext):
+    """Start choice creation flow."""
+    await state.update_data(is_ending=False, create_choices=True)
+    await state.set_state(StoryEditorStates.waiting_for_choice_text)
+
+    text = (
+        "🎩 <b>Crear Elección</b>\n\n"
+        "<b>Paso 1:</b> Texto de la elección\n\n"
+        "Ingrese el texto que verá el usuario:\n"
+        "<i>(1-500 caracteres)</i>\n\n"
+        "<i>Ejemplo: 'Entrar por la puerta izquierda'</i>"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "❌ Cancelar", "callback_data": "node:choices:cancel"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data == "node:choices:cancel")
+async def callback_node_choices_cancel(callback: CallbackQuery, state: FSMContext):
+    """Cancel choice creation and go back to final decision."""
+    await state.set_state(StoryEditorStates.waiting_for_final_decision)
+    await callback_node_rewards_skip(callback, state)
+
+
+@story_router.message(StoryEditorStates.waiting_for_choice_text)
+async def process_choice_text(message: Message, state: FSMContext, session: AsyncSession):
+    """Handle choice text input."""
+    choice_text = message.text.strip()
+
+    if not choice_text:
+        await message.answer("🎩 <b>Error:</b> El texto no puede estar vacío.\nIntente nuevamente:")
+        return
+
+    if len(choice_text) > 500:
+        await message.answer("🎩 <b>Error:</b> El texto es demasiado largo (máx. 500 caracteres).\nIntente nuevamente:")
+        return
+
+    # Store choice text
+    await state.update_data(current_choice_text=choice_text)
+    await state.set_state(StoryEditorStates.waiting_for_target_node)
+
+    # Get existing nodes in story
+    data = await state.get_data()
+    story_id = data.get("story_id")
+
+    result = await session.execute(
+        select(StoryNode).where(
+            and_(
+                StoryNode.story_id == story_id,
+                StoryNode.is_active == True
+            )
+        ).order_by(StoryNode.id)
+    )
+    nodes = list(result.scalars().all())
+
+    text = (
+        f"🎩 <b>Crear Elección</b>\n\n"
+        f"<b>Texto:</b> {choice_text[:50]}{'...' if len(choice_text) > 50 else ''}\n\n"
+        f"<b>Paso 2:</b> Nodo destino\n\n"
+        f"Seleccione el nodo al que lleva esta elección:"
+    )
+
+    keyboard_rows = []
+    for node in nodes[:8]:  # Limit to 8 existing nodes
+        preview = node.content_text[:20] if node.content_text else f"Nodo #{node.id}"
+        keyboard_rows.append([{
+            "text": f"📍 {preview}...",
+            "callback_data": f"choice:target:{node.id}"
+        }])
+
+    keyboard_rows.append([{"text": "➕ Crear nuevo nodo", "callback_data": "choice:target:new"}])
+    keyboard_rows.append([{"text": "🔙 Volver", "callback_data": "node:choices:create"}])
+
+    keyboard = create_inline_keyboard(keyboard_rows)
+
+    await message.answer(text=text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@story_router.callback_query(F.data.startswith("choice:target:"))
+async def callback_choice_target_selected(callback: CallbackQuery, state: FSMContext):
+    """Handle target node selection."""
+    target = callback.data.split(":")[-1]
+
+    if target == "new":
+        # Will create new node after this choice
+        await state.update_data(target_node_id=None, create_target_node=True)
+    else:
+        try:
+            target_node_id = int(target)
+            await state.update_data(target_node_id=target_node_id, create_target_node=False)
+        except ValueError:
+            await callback.answer("❌ ID inválido", show_alert=True)
+            return
+
+    await state.set_state(StoryEditorStates.waiting_for_cost_besitos)
+
+    text = (
+        "🎩 <b>Crear Elección</b>\n\n"
+        "<b>Paso 3:</b> Costo\n\n"
+        "¿Cuántos besitos cuesta esta elección?\n"
+        "<i>(0 = gratis)</i>"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "0 (Gratis)", "callback_data": "choice:cost:0"}],
+        [{"text": "5 besitos", "callback_data": "choice:cost:5"}],
+        [{"text": "10 besitos", "callback_data": "choice:cost:10"}],
+        [{"text": "20 besitos", "callback_data": "choice:cost:20"}],
+        [{"text": "🔙 Volver", "callback_data": "node:choices:create"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data.startswith("choice:cost:"))
+async def callback_choice_cost_selected(callback: CallbackQuery, state: FSMContext):
+    """Handle choice cost selection."""
+    try:
+        cost = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ Costo inválido", show_alert=True)
+        return
+
+    await state.update_data(choice_cost=cost)
+
+    # Show confirmation for creating another choice
+    text = (
+        "🎩 <b>Crear Elección</b>\n\n"
+        f"<b>Costo:</b> {cost} besitos\n\n"
+        "¿Crear otra elección para este nodo?"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "✅ Sí, crear otra", "callback_data": "choice:create:another"}],
+        [{"text": "🏁 No, terminar nodo", "callback_data": "node:create:confirm"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data == "choice:create:another")
+async def callback_choice_create_another(callback: CallbackQuery, state: FSMContext):
+    """Store current choice and start another."""
+    data = await state.get_data()
+
+    # Get current choice data
+    choice_data = {
+        "text": data.get("current_choice_text"),
+        "target_node_id": data.get("target_node_id"),
+        "create_target_node": data.get("create_target_node", False),
+        "cost": data.get("choice_cost", 0)
+    }
+
+    # Add to choices list
+    choices = data.get("pending_choices", [])
+    choices.append(choice_data)
+    await state.update_data(pending_choices=choices)
+
+    # Reset for next choice
+    await state.update_data(
+        current_choice_text=None,
+        target_node_id=None,
+        create_target_node=False,
+        choice_cost=0
+    )
+
+    # Go back to choice text input
+    await state.set_state(StoryEditorStates.waiting_for_choice_text)
+
+    text = (
+        "🎩 <b>Crear Otra Elección</b>\n\n"
+        f"<b>Elecciones pendientes:</b> {len(choices)}\n\n"
+        "Ingrese el texto para la siguiente elección:\n"
+        "<i>(1-500 caracteres)</i>"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "❌ Cancelar", "callback_data": "node:choices:cancel"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+# =============================================================================
+# NODE CREATION CONFIRMATION
+# =============================================================================
+
+@story_router.callback_query(F.data == "node:create:confirm")
+async def callback_node_create_confirm(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    """Create the node with all configured data."""
+    data = await state.get_data()
+
+    story_id = data.get("story_id")
+    node_type_str = data.get("node_type")
+    content_text = data.get("node_content_text")
+    media_file_ids = data.get("node_media_file_ids", [])
+    is_ending = data.get("is_ending", False)
+    selected_rewards = data.get("selected_rewards", [])
+    pending_choices = data.get("pending_choices", [])
+    current_choice = None
+
+    # If there's a current choice being edited, add it to pending
+    if data.get("current_choice_text"):
+        current_choice = {
+            "text": data.get("current_choice_text"),
+            "target_node_id": data.get("target_node_id"),
+            "create_target_node": data.get("create_target_node", False),
+            "cost": data.get("choice_cost", 0)
+        }
+
+    # Create node using StoryEditorService
+    container = ServiceContainer(session, callback.bot)
+
+    node_type = NodeType(node_type_str) if node_type_str else NodeType.STORY
+
+    success, msg, node = await container.story_editor.create_node(
+        story_id=story_id,
+        node_type=node_type,
+        content_text=content_text,
+        media_file_ids=media_file_ids if media_file_ids else None,
+        is_ending=is_ending
+    )
+
+    if not success:
+        await callback.answer(f"❌ Error: {msg}", show_alert=True)
+        return
+
+    # Attach rewards
+    for reward_id in selected_rewards:
+        await container.story_editor.attach_reward_to_node(node.id, reward_id)
+
+    # Create choices
+    created_choices = []
+    if current_choice:
+        pending_choices.append(current_choice)
+
+    for choice_data in pending_choices:
+        # If needs new target node, create it first
+        target_node_id = choice_data.get("target_node_id")
+
+        if choice_data.get("create_target_node") and not target_node_id:
+            # Create placeholder target node
+            success, msg, target_node = await container.story_editor.create_node(
+                story_id=story_id,
+                node_type=NodeType.STORY,
+                content_text=f"<Continuación desde elección: {choice_data['text'][:30]}...>",
+                order_index=0
+            )
+            if success:
+                target_node_id = target_node.id
+
+        if target_node_id:
+            success, msg, choice = await container.story_editor.create_choice(
+                source_node_id=node.id,
+                target_node_id=target_node_id,
+                choice_text=choice_data["text"],
+                cost_besitos=choice_data.get("cost", 0)
+            )
+            if success:
+                created_choices.append(choice)
+
+    await session.commit()
+
+    # Clear state
+    await state.clear()
+
+    # Show completion summary
+    text = (
+        f"🎩 <b>Nodo Creado</b>\n\n"
+        f"<b>ID:</b> {node.id}\n"
+        f"<b>Tipo:</b> {node_type.display_name}\n"
+        f"<b>Recompensas:</b> {len(selected_rewards)}\n"
+        f"<b>Elecciones:</b> {len(created_choices)}\n\n"
+        f"<i>El nodo ha sido creado exitosamente.</i>"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "➕ Crear siguiente nodo", "callback_data": f"admin:story:node:create:{story_id}"}],
+        [{"text": "📋 Ver nodos", "callback_data": f"admin:story:nodes:{story_id}"}],
+        [{"text": "🔙 Panel de historia", "callback_data": f"admin:story:details:{story_id}"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer("✅ Nodo creado")
+
+
+# =============================================================================
+# NODE LIST AND EDIT HANDLERS
+# =============================================================================
+
+@story_router.callback_query(F.data.startswith("admin:story:nodes:"))
+async def callback_node_list(callback: CallbackQuery, session: AsyncSession):
+    """Show nodes for a story."""
+    try:
+        story_id = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ ID inválido", show_alert=True)
+        return
+
+    story = await session.get(Story, story_id)
+    if not story:
+        await callback.answer("❌ Historia no encontrada", show_alert=True)
+        return
+
+    # Get all nodes
+    result = await session.execute(
+        select(StoryNode).where(
+            and_(
+                StoryNode.story_id == story_id,
+                StoryNode.is_active == True
+            )
+        ).order_by(StoryNode.order_index, StoryNode.id)
+    )
+    nodes = list(result.scalars().all())
+
+    if not nodes:
+        text = (
+            f"🎩 <b>Nodos de Historia</b>\n\n"
+            f"<b>{story.title}</b>\n\n"
+            f"<i>No hay nodos configurados.</i>\n\n"
+            f"Use 'Crear Nodo' para agregar uno."
+        )
+        keyboard = create_inline_keyboard([
+            [{"text": "➕ Crear Nodo", "callback_data": f"admin:story:node:create:{story_id}"}],
+            [{"text": "🔙 Volver", "callback_data": f"admin:story:details:{story_id}"}],
+        ])
+        await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+        await callback.answer()
+        return
+
+    text = (
+        f"🎩 <b>Nodos de Historia</b>\n\n"
+        f"<b>{story.title}</b>\n\n"
+    )
+
+    for node in nodes:
+        type_emoji = {
+            "START": "🚀",
+            "STORY": "📖",
+            "CHOICE": "🎯",
+            "ENDING": "🏁"
+        }.get(node.node_type.value, "📍")
+
+        preview = node.content_text[:30] if node.content_text else "(sin texto)"
+        choice_count = len([c for c in node.choices if c.is_active])
+
+        text += f"{type_emoji} <b>#{node.id}</b> {preview}... ({choice_count} elec.)\n"
+
+    keyboard_rows = []
+    for node in nodes:
+        preview = node.content_text[:20] if node.content_text else f"Nodo #{node.id}"
+        keyboard_rows.append([{
+            "text": f"✏️ {preview}...",
+            "callback_data": f"admin:node:edit:{node.id}"
+        }])
+
+    keyboard_rows.append([{"text": "➕ Crear Nodo", "callback_data": f"admin:story:node:create:{story_id}"}])
+    keyboard_rows.append([{"text": "🔙 Volver", "callback_data": f"admin:story:details:{story_id}"}])
+
+    keyboard = create_inline_keyboard(keyboard_rows)
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data.startswith("admin:node:edit:"))
+async def callback_node_edit(callback: CallbackQuery, session: AsyncSession):
+    """Show node edit menu."""
+    try:
+        node_id = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ ID inválido", show_alert=True)
+        return
+
+    node = await session.get(StoryNode, node_id)
+    if not node:
+        await callback.answer("❌ Nodo no encontrado", show_alert=True)
+        return
+
+    # Get counts
+    condition_count = len(node.conditions) if node.conditions else 0
+    reward_count = len(node.attached_rewards) if node.attached_rewards else 0
+    choice_count = len([c for c in node.choices if c.is_active])
+
+    type_emoji = {
+        "START": "🚀",
+        "STORY": "📖",
+        "CHOICE": "🎯",
+        "ENDING": "🏁"
+    }.get(node.node_type.value, "📍")
+
+    preview = node.content_text[:200] if node.content_text else "<i>(sin texto)</i>"
+
+    text = (
+        f"🎩 <b>Editar Nodo</b>\n\n"
+        f"{type_emoji} <b>Nodo #{node.id}</b> ({node.node_type.display_name})\n\n"
+        f"<b>Contenido:</b>\n{preview}\n\n"
+        f"<b>Condiciones:</b> {condition_count}\n"
+        f"<b>Recompensas:</b> {reward_count}\n"
+        f"<b>Elecciones:</b> {choice_count}\n"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "📝 Editar Contenido", "callback_data": f"admin:node:edit:content:{node_id}"}],
+        [{"text": f"🔒 Condiciones ({condition_count})", "callback_data": f"admin:node:conditions:{node_id}"}],
+        [{"text": f"🎁 Recompensas ({reward_count})", "callback_data": f"admin:node:rewards:{node_id}"}],
+        [{"text": f"🔗 Elecciones ({choice_count})", "callback_data": f"admin:node:choices:{node_id}"}],
+        [{"text": "🗑️ Eliminar", "callback_data": f"admin:node:delete:{node_id}"}],
+        [{"text": "🔙 Volver", "callback_data": f"admin:story:nodes:{node.story_id}"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data.startswith("admin:node:delete:"))
+async def callback_node_delete(callback: CallbackQuery, session: AsyncSession):
+    """Show node delete confirmation."""
+    try:
+        node_id = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ ID inválido", show_alert=True)
+        return
+
+    node = await session.get(StoryNode, node_id)
+    if not node:
+        await callback.answer("❌ Nodo no encontrado", show_alert=True)
+        return
+
+    choice_count = len([c for c in node.choices if c.is_active])
+
+    text = (
+        f"🎩 <b>Confirmar Eliminación</b>\n\n"
+        f"¿Eliminar el nodo <b>#{node.id}</b>?\n\n"
+        f"<i>⚠️ Esto también eliminará {choice_count} elecciones asociadas.</i>\n\n"
+        f"<b>Esta acción no se puede deshacer.</b>"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "✅ Sí, eliminar", "callback_data": f"admin:node:delete:confirm:{node_id}"}],
+        [{"text": "❌ No, cancelar", "callback_data": f"admin:node:edit:{node_id}"}],
+    ])
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data.startswith("admin:node:delete:confirm:"))
+async def callback_node_delete_confirm(callback: CallbackQuery, session: AsyncSession):
+    """Confirm node deletion."""
+    try:
+        node_id = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ ID inválido", show_alert=True)
+        return
+
+    node = await session.get(StoryNode, node_id)
+    if not node:
+        await callback.answer("❌ Nodo no encontrado", show_alert=True)
+        return
+
+    story_id = node.story_id
+
+    # Delete via service
+    container = ServiceContainer(session, callback.bot)
+    success, msg = await container.story_editor.delete_node(node_id)
+
+    if success:
+        await session.commit()
+        await callback.answer(f"✅ Nodo eliminado")
+    else:
+        await callback.answer(f"❌ Error: {msg}", show_alert=True)
+        return
+
+    # Return to node list
+    await callback_node_list(callback, session)
+
+
+# =============================================================================
+# CHOICE LIST AND EDIT HANDLERS
+# =============================================================================
+
+@story_router.callback_query(F.data.startswith("admin:node:choices:"))
+async def callback_choice_list(callback: CallbackQuery, session: AsyncSession):
+    """Show choices for a node."""
+    try:
+        node_id = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ ID inválido", show_alert=True)
+        return
+
+    node = await session.get(StoryNode, node_id)
+    if not node:
+        await callback.answer("❌ Nodo no encontrado", show_alert=True)
+        return
+
+    # Get active choices
+    choices = [c for c in node.choices if c.is_active]
+
+    text = (
+        f"🎩 <b>Elecciones del Nodo</b>\n\n"
+        f"<b>Nodo #{node.id}</b>\n\n"
+    )
+
+    if not choices:
+        text += "<i>No hay elecciones configuradas.</i>\n"
+    else:
+        for choice in choices:
+            cost_text = f" ({choice.cost_besitos}💋)" if choice.cost_besitos > 0 else ""
+            text += f"• {choice.choice_text[:40]}{'...' if len(choice.choice_text) > 40 else ''}{cost_text}\n"
+            text += f"  → Nodo #{choice.target_node_id}\n\n"
+
+    keyboard_rows = []
+    for choice in choices:
+        keyboard_rows.append([
+            {"text": f"✏️ {choice.choice_text[:20]}...", "callback_data": f"admin:choice:edit:{choice.id}"},
+            {"text": "🗑️", "callback_data": f"admin:choice:delete:{choice.id}"}
+        ])
+
+    keyboard_rows.append([{"text": "➕ Agregar Elección", "callback_data": f"admin:choice:create:{node_id}"}])
+    keyboard_rows.append([{"text": "🔙 Volver", "callback_data": f"admin:node:edit:{node_id}"}])
+
+    keyboard = create_inline_keyboard(keyboard_rows)
+
+    await callback.message.edit_text(text=text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
+
+
+@story_router.callback_query(F.data.startswith("admin:choice:delete:"))
+async def callback_choice_delete(callback: CallbackQuery, session: AsyncSession):
+    """Confirm and delete choice."""
+    try:
+        choice_id = int(callback.data.split(":")[-1])
+    except ValueError:
+        await callback.answer("❌ ID inválido", show_alert=True)
+        return
+
+    choice = await session.get(StoryChoice, choice_id)
+    if not choice:
+        await callback.answer("❌ Elección no encontrada", show_alert=True)
+        return
+
+    node_id = choice.source_node_id
+
+    # Delete via service
+    container = ServiceContainer(session, callback.bot)
+    success, msg = await container.story_editor.delete_choice(choice_id)
+
+    if success:
+        await session.commit()
+        await callback.answer("✅ Elección eliminada")
+    else:
+        await callback.answer(f"❌ Error: {msg}", show_alert=True)
+        return
+
+    # Refresh choice list
+    class MockCallback:
+        def __init__(self, message, data, bot):
+            self.message = message
+            self.data = data
+            self.bot = bot
+        async def answer(self, **kwargs):
+            pass
+
+    mock = MockCallback(callback.message, f"admin:node:choices:{node_id}", callback.bot)
+    await callback_choice_list(mock, session)
 
 
 # Router is registered in bot/handlers/admin/__init__.py
