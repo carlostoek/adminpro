@@ -11,8 +11,8 @@
 | Attribute | Value |
 |-----------|-------|
 | Phase | 29-admin-story-editor |
-| Plan | 01 (Node Conditions and Rewards) |
-| Status | Completed - ready for Plan 02
+| Plan | 02 (Story Management Handlers) |
+| Status | Completed - ready for Plan 03
 
 **Progress Bar:**
 ```
@@ -21,11 +21,11 @@ v1.1 Menu System:      [██████████] 100% ✅
 v1.2 Deployment:       [██████████] 100% ✅
 v2.0 Gamification:     [██████████] 100% ✅
 v2.1 Deployment Ready: [██████████] 100% ✅
-v3.0 Narrativa:        [█████░░░░░] 40%  🔄
+v3.0 Narrativa:        [██████░░░░] 50%  🔄
 
 Phase 27: [████████████________] 60% (3/5 plans - Core engine complete)
 Phase 28: [██████______________] 30% (3/5 plans - Story handler integration complete)
-Phase 29: [██__________________] 10% (1/5 plans - Node conditions and rewards)
+Phase 29: [████________________] 20% (2/5 plans - Story management handlers complete)
 ```
 
 ---
@@ -41,7 +41,7 @@ Phase 29: [██__________________] 10% (1/5 plans - Node conditions and reward
 - Leverage existing WalletService for economy operations
 - Follow established voice architecture (Diana 🫦 for content, Lucien 🎩 for system)
 
-**Current Focus:** Plan 29-02 - Admin Story Editor implementation
+**Current Focus:** Plan 29-03 - Node Management Handlers (create nodes, choices)
 
 ---
 
@@ -92,11 +92,14 @@ Phase 29: [██__________________] 10% (1/5 plans - Node conditions and reward
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 29-01 - Node Conditions and Rewards
-**Next Action:** Plan 29-02 - Admin Story Editor implementation
+**Last Action:** Completed Plan 29-02 - Story Management Handlers
+**Next Action:** Plan 29-03 - Node Management Handlers
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
+- feat(29-02): create story_management.py with CRUD handlers
+- feat(29-02): add StoryEditorStates FSM states for story management
+- feat(29-02): register story_router and add menu button
 - feat(29-01): create NodeReward junction table for node-reward associations
 - feat(29-01): create NodeCondition model for node-level access conditions
 - feat(29-01): add PRODUCT_OWNED to RewardConditionType enum
@@ -150,6 +153,31 @@ Phase 29: [██__________________] 10% (1/5 plans - Node conditions and reward
 ---
 
 *State file updated: 2026-02-28*
+
+## Plan 29-02 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~25 minutes |
+| Tasks | 5/5 |
+| Commits | 3 |
+| Files Created | 1 |
+| Files Modified | 3 |
+| Lines Added | ~835 |
+
+**Deliverables:**
+- `StoryEditorStates` with 7 FSM states for story creation and editing
+- `bot/handlers/admin/story_management.py` with 18+ handlers:
+  - Story list with status badges (🟢🟡⚠️🗑️) and premium indicators (💎🆓)
+  - 3-step creation wizard (title → description → premium)
+  - Edit handlers for title, description, premium toggle
+  - Publish/unpublish with validation
+  - Soft delete for draft stories
+  - Statistics view (starts, completions, completion rate)
+- Router registration in `bot/handlers/admin/__init__.py`
+- "📖 Crear Historia" button in admin menu
+
+**SUMMARY:** `.planning/phases/29-admin-story-editor/29-02-SUMMARY.md`
 
 ## Plan 27-02 Completion
 
