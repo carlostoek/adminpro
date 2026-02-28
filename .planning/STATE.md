@@ -10,9 +10,9 @@
 
 | Attribute | Value |
 |-----------|-------|
-| Phase | 28-user-story-experience |
-| Plan | 03 (Story Handler Integration) |
-| Status | Completed - ready for Plan 04
+| Phase | 29-admin-story-editor |
+| Plan | 01 (Node Conditions and Rewards) |
+| Status | Completed - ready for Plan 02
 
 **Progress Bar:**
 ```
@@ -25,6 +25,7 @@ v3.0 Narrativa:        [█████░░░░░] 40%  🔄
 
 Phase 27: [████████████________] 60% (3/5 plans - Core engine complete)
 Phase 28: [██████______________] 30% (3/5 plans - Story handler integration complete)
+Phase 29: [██__________________] 10% (1/5 plans - Node conditions and rewards)
 ```
 
 ---
@@ -40,7 +41,7 @@ Phase 28: [██████______________] 30% (3/5 plans - Story handler inte
 - Leverage existing WalletService for economy operations
 - Follow established voice architecture (Diana 🫦 for content, Lucien 🎩 for system)
 
-**Current Focus:** Plan 28-04 - Story Progress Tracking implementation
+**Current Focus:** Plan 29-02 - Admin Story Editor implementation
 
 ---
 
@@ -91,11 +92,14 @@ Phase 28: [██████______________] 30% (3/5 plans - Story handler inte
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 28-03 - Story Handler Integration
-**Next Action:** Plan 28-04 - Story Progress Tracking implementation
+**Last Action:** Completed Plan 29-01 - Node Conditions and Rewards
+**Next Action:** Plan 29-02 - Admin Story Editor implementation
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
+- feat(29-01): create NodeReward junction table for node-reward associations
+- feat(29-01): create NodeCondition model for node-level access conditions
+- feat(29-01): add PRODUCT_OWNED to RewardConditionType enum
 - feat(28-03): add race condition protection and edge case handling
 - feat(28-03): add stories button to VIP and Free main menus
 - feat(28-01): add story keyboard utilities to keyboards.py
@@ -145,7 +149,7 @@ Phase 28: [██████______________] 30% (3/5 plans - Story handler inte
 
 ---
 
-*State file updated: 2026-02-27*
+*State file updated: 2026-02-28*
 
 ## Plan 27-02 Completion
 
@@ -303,3 +307,28 @@ Phase 28: [██████______________] 30% (3/5 plans - Story handler inte
 - `bot/states/user.py`: Added `processing_choice` state to StoryReadingStates
 
 **SUMMARY:** `.planning/phases/28-user-story-experience/28-03-SUMMARY.md`
+
+## Plan 29-01 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~10 minutes |
+| Tasks | 3/3 |
+| Commits | 3 |
+| Files Modified | 2 |
+| Lines Added | ~176 |
+
+**Deliverables:**
+- PRODUCT_OWNED added to RewardConditionType enum
+- NodeCondition model with fields: id, node_id, condition_type, condition_value, condition_group, is_active, created_at
+- NodeReward junction table linking StoryNode and Reward (many-to-many)
+- All relationships defined: StoryNode.conditions, StoryNode.attached_rewards, Reward.node_rewards
+- Cascade delete configured for all relationships
+- Unique constraint on (node_id, reward_id) to prevent duplicates
+
+**Key Design Decisions:**
+- Reused RewardConditionType enum for consistency with existing condition system
+- Used condition_group pattern (0=AND, 1+=OR) matching RewardCondition model
+- Added is_active flag to NodeReward for soft-disable without deletion
+
+**SUMMARY:** `.planning/phases/29-admin-story-editor/29-01-SUMMARY.md`
