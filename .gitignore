@@ -28,6 +28,10 @@ alembic/versions/*.py
 # Data migrations (seed data for production) - explicitly committed
 !alembic/versions/20260221_000001_seed_gamification_data.py
 
+# Phase 29: Admin Story Editor - Story model is_active column
+!alembic/versions/20260301_102343_merge_heads.py
+!alembic/versions/20260301_102602_add_is_active_to_stories_table.py
+
 # IDE
 .vscode/
 .idea/
