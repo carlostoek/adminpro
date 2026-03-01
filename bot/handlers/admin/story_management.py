@@ -143,9 +143,11 @@ async def callback_stories_menu(callback: CallbackQuery):
 @story_router.callback_query(F.data == "admin:story:list")
 async def callback_story_list(callback: CallbackQuery, session: AsyncSession):
     """Handler for paginated story list with validation badges."""
-    # Get all stories with node count
+    # Get all active stories with node count
     result = await session.execute(
-        select(Story).order_by(Story.status, Story.title)
+        select(Story)
+        .where(Story.is_active == True)
+        .order_by(Story.status, Story.title)
     )
     stories = list(result.scalars().all())
 
