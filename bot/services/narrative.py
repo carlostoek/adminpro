@@ -85,8 +85,13 @@ class NarrativeService:
             f"Fetching available stories for tier={user_tier}, premium={is_premium_user}"
         )
 
-        # Base query: solo historias publicadas
-        query = select(Story).where(Story.status == StoryStatus.PUBLISHED)
+        # Base query: solo historias publicadas y activas
+        query = select(Story).where(
+            and_(
+                Story.status == StoryStatus.PUBLISHED,
+                Story.is_active == True
+            )
+        )
 
         # Filtrar por premium si el usuario no es premium
         if not is_premium_user:
@@ -97,7 +102,10 @@ class NarrativeService:
 
         # Contar total antes de aplicar limit/offset
         count_query = select(func.count(Story.id)).where(
-            Story.status == StoryStatus.PUBLISHED
+            and_(
+                Story.status == StoryStatus.PUBLISHED,
+                Story.is_active == True
+            )
         )
         if not is_premium_user:
             count_query = count_query.where(Story.is_premium == False)
@@ -174,7 +182,8 @@ class NarrativeService:
             select(Story).where(
                 and_(
                     Story.id == story_id,
-                    Story.status == StoryStatus.PUBLISHED
+                    Story.status == StoryStatus.PUBLISHED,
+                    Story.is_active == True
                 )
             )
         )

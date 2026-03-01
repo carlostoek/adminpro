@@ -118,9 +118,14 @@ class StoryEditorService:
         Returns:
             Tuple[bool, str, Optional[StoryNode]]: (éxito, mensaje, nodo creado)
         """
-        # Verificar que la historia existe
+        # Verificar que la historia existe y está activa
         result = await self.session.execute(
-            select(Story).where(Story.id == story_id)
+            select(Story).where(
+                and_(
+                    Story.id == story_id,
+                    Story.is_active == True
+                )
+            )
         )
         story = result.scalar_one_or_none()
 
@@ -241,10 +246,15 @@ class StoryEditorService:
         Returns:
             Tuple[bool, List[str], Dict[str, Any]]: (es_válida, errores, info)
         """
-        # Cargar historia con nodos y elecciones
+        # Cargar historia con nodos y elecciones (solo activas)
         result = await self.session.execute(
             select(Story)
-            .where(Story.id == story_id)
+            .where(
+                and_(
+                    Story.id == story_id,
+                    Story.is_active == True
+                )
+            )
             .options(
                 selectinload(Story.nodes).selectinload(StoryNode.choices)
             )
@@ -363,9 +373,14 @@ class StoryEditorService:
         Returns:
             Tuple[bool, str]: (éxito, mensaje)
         """
-        # Obtener historia
+        # Obtener historia (solo activas)
         result = await self.session.execute(
-            select(Story).where(Story.id == story_id)
+            select(Story).where(
+                and_(
+                    Story.id == story_id,
+                    Story.is_active == True
+                )
+            )
         )
         story = result.scalar_one_or_none()
 
@@ -414,9 +429,14 @@ class StoryEditorService:
         Returns:
             Tuple[bool, str, Optional[Dict]]: (éxito, mensaje, estadísticas)
         """
-        # Verificar que la historia existe
+        # Verificar que la historia existe y está activa
         result = await self.session.execute(
-            select(Story).where(Story.id == story_id)
+            select(Story).where(
+                and_(
+                    Story.id == story_id,
+                    Story.is_active == True
+                )
+            )
         )
         story = result.scalar_one_or_none()
 
