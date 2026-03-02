@@ -280,6 +280,7 @@ async def callback_story_details(callback: CallbackQuery, session: AsyncSession)
         elif story.status == StoryStatus.PUBLISHED:
             keyboard_rows.append([{"text": "⏸️ Despublicar", "callback_data": f"admin:story:unpublish:{story.id}"}])
 
+        keyboard_rows.append([{"text": "📋 Ver Nodos", "callback_data": f"admin:story:nodes:{story.id}"}])
         keyboard_rows.append([{"text": "👁️ Preview", "callback_data": f"admin:story:preview:{story.id}"}])
         keyboard_rows.append([{"text": "📊 Estadísticas", "callback_data": f"admin:story:stats:{story.id}"}])
 
@@ -1266,9 +1267,15 @@ async def callback_node_type_selected(callback: CallbackQuery, state: FSMContext
     """Handle node type selection."""
     try:
         node_type_str = callback.data.split(":")[-1]
-        node_type = NodeType(node_type_str)
-    except ValueError:
-        await callback.answer("❌ Tipo inválido", show_alert=True)
+        logger.debug(f"Node type selected: {node_type_str}")
+        # Try by name first (e.g., "START"), then by value (e.g., "start")
+        try:
+            node_type = NodeType[node_type_str]
+        except KeyError:
+            node_type = NodeType(node_type_str.lower())
+    except (ValueError, KeyError) as e:
+        logger.error(f"Invalid node type: {node_type_str}, error: {e}")
+        await callback.answer(f"❌ Tipo inválido: {node_type_str}", show_alert=True)
         return
 
     # Store type in FSM
