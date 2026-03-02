@@ -1278,8 +1278,8 @@ async def callback_node_type_selected(callback: CallbackQuery, state: FSMContext
         await callback.answer(f"❌ Tipo inválido: {node_type_str}", show_alert=True)
         return
 
-    # Store type in FSM
-    await state.update_data(node_type=node_type_str)
+    # Store type in FSM (store the value, not the name)
+    await state.update_data(node_type=node_type.value)
 
     # If ENDING type, skip conditions and go to final confirmation
     if node_type == NodeType.ENDING:
@@ -1456,7 +1456,7 @@ async def callback_node_rewards_question(callback: CallbackQuery, state: FSMCont
 
 
 @story_router.callback_query(F.data.startswith("node:reward:toggle:"))
-async def callback_node_reward_toggle(callback: CallbackQuery, state: FSMContext):
+async def callback_node_reward_toggle(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     """Toggle reward selection."""
     try:
         reward_id = int(callback.data.split(":")[-1])
@@ -1476,7 +1476,7 @@ async def callback_node_reward_toggle(callback: CallbackQuery, state: FSMContext
     await state.update_data(selected_rewards=selected_rewards)
 
     # Refresh display
-    await callback_node_rewards_question(callback, state)
+    await callback_node_rewards_question(callback, state, session)
 
 
 @story_router.callback_query(F.data == "node:reward:create:inline")
@@ -1519,10 +1519,10 @@ async def callback_node_reward_create_inline(callback: CallbackQuery, state: FSM
 
 
 @story_router.callback_query(F.data == "node:reward:create:cancel")
-async def callback_node_reward_create_cancel(callback: CallbackQuery, state: FSMContext):
+async def callback_node_reward_create_cancel(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     """Cancel inline reward creation and return to rewards selection."""
     await state.set_state(StoryEditorStates.waiting_for_rewards)
-    await callback_node_rewards_question(callback, state)
+    await callback_node_rewards_question(callback, state, session)
 
 
 @story_router.callback_query(F.data == "node:reward:created")
@@ -1554,7 +1554,7 @@ async def callback_node_reward_created(callback: CallbackQuery, state: FSMContex
     await state.set_state(StoryEditorStates.waiting_for_rewards)
 
     # Show reward list again
-    await callback_node_rewards_question(callback, state)
+    await callback_node_rewards_question(callback, state, session)
 
     if created_reward_id:
         await callback.answer("✅ Recompensa creada y seleccionada")
@@ -1831,14 +1831,19 @@ async def callback_node_create_confirm(callback: CallbackQuery, state: FSMContex
     # Create node using StoryEditorService
     container = ServiceContainer(session, callback.bot)
 
-    node_type = NodeType(node_type_str) if node_type_str else NodeType.STORY
+    # Determine node type - if is_ending flag is set, use ENDING type
+    if is_ending:
+        node_type = NodeType.ENDING
+    elif node_type_str:
+        node_type = NodeType(node_type_str)
+    else:
+        node_type = NodeType.STORY
 
     success, msg, node = await container.story_editor.create_node(
         story_id=story_id,
         node_type=node_type,
         content_text=content_text,
-        media_file_ids=media_file_ids if media_file_ids else None,
-        is_ending=is_ending
+        media_file_ids=media_file_ids if media_file_ids else None
     )
 
     if not success:

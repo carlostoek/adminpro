@@ -369,7 +369,7 @@ async def process_reward_description(message: Message, state: FSMContext):
 
 
 @reward_router.callback_query(F.data.startswith("reward_type:"))
-async def callback_reward_type_selected(callback: CallbackQuery, state: FSMContext):
+async def callback_reward_type_selected(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     """Handle reward type selection."""
     reward_type_str = callback.data.split(":")[-1]
     reward_type = RewardType(reward_type_str)
@@ -398,7 +398,6 @@ async def callback_reward_type_selected(callback: CallbackQuery, state: FSMConte
     elif reward_type == RewardType.CONTENT:
         await state.set_state(RewardCreateState.waiting_for_content_set)
         # Get available content sets
-        session = callback.bot.get("session")
         result = await session.execute(
             select(ContentSet).where(ContentSet.is_active == True).order_by(ContentSet.name)
         )
