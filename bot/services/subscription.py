@@ -447,9 +447,12 @@ class SubscriptionService:
             existing_subscriber.status = "active"
             existing_subscriber.token_id = token_id
 
-            # Phase 13: Reset entry stage if expired, otherwise keep NULL (completed)
-            if existing_subscriber.vip_entry_stage is not None:
-                existing_subscriber.vip_entry_stage = 1  # Restart ritual
+            # Phase 13: Restart ritual ONLY if subscription was expired/kicked
+            # This ensures re-entering users get a fresh invite link via the ritual
+            # Users extending active subscriptions keep their current access (stage=None)
+            if was_expired:
+                existing_subscriber.vip_entry_stage = 1  # Restart ritual for re-entry
+                logger.info(f"🔄 Ritual restarted for expired user {_mask_user_id(user_id)}")
 
             # Unban from VIP channel if subscription was expired
             if was_expired:

@@ -193,14 +193,20 @@ async def _activate_token_from_deeplink(
             f"Plan: {plan.name} | Stage: {subscriber.vip_entry_stage}"
         )
 
-        # Iniciar flujo ritualizado (NO enviar enlace inmediato)
-        from bot.handlers.user.vip_entry import show_vip_entry_stage
+        # Iniciar flujo ritualizado solo si stage no es None
+        # (stage=None significa que usuario extendió suscripción activa)
+        if subscriber.vip_entry_stage:
+            from bot.handlers.user.vip_entry import show_vip_entry_stage
 
-        await show_vip_entry_stage(
-            message=message,
-            container=container,
-            stage=subscriber.vip_entry_stage
-        )
+            await show_vip_entry_stage(
+                message=message,
+                container=container,
+                stage=subscriber.vip_entry_stage
+            )
+        else:
+            # Usuario extendió suscripción activa - mostrar menú VIP directamente
+            logger.info(f"✅ Usuario {user.user_id} extendió suscripción VIP - mostrando menú")
+            await _send_welcome_message(message, user, container, user.user_id, session)
 
     except Exception as e:
         logger.error(f"❌ Error activando token desde deep link: {e}", exc_info=True)
