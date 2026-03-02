@@ -29,7 +29,7 @@ class VIPEntryFlowMessages(BaseMessageProvider):
     Provides 5 message methods for 3-stage admission ritual:
     - Stage 1: Activation confirmation with "Continuar" button
     - Stage 2: Expectation alignment with "Estoy listo" button
-    - Stage 3: Access delivery with embedded "Cruzar el umbral" link button
+    - Stage 3: Access delivery with embedded "Entrar al Diván" link button
     - Expiry: Lucien-voiced blocking message for expired subscriptions
     - Resumption: Seamless return to current stage after abandonment
 
@@ -132,7 +132,7 @@ Si entiende lo que significa entrar… entonces sí."""
         Stage 3: Dramatic delivery with VIP channel invite link.
 
         Message: "Entonces no le haré esperar más. Diana le abre la puerta..."
-        Button: "Cruzar el umbral" -> opens invite link
+        Button: "Entrar al Diván" -> opens invite link
 
         Args:
             invite_link: VIP channel invite link URL
@@ -173,7 +173,7 @@ El espacio se adapta a quienes cruzan.
         # Create keyboard with both buttons
         keyboard = InlineKeyboardBuilder()
         keyboard.button(
-            text="Cruzar el umbral ✨",
+            text="Entrar al Diván ✨",
             url=invite_link  # URL button, not callback
         )
         keyboard.button(

@@ -433,7 +433,7 @@ async def test_vip_entry_provider_stage3(container):
     assert text is not None
     assert keyboard is not None
     assert "🎩" in text
-    assert "Cruzar el umbral" in str(keyboard) or "umbral" in text.lower()
+    assert "Entrar al Diván" in str(keyboard) or "diván" in text.lower()
 
 
 async def test_vip_entry_provider_expired_subscription(container):
