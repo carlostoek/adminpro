@@ -11,8 +11,8 @@
 | Attribute | Value |
 |-----------|-------|
 | Phase | 29-admin-story-editor |
-| Plan | 03 (Node Creation Wizard) |
-| Status | Completed - ready for Plan 04
+| Plan | 04 (Story Testing and Preview) |
+| Status | ✅ COMPLETED - Phase 29 Done
 
 **Progress Bar:**
 ```
@@ -21,11 +21,11 @@ v1.1 Menu System:      [██████████] 100% ✅
 v1.2 Deployment:       [██████████] 100% ✅
 v2.0 Gamification:     [██████████] 100% ✅
 v2.1 Deployment Ready: [██████████] 100% ✅
-v3.0 Narrativa:        [██████░░░░] 50%  🔄
+v3.0 Narrativa:        [███████░░░] 60%  🔄
 
 Phase 27: [████████████________] 60% (3/5 plans - Core engine complete)
 Phase 28: [██████______________] 30% (3/5 plans - Story handler integration complete)
-Phase 29: [██████______________] 40% (3/5 plans - Node creation wizard complete)
+Phase 29: [████████████████████] 100% (4/4 plans - Admin story editor complete) ✅
 ```
 
 ---
@@ -41,7 +41,7 @@ Phase 29: [██████______________] 40% (3/5 plans - Node creation wiza
 - Leverage existing WalletService for economy operations
 - Follow established voice architecture (Diana 🫦 for content, Lucien 🎩 for system)
 
-**Current Focus:** Plan 29-04 - Story Testing and Preview (test stories before publishing)
+**Current Focus:** Phase 30 - Economy & Shop Integration (connect narrative with gamification)
 
 ---
 
@@ -92,11 +92,17 @@ Phase 29: [██████______________] 40% (3/5 plans - Node creation wiza
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 29-03 - Node Creation Wizard with conditions and rewards
-**Next Action:** Plan 29-04 - Story Testing and Preview
+**Last Action:** Completed Plan 29-04 - Story Testing and Preview (all 4 plans complete)
+**Next Action:** Phase 30 - Economy & Shop Integration
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
+- fix(29): add missing 'and_' import in story_management handler
+- fix(29): improve node type selection and add missing nodes button
+- feat(29): add database migrations for Story.is_active column
+- feat(29-04): complete story preview mode and validation display
+- feat(29-03): extend StoryEditorService with node conditions and rewards
+- feat(29-03): implement node creation wizard with checkpoint/resume
 - feat(29-02): create story_management.py with CRUD handlers
 - feat(29-02): add StoryEditorStates FSM states for story management
 - feat(29-02): register story_router and add menu button
@@ -390,3 +396,37 @@ Phase 29: [██████______________] 40% (3/5 plans - Node creation wiza
 - Added is_active flag to NodeReward for soft-disable without deletion
 
 **SUMMARY:** `.planning/phases/29-admin-story-editor/29-01-SUMMARY.md`
+
+## Plan 29-04 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~5 minutes (verification) |
+| Tasks | 4/4 |
+| Commits | 1 |
+| Files Verified | 3 |
+
+**Deliverables:**
+- Validation status display with `format_validation_status()` helper
+  - Shows ✅ Jugable, ⚠️ Revisar, or ❌ Bloqueado status
+  - Integrated in story list and story details views
+  - Blocks publishing if validation fails
+- Preview mode for testing stories
+  - `callback_story_preview()` - Start preview from any story
+  - `callback_preview_choice()` - Navigate choices in preview
+  - `callback_preview_exit()` - Exit preview mode
+  - Uses Diana's voice (🫦) for content as users see it
+- Admin menu integration
+  - "📖 Crear Historia" button in admin menu
+  - Routes to story management handlers
+- Keyboard utilities for all story editor screens
+  - `get_story_management_keyboard()` - Main menu
+  - `get_story_list_keyboard_admin()` - Paginated story list
+  - `get_story_detail_keyboard()` - Story actions
+  - `get_node_list_keyboard()` - Node management
+  - `get_node_edit_keyboard()` - Node editing
+  - `get_choice_list_keyboard()` - Choice management
+
+**All ADMIN-01 through ADMIN-12 requirements satisfied.**
+
+**SUMMARY:** `.planning/phases/29-admin-story-editor/29-04-SUMMARY.md`
