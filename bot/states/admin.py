@@ -355,6 +355,24 @@ class ContentSetCreateState(StatesGroup):
     waiting_for_confirmation = State()
 
 
+class ContentSetTestState(StatesGroup):
+    """
+    States for ContentSet test delivery flow.
+
+    Flujo de prueba de envío:
+    1. Admin selecciona "Probar envío" en detalles de ContentSet
+    2. Bot entra en waiting_for_user_id y guarda content_set_id en state
+    3. Admin envía ID de usuario Telegram (número)
+    4. Bot valida que sea un número válido
+    5. Bot envía el ContentSet al usuario especificado
+    6. Bot confirma envío y sale del estado
+
+    Estados:
+    - waiting_for_user_id: Esperando que admin ingrese ID de usuario
+    """
+    waiting_for_user_id = State()
+
+
 class StoryEditorStates(StatesGroup):
     """
     States for story creation and editing flow.

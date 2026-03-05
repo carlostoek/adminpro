@@ -24,7 +24,8 @@ from bot.services.container import ServiceContainer
 from bot.utils.keyboards import create_inline_keyboard
 from bot.database.enums import ContentType, ContentTier
 from bot.database.models import ContentSet
-from bot.states.admin import ContentSetCreateState
+from bot.states.admin import ContentSetCreateState, ContentSetTestState
+from aiogram.types import InputMediaPhoto
 
 logger = logging.getLogger(__name__)
 
@@ -286,6 +287,8 @@ async def callback_content_set_details(callback: CallbackQuery, session: AsyncSe
 
     toggle_text = "🔄 Desactivar" if content_set.is_active else "✅ Activar"
     keyboard = create_inline_keyboard([
+        [{"text": "📂 Ver archivos", "callback_data": f"admin:content_set:view:{content_set.id}"}],
+        [{"text": "🧪 Probar envío", "callback_data": f"admin:content_set:test:{content_set.id}"}],
         [{"text": toggle_text, "callback_data": f"admin:content_set:toggle:{content_set.id}"}],
         [{"text": "🗑️ Eliminar", "callback_data": f"admin:content_set:delete:{content_set.id}"}],
         [{"text": "📋 Lista", "callback_data": "admin:content_sets:list"}]
@@ -897,3 +900,353 @@ async def process_content_set_creation(
         logger.error(f"❌ Error creando ContentSet: {e}")
         await callback.answer("❌ Error al crear ContentSet", show_alert=True)
         await state.clear()
+
+
+# ============================================================================
+# VIEW FILES HANDLER
+# ============================================================================
+
+@content_set_router.callback_query(F.data.startswith("admin:content_set:view:"))
+async def callback_content_set_view_files(
+    callback: CallbackQuery,
+    session: AsyncSession
+):
+    """
+    Handler para ver archivos de un ContentSet.
+
+    Envía todos los archivos del ContentSet al administrador
+    tal como los vería un usuario que compra el producto.
+
+    Args:
+        callback: Callback query con formato "admin:content_set:view:{id}"
+        session: Sesión de BD
+    """
+    content_set_id_str = callback.data.split(":")[-1]
+    try:
+        content_set_id = int(content_set_id_str)
+    except ValueError:
+        logger.error(f"❌ ID de ContentSet inválido: {content_set_id_str}")
+        await callback.answer("❌ Error: ID inválido", show_alert=True)
+        return
+
+    logger.debug(f"📂 Usuario {callback.from_user.id} viendo archivos de ContentSet {content_set_id}")
+
+    # Get content set
+    result = await session.execute(
+        select(ContentSet).where(ContentSet.id == content_set_id)
+    )
+    content_set = result.scalar_one_or_none()
+
+    if content_set is None:
+        await callback.answer("❌ ContentSet no encontrado", show_alert=True)
+        return
+
+    if not content_set.file_ids:
+        await callback.answer("❌ Este ContentSet no tiene archivos", show_alert=True)
+        return
+
+    # Acknowledge the callback
+    await callback.answer("📂 Enviando archivos...")
+
+    # Send files to admin
+    admin_id = callback.from_user.id
+    file_ids = content_set.file_ids
+    content_type = content_set.content_type.value
+
+    try:
+        caption = (
+            f"🎩 <b>Preview: {content_set.name}</b>\n\n"
+            f"<i>Este es el contenido que recibirán los usuarios.</i>\n"
+            f"📁 <b>Total archivos:</b> {len(file_ids)}"
+        )
+
+        if content_type == "photo_set" and len(file_ids) > 1:
+            # Send as media group
+            media = []
+            for i, file_id in enumerate(file_ids):
+                if i == 0:
+                    media.append(InputMediaPhoto(media=file_id, caption=caption, parse_mode="HTML"))
+                else:
+                    media.append(InputMediaPhoto(media=file_id))
+            await callback.bot.send_media_group(chat_id=admin_id, media=media)
+
+        elif content_type == "video":
+            # Send video
+            await callback.bot.send_video(
+                chat_id=admin_id,
+                video=file_ids[0],
+                caption=caption,
+                parse_mode="HTML"
+            )
+
+        elif content_type == "audio":
+            # Send audio
+            await callback.bot.send_audio(
+                chat_id=admin_id,
+                audio=file_ids[0],
+                caption=caption,
+                parse_mode="HTML"
+            )
+
+        else:
+            # Mixed or single photo - send individually
+            for i, file_id in enumerate(file_ids):
+                file_caption = caption if i == 0 else None
+                await callback.bot.send_photo(
+                    chat_id=admin_id,
+                    photo=file_id,
+                    caption=file_caption,
+                    parse_mode="HTML"
+                )
+
+        logger.info(
+            f"✅ ContentSet {content_set_id} preview sent to admin {admin_id}: "
+            f"{len(file_ids)} files"
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Error enviando archivos al admin: {e}", exc_info=True)
+        await callback.bot.send_message(
+            chat_id=admin_id,
+            text="🎩 <b>Lucien:</b>\n\n<i>Hubo un problema al enviar el contenido. Por favor, inténtelo nuevamente.</i>",
+            parse_mode="HTML"
+        )
+
+
+# ============================================================================
+# TEST SEND HANDLERS
+# ============================================================================
+
+@content_set_router.callback_query(F.data.startswith("admin:content_set:test:"))
+async def callback_content_set_test_send(
+    callback: CallbackQuery,
+    state: FSMContext,
+    session: AsyncSession
+):
+    """
+    Handler para iniciar flujo de prueba de envío.
+
+    Pide al administrador que ingrese el ID del usuario al que
+    se le enviará el ContentSet como prueba.
+
+    Args:
+        callback: Callback query con formato "admin:content_set:test:{id}"
+        state: FSM context
+        session: Sesión de BD
+    """
+    content_set_id_str = callback.data.split(":")[-1]
+    try:
+        content_set_id = int(content_set_id_str)
+    except ValueError:
+        logger.error(f"❌ ID de ContentSet inválido: {content_set_id_str}")
+        await callback.answer("❌ Error: ID inválido", show_alert=True)
+        return
+
+    logger.debug(f"🧪 Usuario {callback.from_user.id} iniciando prueba de envío para ContentSet {content_set_id}")
+
+    # Get content set
+    result = await session.execute(
+        select(ContentSet).where(ContentSet.id == content_set_id)
+    )
+    content_set = result.scalar_one_or_none()
+
+    if content_set is None:
+        await callback.answer("❌ ContentSet no encontrado", show_alert=True)
+        return
+
+    if not content_set.file_ids:
+        await callback.answer("❌ Este ContentSet no tiene archivos", show_alert=True)
+        return
+
+    # Store content_set_id in state and enter FSM
+    await state.set_state(ContentSetTestState.waiting_for_user_id)
+    await state.update_data(test_content_set_id=content_set_id)
+
+    text = (
+        f"🎩 <b>Probar Envío de ContentSet</b>\n\n"
+        f"<b>ContentSet:</b> {content_set.name}\n"
+        f"<b>Archivos:</b> {content_set.file_count}\n\n"
+        f"<i>Por favor, envíe el <b>ID de Telegram</b> del usuario de prueba.</i>\n\n"
+        f"<b>Notas:</b>\n"
+        f"• El usuario debe haber iniciado el bot previamente\n"
+        f"• El ID debe ser un número (ej: 123456789)\n"
+        f"• El contenido se enviará exactamente como lo vería el usuario\n\n"
+        f"<i>Envíe /cancel para cancelar.</i>"
+    )
+
+    keyboard = create_inline_keyboard([
+        [{"text": "❌ Cancelar", "callback_data": f"admin:content_set:details:{content_set_id}"}]
+    ])
+
+    try:
+        await callback.message.edit_text(
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        if "message is not modified" not in str(e):
+            logger.error(f"❌ Error iniciando prueba de envío: {e}")
+
+    await callback.answer()
+
+
+@content_set_router.message(ContentSetTestState.waiting_for_user_id)
+async def process_content_set_test_user_id(
+    message: Message,
+    state: FSMContext,
+    session: AsyncSession
+):
+    """
+    Procesa el ID de usuario y envía el ContentSet como prueba.
+
+    Args:
+        message: Mensaje con el ID de usuario
+        state: FSM context
+        session: Sesión de BD
+    """
+    # Handle cancel
+    if message.text.strip() == "/cancel":
+        await state.clear()
+        await message.answer(
+            "🎩 <b>Lucien:</b>\n\n<i>Prueba de envío cancelada.</i>",
+            parse_mode="HTML"
+        )
+        return
+
+    # Validate user_id is a number
+    user_id_text = message.text.strip()
+    try:
+        target_user_id = int(user_id_text)
+    except ValueError:
+        await message.answer(
+            "🎩 <b>Atención</b>\n\n"
+            "El ID de usuario debe ser un número.\n"
+            "Por favor, envíe un ID válido (ej: 123456789) o /cancel:",
+            parse_mode="HTML"
+        )
+        return
+
+    # Get content_set_id from state
+    data = await state.get_data()
+    content_set_id = data.get("test_content_set_id")
+
+    if not content_set_id:
+        await state.clear()
+        await message.answer(
+            "🎩 <b>Lucien:</b>\n\n<i>Error: No se encontró el ContentSet. Por favor, inténtelo nuevamente.</i>",
+            parse_mode="HTML"
+        )
+        return
+
+    # Get content set
+    result = await session.execute(
+        select(ContentSet).where(ContentSet.id == content_set_id)
+    )
+    content_set = result.scalar_one_or_none()
+
+    if content_set is None:
+        await state.clear()
+        await message.answer(
+            "🎩 <b>Lucien:</b>\n\n<i>Error: ContentSet no encontrado.</i>",
+            parse_mode="HTML"
+        )
+        return
+
+    # Send the content to the target user
+    admin_id = message.from_user.id
+    file_ids = content_set.file_ids
+    content_type = content_set.content_type.value
+
+    try:
+        # Send test message to target user
+        test_caption = (
+            f"🎩 <b>Contenido de Prueba</b>\n\n"
+            f"<i>Este es un envío de prueba del administrador.</i>\n\n"
+            f"📁 <b>{content_set.name}</b>\n"
+            f"📄 <b>Archivos:</b> {len(file_ids)}"
+        )
+
+        if content_type == "photo_set" and len(file_ids) > 1:
+            # Send as media group
+            media = []
+            for i, file_id in enumerate(file_ids):
+                if i == 0:
+                    media.append(InputMediaPhoto(media=file_id, caption=test_caption, parse_mode="HTML"))
+                else:
+                    media.append(InputMediaPhoto(media=file_id))
+            await message.bot.send_media_group(chat_id=target_user_id, media=media)
+
+        elif content_type == "video":
+            await message.bot.send_video(
+                chat_id=target_user_id,
+                video=file_ids[0],
+                caption=test_caption,
+                parse_mode="HTML"
+            )
+
+        elif content_type == "audio":
+            await message.bot.send_audio(
+                chat_id=target_user_id,
+                audio=file_ids[0],
+                caption=test_caption,
+                parse_mode="HTML"
+            )
+
+        else:
+            # Mixed or single photo - send individually
+            for i, file_id in enumerate(file_ids):
+                file_caption = test_caption if i == 0 else None
+                await message.bot.send_photo(
+                    chat_id=target_user_id,
+                    photo=file_id,
+                    caption=file_caption,
+                    parse_mode="HTML"
+                )
+
+        # Clear state
+        await state.clear()
+
+        # Confirm to admin
+        await message.answer(
+            f"🎩 <b>Lucien:</b>\n\n"
+            f"✅ <b>Envío de prueba completado</b>\n\n"
+            f"📁 <b>ContentSet:</b> {content_set.name}\n"
+            f"👤 <b>Enviado a:</b> <code>{target_user_id}</code>\n"
+            f"📄 <b>Archivos:</b> {len(file_ids)}\n\n"
+            f"<i>El usuario de prueba debería haber recibido el contenido.</i>",
+            parse_mode="HTML"
+        )
+
+        logger.info(
+            f"✅ ContentSet {content_set_id} test sent from admin {admin_id} "
+            f"to user {target_user_id}: {len(file_ids)} files"
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Error en envío de prueba: {e}", exc_info=True)
+
+        await state.clear()
+
+        # Check if it's a bot blocked error
+        error_msg = str(e).lower()
+        if "blocked" in error_msg or "chat not found" in error_msg or "user not found" in error_msg:
+            await message.answer(
+                f"🎩 <b>Lucien:</b>\n\n"
+                f"❌ <b>No se pudo enviar el contenido</b>\n\n"
+                f"El usuario <code>{target_user_id}</code> no puede recibir mensajes.\n"
+                f"Posibles causas:\n"
+                f"• El usuario bloqueó el bot\n"
+                f"• El usuario nunca inició el bot\n"
+                f"• El ID es incorrecto\n\n"
+                f"<i>Por favor, verifique que el usuario haya iniciado el bot.</i>",
+                parse_mode="HTML"
+            )
+        else:
+            await message.answer(
+                f"🎩 <b>Lucien:</b>\n\n"
+                f"❌ <b>Error en el envío de prueba</b>\n\n"
+                f"<i>{str(e)}</i>\n\n"
+                f"Por favor, inténtelo nuevamente.",
+                parse_mode="HTML"
+            )
