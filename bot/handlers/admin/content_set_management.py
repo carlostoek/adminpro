@@ -960,6 +960,11 @@ async def callback_content_set_view_files(
             f"📁 <b>Total archivos:</b> {len(file_ids)}"
         )
 
+        # Keyboard for the content message
+        back_keyboard = create_inline_keyboard([
+            [{"text": "🔙 Volver al ContentSet", "callback_data": f"admin:content_set:details:{content_set_id}"}]
+        ])
+
         if content_type == "photo_set" and len(file_ids) > 1:
             # Send as media group
             media = []
@@ -969,35 +974,74 @@ async def callback_content_set_view_files(
                 else:
                     media.append(InputMediaPhoto(media=file_id))
             await callback.bot.send_media_group(chat_id=admin_id, media=media)
+            # Send follow-up message with back button
+            await callback.bot.send_message(
+                chat_id=admin_id,
+                text=f"📂 <b>Archivos de: {content_set.name}</b>",
+                reply_markup=back_keyboard,
+                parse_mode="HTML"
+            )
 
         elif content_type == "video":
-            # Send video
+            # Send video with back button
             await callback.bot.send_video(
                 chat_id=admin_id,
                 video=file_ids[0],
                 caption=caption,
-                parse_mode="HTML"
+                parse_mode="HTML",
+                reply_markup=back_keyboard
             )
 
         elif content_type == "audio":
-            # Send audio
+            # Send audio with back button
             await callback.bot.send_audio(
                 chat_id=admin_id,
                 audio=file_ids[0],
                 caption=caption,
-                parse_mode="HTML"
+                parse_mode="HTML",
+                reply_markup=back_keyboard
             )
 
         else:
             # Mixed or single photo - send individually
             for i, file_id in enumerate(file_ids):
                 file_caption = caption if i == 0 else None
-                await callback.bot.send_photo(
-                    chat_id=admin_id,
-                    photo=file_id,
-                    caption=file_caption,
-                    parse_mode="HTML"
-                )
+                if i == len(file_ids) - 1:
+                    # Last file - include back button
+                    await callback.bot.send_photo(
+                        chat_id=admin_id,
+                        photo=file_id,
+                        caption=file_caption,
+                        parse_mode="HTML",
+                        reply_markup=back_keyboard
+                    )
+                else:
+                    await callback.bot.send_photo(
+                        chat_id=admin_id,
+                        photo=file_id,
+                        caption=file_caption,
+                        parse_mode="HTML"
+                    )
+
+        # Edit the original menu message to show confirmation
+        confirm_text = (
+            f"🎩 <b>ContentSet: {content_set.name}</b>\n\n"
+            f"✅ <b>{len(file_ids)} archivos enviados</b>\n\n"
+            f"<i>Use el botón de abajo para volver al menú.</i>"
+        )
+        confirm_keyboard = create_inline_keyboard([
+            [{"text": "🔙 Volver al ContentSet", "callback_data": f"admin:content_set:details:{content_set_id}"}]
+        ])
+
+        try:
+            await callback.message.edit_text(
+                text=confirm_text,
+                reply_markup=confirm_keyboard,
+                parse_mode="HTML"
+            )
+        except Exception:
+            # If edit fails, message might have been deleted or modified
+            pass
 
         logger.info(
             f"✅ ContentSet {content_set_id} preview sent to admin {admin_id}: "
@@ -1006,11 +1050,23 @@ async def callback_content_set_view_files(
 
     except Exception as e:
         logger.error(f"❌ Error enviando archivos al admin: {e}", exc_info=True)
-        await callback.bot.send_message(
-            chat_id=admin_id,
-            text="🎩 <b>Lucien:</b>\n\n<i>Hubo un problema al enviar el contenido. Por favor, inténtelo nuevamente.</i>",
-            parse_mode="HTML"
+        # Edit the menu message to show error
+        error_text = (
+            f"🎩 <b>ContentSet: {content_set.name}</b>\n\n"
+            f"❌ <b>Error al enviar archivos</b>\n\n"
+            f"<i>Hubo un problema al enviar el contenido.</i>"
         )
+        error_keyboard = create_inline_keyboard([
+            [{"text": "🔙 Volver", "callback_data": f"admin:content_set:details:{content_set_id}"}]
+        ])
+        try:
+            await callback.message.edit_text(
+                text=error_text,
+                reply_markup=error_keyboard,
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
 
 
 # ============================================================================
@@ -1207,7 +1263,11 @@ async def process_content_set_test_user_id(
         # Clear state
         await state.clear()
 
-        # Confirm to admin
+        # Send confirmation to admin with back button
+        confirm_keyboard = create_inline_keyboard([
+            [{"text": "🔙 Volver al ContentSet", "callback_data": f"admin:content_set:details:{content_set_id}"}]
+        ])
+
         await message.answer(
             f"🎩 <b>Lucien:</b>\n\n"
             f"✅ <b>Envío de prueba completado</b>\n\n"
@@ -1215,6 +1275,7 @@ async def process_content_set_test_user_id(
             f"👤 <b>Enviado a:</b> <code>{target_user_id}</code>\n"
             f"📄 <b>Archivos:</b> {len(file_ids)}\n\n"
             f"<i>El usuario de prueba debería haber recibido el contenido.</i>",
+            reply_markup=confirm_keyboard,
             parse_mode="HTML"
         )
 
@@ -1228,6 +1289,11 @@ async def process_content_set_test_user_id(
 
         await state.clear()
 
+        # Error keyboard with back button
+        error_keyboard = create_inline_keyboard([
+            [{"text": "🔙 Volver al ContentSet", "callback_data": f"admin:content_set:details:{content_set_id}"}]
+        ])
+
         # Check if it's a bot blocked error
         error_msg = str(e).lower()
         if "blocked" in error_msg or "chat not found" in error_msg or "user not found" in error_msg:
@@ -1240,6 +1306,7 @@ async def process_content_set_test_user_id(
                 f"• El usuario nunca inició el bot\n"
                 f"• El ID es incorrecto\n\n"
                 f"<i>Por favor, verifique que el usuario haya iniciado el bot.</i>",
+                reply_markup=error_keyboard,
                 parse_mode="HTML"
             )
         else:
@@ -1248,5 +1315,6 @@ async def process_content_set_test_user_id(
                 f"❌ <b>Error en el envío de prueba</b>\n\n"
                 f"<i>{str(e)}</i>\n\n"
                 f"Por favor, inténtelo nuevamente.",
+                reply_markup=error_keyboard,
                 parse_mode="HTML"
             )
