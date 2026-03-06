@@ -171,7 +171,7 @@ class TestHandleSuccess:
     """Test success feedback handler."""
 
     async def test_success_with_besitos(self):
-        """Should show message with besitos earned."""
+        """Should show message with besitos earned in Lucien voice."""
         callback = MagicMock()
         callback.answer = AsyncMock()
         data = {"besitos_earned": 5, "reactions_today": 3, "daily_limit": 20}
@@ -182,10 +182,13 @@ class TestHandleSuccess:
         call_args = callback.answer.call_args
         assert "+5 besitos" in call_args[0][0]
         assert "3/20" in call_args[0][0]
-        assert call_args[1].get("show_alert") is False
+        assert "🎩" in call_args[0][0]  # Lucien emoji
+        assert "Su reacción ha sido registrada" in call_args[0][0]
+        assert "actualizará en un momento" in call_args[0][0].lower()
+        assert call_args[1].get("show_alert") is True  # Now True for Lucien message
 
     async def test_success_without_besitos(self):
-        """Should show message without besitos info."""
+        """Should show message without besitos info in Lucien voice."""
         callback = MagicMock()
         callback.answer = AsyncMock()
         data = {"besitos_earned": 0, "reactions_today": 5, "daily_limit": 20}
@@ -196,6 +199,9 @@ class TestHandleSuccess:
         call_args = callback.answer.call_args
         assert "🔥" in call_args[0][0]
         assert "5/20" in call_args[0][0]
+        assert "🎩" in call_args[0][0]  # Lucien emoji
+        assert "Su reacción ha sido registrada" in call_args[0][0]
+        assert call_args[1].get("show_alert") is True  # Now True for Lucien message
 
 
 class TestHandleFailure:

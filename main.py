@@ -184,6 +184,12 @@ async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
     # Iniciar background tasks (incluye limpieza de solicitudes expiradas post-reinicio)
     await start_background_tasks(bot)
 
+    # Inicializar servicio de batching para actualizaciones de teclado
+    from bot.services.keyboard_updater import KeyboardUpdateService, set_keyboard_updater
+    keyboard_updater = KeyboardUpdateService(bot)
+    set_keyboard_updater(keyboard_updater)
+    logger.info("✅ KeyboardUpdateService inicializado (batching de reacciones)")
+
     # Iniciar health check API en thread separado
     # El health server corre en su propio thread con su propio event loop
     # para evitar conflictos con uvicorn y las señales de aiogram

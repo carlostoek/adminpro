@@ -12,6 +12,7 @@ from aiogram.types import CallbackQuery
 from aiogram.exceptions import TelegramBadRequest
 
 from bot.services.container import ServiceContainer
+from bot.services.keyboard_updater import get_keyboard_updater
 from bot.database.enums import ContentCategory
 from bot.utils.keyboards import get_reaction_keyboard, get_reaction_keyboard_with_counts
 
@@ -144,6 +145,10 @@ async def _handle_success(
     """
     Maneja reacción exitosa.
 
+    Muestra mensaje en voz de Lucien informando que la reacción fue registrada
+    y que el teclado se actualizará en breve (para evitar que el usuario
+    presione múltiples veces si no ve cambios inmediatos).
+
     Args:
         callback: Callback query
         data: Datos de la reacción (besitos_earned, reactions_today, daily_limit)
@@ -153,12 +158,23 @@ async def _handle_success(
     today = data.get("reactions_today", 0)
     limit = data.get("daily_limit", 20)
 
+    # Mensaje en voz de Lucien informando del batching
     if besitos > 0:
-        message = f"{emoji} ¡Reacción guardada! +{besitos} besitos ({today}/{limit})"
+        message = (
+            f"🎩 <b>Su reacción ha sido registrada</b>\n\n"
+            f"{emoji} +{besitos} besitos ({today}/{limit})\n\n"
+            f"<i>El contador se actualizará en un momento. "
+            f"No es necesario que reaccione de nuevo.</i>"
+        )
     else:
-        message = f"{emoji} ¡Reacción guardada! ({today}/{limit})"
+        message = (
+            f"🎩 <b>Su reacción ha sido registrada</b>\n\n"
+            f"{emoji} ({today}/{limit})\n\n"
+            f"<i>El contador se actualizará en un momento. "
+            f"No es necesario que reaccione de nuevo.</i>"
+        )
 
-    await callback.answer(message, show_alert=False)
+    await callback.answer(message, show_alert=True)
 
 
 async def _handle_failure(
@@ -197,43 +213,78 @@ async def _update_keyboard(
     user_id: int
 ) -> None:
     """
-    Actualiza el teclado con conteos actualizados.
+    Programa actualización del teclado con batching.
 
-    Nota: No mostramos marcas personales (✓) porque el mensaje es compartido
-    en el canal y todas las personas ven el mismo teclado. El usuario sabe
-    qué reaccionó porque recibe el mensaje de confirmación.
+    Usa KeyboardUpdateService para acumular actualizaciones y aplicarlas
+    en batch, evitando flood control de Telegram:
+    - Primeros 5 min: cada 5 reacciones
+    - Después: cada 2 reacciones
+    - Máximo 5 min sin actualizar
 
     Args:
         callback: Callback query
         container: ServiceContainer
         content_id: ID del contenido
         channel_id: ID del canal
-        user_id: ID del usuario (no se usa para marcar, solo para logging)
+        user_id: ID del usuario (para logging)
+    """
+    updater = get_keyboard_updater()
+
+    if updater is None:
+        # Fallback: actualizar inmediatamente si no hay servicio
+        logger.warning("KeyboardUpdateService no disponible, actualizando inmediatamente")
+        await _update_keyboard_immediate(callback, container, content_id, channel_id)
+        return
+
+    try:
+        updated, status = await updater.schedule_update(
+            content_id=content_id,
+            channel_id=channel_id,
+            reaction_service=container.reaction
+        )
+
+        if updated:
+            logger.debug(f"Teclado actualizado inmediatamente para content {content_id}")
+        else:
+            logger.debug(f"Actualización de teclado programada: {status}")
+
+    except Exception as e:
+        logger.error(f"Error programando actualización de teclado: {e}")
+
+
+async def _update_keyboard_immediate(
+    callback: CallbackQuery,
+    container: ServiceContainer,
+    content_id: int,
+    channel_id: str
+) -> None:
+    """
+    Actualiza el teclado inmediatamente (fallback si no hay batching).
+
+    Args:
+        callback: Callback query
+        container: ServiceContainer
+        content_id: ID del contenido
+        channel_id: ID del canal
     """
     try:
-        # Get updated reaction counts
         counts = await container.reaction.get_content_reactions(content_id, channel_id)
 
-        # Build keyboard showing only counts (no personal marks)
-        # Las marcas personales no funcionan en mensajes de canal compartido
-        from bot.utils.keyboards import get_reaction_keyboard
         keyboard = get_reaction_keyboard(
             content_id=content_id,
             channel_id=channel_id,
             current_counts=counts
         )
 
-        # Try to update the message
-        # Note: callback.message puede ser None en mensajes >48h
         if callback.message is None:
             logger.debug(f"No se puede actualizar keyboard: mensaje expirado (>48h)")
             return
+
         await callback.message.edit_reply_markup(reply_markup=keyboard)
 
     except TelegramBadRequest as e:
-        # Message might be unchanged or too old
         if "message is not modified" in str(e).lower():
-            pass  # OK, no change needed
+            pass
         else:
             logger.debug(f"Could not update keyboard: {e}")
     except Exception as e:
