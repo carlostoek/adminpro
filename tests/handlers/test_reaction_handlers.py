@@ -201,6 +201,7 @@ class TestHandleSuccess:
         assert "5/20" in call_args[0][0]
         assert "🎩" in call_args[0][0]  # Lucien emoji
         assert "Su reacción ha sido registrada" in call_args[0][0]
+        assert "actualizará en un momento" in call_args[0][0].lower()
         assert call_args[1].get("show_alert") is True  # Now True for Lucien message
 
 

@@ -158,20 +158,20 @@ async def _handle_success(
     today = data.get("reactions_today", 0)
     limit = data.get("daily_limit", 20)
 
-    # Mensaje en voz de Lucien informando del batching
+    # Mensaje en voz de Lucien informando del batching (texto plano, no HTML)
     if besitos > 0:
         message = (
-            f"🎩 <b>Su reacción ha sido registrada</b>\n\n"
+            f"🎩 Su reacción ha sido registrada\n\n"
             f"{emoji} +{besitos} besitos ({today}/{limit})\n\n"
-            f"<i>El contador se actualizará en un momento. "
-            f"No es necesario que reaccione de nuevo.</i>"
+            f"El contador se actualizará en un momento. "
+            f"No es necesario que reaccione de nuevo."
         )
     else:
         message = (
-            f"🎩 <b>Su reacción ha sido registrada</b>\n\n"
+            f"🎩 Su reacción ha sido registrada\n\n"
             f"{emoji} ({today}/{limit})\n\n"
-            f"<i>El contador se actualizará en un momento. "
-            f"No es necesario que reaccione de nuevo.</i>"
+            f"El contador se actualizará en un momento. "
+            f"No es necesario que reaccione de nuevo."
         )
 
     await callback.answer(message, show_alert=True)
