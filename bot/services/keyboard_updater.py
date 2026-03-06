@@ -21,8 +21,11 @@ from dataclasses import dataclass, field
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
+from sqlalchemy import select, func
 
 from bot.utils.keyboards import get_reaction_keyboard, DEFAULT_REACTIONS
+from bot.database.engine import get_session
+from bot.database.models import UserReaction
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +80,7 @@ class KeyboardUpdateService:
     async def schedule_update(
         self,
         content_id: int,
-        channel_id: str,
-        reaction_service
+        channel_id: str
     ) -> tuple[bool, str]:
         """
         Programa una actualización de teclado con batching.
@@ -86,7 +88,6 @@ class KeyboardUpdateService:
         Args:
             content_id: ID del mensaje/contenido
             channel_id: ID del canal
-            reaction_service: Servicio para obtener conteos de reacciones
 
         Returns:
             Tuple[bool, str]: (se_actualizó_ahora, mensaje_estado)
@@ -111,11 +112,11 @@ class KeyboardUpdateService:
 
                 if pending.reaction_count >= batch_size:
                     # Aplicar ahora
-                    await self._apply_update(key, reaction_service)
+                    await self._apply_update(key)
                     return True, f"Teclado actualizado ({pending.reaction_count} reacciones)"
                 else:
                     # Programar timer si no existe
-                    await self._ensure_timer(key, reaction_service)
+                    await self._ensure_timer(key)
                     remaining = batch_size - pending.reaction_count
                     return False, f"Reacción #{pending.reaction_count}, falta(n) {remaining} para actualizar"
             else:
@@ -129,17 +130,17 @@ class KeyboardUpdateService:
                 )
 
                 # Programar timer para timeout máximo
-                await self._ensure_timer(key, reaction_service)
+                await self._ensure_timer(key)
                 return False, f"Primera reacción, acumulando para batch..."
 
-    async def _ensure_timer(self, key: str, reaction_service):
+    async def _ensure_timer(self, key: str):
         """Asegura que haya un timer programado para esta key."""
         if key not in self._timers or self._timers[key].done():
             self._timers[key] = asyncio.create_task(
-                self._timer_callback(key, reaction_service)
+                self._timer_callback(key)
             )
 
-    async def _timer_callback(self, key: str, reaction_service):
+    async def _timer_callback(self, key: str):
         """Timer que fuerza actualización después de MAX_DELAY_SECONDS."""
         try:
             await asyncio.sleep(self.MAX_DELAY_SECONDS)
@@ -147,13 +148,45 @@ class KeyboardUpdateService:
             async with self._lock:
                 if key in self._pending:
                     self._logger.info(f"⏰ Timeout alcanzado para {key}, aplicando actualización")
-                    await self._apply_update(key, reaction_service)
+                    await self._apply_update(key)
         except asyncio.CancelledError:
             pass
         except Exception as e:
             self._logger.error(f"Error en timer para {key}: {e}")
 
-    async def _apply_update(self, key: str, reaction_service):
+    async def _get_content_reactions(self, content_id: int, channel_id: str) -> Dict[str, int]:
+        """
+        Obtiene el conteo de reacciones por emoji para un contenido.
+        Usa una sesión fresca para evitar problemas de stale data.
+
+        Args:
+            content_id: ID del contenido
+            channel_id: ID del canal
+
+        Returns:
+            Dict[emoji, count]: Conteo de cada emoji
+        """
+        try:
+            async with get_session() as session:
+                result = await session.execute(
+                    select(UserReaction.emoji, func.count(UserReaction.id))
+                    .where(
+                        UserReaction.content_id == content_id,
+                        UserReaction.channel_id == channel_id
+                    )
+                    .group_by(UserReaction.emoji)
+                )
+
+                counts = {}
+                for row in result.all():
+                    counts[row[0]] = row[1]
+
+                return counts
+        except Exception as e:
+            self._logger.error(f"Error obteniendo conteos de reacciones: {e}")
+            return {}
+
+    async def _apply_update(self, key: str):
         """Aplica la actualización del teclado."""
         if key not in self._pending:
             return
@@ -161,11 +194,13 @@ class KeyboardUpdateService:
         pending = self._pending[key]
 
         try:
-            # Obtener conteos actuales
-            counts = await reaction_service.get_content_reactions(
+            # Obtener conteos actuales usando sesión fresca
+            counts = await self._get_content_reactions(
                 pending.content_id,
                 pending.channel_id
             )
+
+            self._logger.debug(f"Conteos obtenidos para {key}: {counts}")
 
             # Construir teclado
             keyboard = get_reaction_keyboard(
@@ -184,7 +219,8 @@ class KeyboardUpdateService:
             elapsed = (datetime.now(timezone.utc) - pending.first_reaction_at).total_seconds()
             self._logger.info(
                 f"✅ Teclado actualizado: {key} "
-                f"({pending.reaction_count} reacciones en {elapsed:.1f}s)"
+                f"({pending.reaction_count} reacciones en {elapsed:.1f}s, "
+                f"conteos: {counts})"
             )
 
         except TelegramBadRequest as e:
@@ -193,7 +229,7 @@ class KeyboardUpdateService:
             elif "flood control" in str(e).lower():
                 self._logger.warning(f"⚠️ Flood control en {key}, reintentando en 5s...")
                 # Reprogramar para reintentar
-                asyncio.create_task(self._retry_update(key, reaction_service, delay=5))
+                asyncio.create_task(self._retry_update(key, delay=5))
                 return  # No limpiar pending, se reintentará
             else:
                 self._logger.debug(f"No se pudo actualizar teclado {key}: {e}")
@@ -208,21 +244,20 @@ class KeyboardUpdateService:
                 if not timer.done():
                     timer.cancel()
 
-    async def _retry_update(self, key: str, reaction_service, delay: int):
+    async def _retry_update(self, key: str, delay: int):
         """Reintenta la actualización después de un delay."""
         await asyncio.sleep(delay)
         async with self._lock:
             if key in self._pending:
-                await self._apply_update(key, reaction_service)
+                await self._apply_update(key)
 
-    async def force_update(self, content_id: int, channel_id: str, reaction_service) -> bool:
+    async def force_update(self, content_id: int, channel_id: str) -> bool:
         """
         Fuerza la actualización inmediata de un teclado específico.
 
         Args:
             content_id: ID del contenido
             channel_id: ID del canal
-            reaction_service: Servicio de reacciones
 
         Returns:
             True si se aplicó la actualización
@@ -230,7 +265,7 @@ class KeyboardUpdateService:
         key = self._make_key(channel_id, content_id)
         async with self._lock:
             if key in self._pending:
-                await self._apply_update(key, reaction_service)
+                await self._apply_update(key)
                 return True
             return False
 

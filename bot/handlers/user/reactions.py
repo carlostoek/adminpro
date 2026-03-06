@@ -239,8 +239,7 @@ async def _update_keyboard(
     try:
         updated, status = await updater.schedule_update(
             content_id=content_id,
-            channel_id=channel_id,
-            reaction_service=container.reaction
+            channel_id=channel_id
         )
 
         if updated:
