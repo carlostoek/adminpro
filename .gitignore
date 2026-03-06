@@ -45,3 +45,4 @@ docs/security/*.md
 # OS
 .DS_Store
 Thumbs.db
+log_temp.md
