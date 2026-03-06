@@ -13,7 +13,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 from bot.services.container import ServiceContainer
 from bot.database.enums import ContentCategory
-from bot.utils.keyboards import get_reaction_keyboard_with_counts
+from bot.utils.keyboards import get_reaction_keyboard, get_reaction_keyboard_with_counts
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -199,32 +199,28 @@ async def _update_keyboard(
     """
     Actualiza el teclado con conteos actualizados.
 
+    Nota: No mostramos marcas personales (✓) porque el mensaje es compartido
+    en el canal y todas las personas ven el mismo teclado. El usuario sabe
+    qué reaccionó porque recibe el mensaje de confirmación.
+
     Args:
         callback: Callback query
         container: ServiceContainer
         content_id: ID del contenido
         channel_id: ID del canal
-        user_id: ID del usuario (para marcar sus reacciones)
+        user_id: ID del usuario (no se usa para marcar, solo para logging)
     """
     try:
         # Get updated reaction counts
         counts = await container.reaction.get_content_reactions(content_id, channel_id)
 
-        # Get user's reactions to mark them
-        user_reactions = await container.reaction.get_user_reactions_for_content(
-            user_id=user_id,
-            content_id=content_id,
-            channel_id=channel_id
-        )
-
-        # Build new keyboard with user reactions marked and counts displayed
-        from bot.utils.keyboards import DEFAULT_REACTIONS
-        keyboard = get_reaction_keyboard_with_counts(
+        # Build keyboard showing only counts (no personal marks)
+        # Las marcas personales no funcionan en mensajes de canal compartido
+        from bot.utils.keyboards import get_reaction_keyboard
+        keyboard = get_reaction_keyboard(
             content_id=content_id,
             channel_id=channel_id,
-            reactions=DEFAULT_REACTIONS,
-            user_reactions=user_reactions,
-            counts=counts
+            current_counts=counts
         )
 
         # Try to update the message

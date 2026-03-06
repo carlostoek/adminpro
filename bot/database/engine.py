@@ -125,8 +125,8 @@ def create_async_engine_with_logging(
             db_url,
             echo=echo,
             poolclass=QueuePool,
-            pool_size=5,
-            max_overflow=10,
+            pool_size=80,
+            max_overflow=40,
             pool_pre_ping=True,
             connect_args={
                 "timeout": 30,
@@ -207,7 +207,7 @@ async def _create_postgresql_engine(url: str, debug_mode: bool = False) -> Async
     Crea un AsyncEngine optimizado para PostgreSQL.
 
     Configuración:
-    - QueuePool con pool_size=5, max_overflow=10
+    - QueuePool con pool_size=80, max_overflow=40
     - pool_pre_ping=True para validar conexiones
     - timeout=30, command_timeout=30
 
@@ -224,8 +224,8 @@ async def _create_postgresql_engine(url: str, debug_mode: bool = False) -> Async
         url,
         echo=debug_mode,  # Logging de queries si debug_mode=True
         poolclass=QueuePool,
-        pool_size=5,
-        max_overflow=10,
+        pool_size=80,
+        max_overflow=40,
         pool_pre_ping=True,  # Validar conexiones antes de usar
         connect_args={
             "timeout": 30,
@@ -235,7 +235,7 @@ async def _create_postgresql_engine(url: str, debug_mode: bool = False) -> Async
 
     logger.info(
         "✅ PostgreSQL engine configurado "
-        f"(pool_size=5, max_overflow=10, pool_pre_ping=True, debug={debug_mode})"
+        f"(pool_size=80, max_overflow=40, pool_pre_ping=True, debug={debug_mode})"
     )
 
     return engine
