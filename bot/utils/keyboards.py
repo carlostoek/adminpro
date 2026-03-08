@@ -370,7 +370,8 @@ def create_content_with_navigation(
 def get_story_choice_keyboard(
     story_id: int,
     choices: List["StoryChoice"],
-    show_exit: bool = True
+    show_exit: bool = True,
+    choice_states: Optional[List[Dict]] = None
 ) -> InlineKeyboardMarkup:
     """
     Genera teclado para opciones de historia.
@@ -378,11 +379,19 @@ def get_story_choice_keyboard(
     Layout según UX-05:
     - Opciones organizadas en filas de máximo 3 botones
     - Botón de salida siempre al final (escape hatch - NARR-08)
+    - Indicadores de bloqueo para opciones costosas o condicionadas
 
     Args:
         story_id: ID de la historia
         choices: Lista de StoryChoice activas para el nodo actual
         show_exit: Mostrar botón "Salir de la historia" (default: True)
+        choice_states: Lista de dicts con estado de cada elección:
+            - choice_id: int
+            - state: "available" | "costly" | "condition_locked"
+            - cost: Optional[int]
+            - vip_cost: Optional[int]
+            - missing_requirements: List[str]
+            Si es None, se muestran todas las opciones sin indicadores.
 
     Returns:
         InlineKeyboardMarkup con botones de opciones + botón salir
@@ -391,16 +400,39 @@ def get_story_choice_keyboard(
         keyboard = get_story_choice_keyboard(
             story_id=123,
             choices=node.choices,
-            show_exit=True
+            show_exit=True,
+            choice_states=[{"choice_id": 1, "state": "available"}, ...]
         )
     """
     buttons = []
 
+    # Build lookup for choice states
+    state_lookup = {}
+    if choice_states:
+        for state in choice_states:
+            state_lookup[state["choice_id"]] = state
+
     # Choice buttons (max 3 per row - UX-05)
     choice_buttons = []
     for choice in choices:
-        # Truncate text to 50 chars (Telegram button text limit)
-        text = choice.choice_text[:50] if len(choice.choice_text) > 50 else choice.choice_text
+        # Get state for this choice (default to available if not found)
+        choice_state = state_lookup.get(choice.id, {"state": "available"})
+        state = choice_state.get("state", "available")
+
+        # Determine button text with lock indicators
+        if state == "condition_locked":
+            # Condition locked: show 🚫 emoji
+            text = f"🚫 {choice.choice_text[:37]}" if len(choice.choice_text) > 37 else f"🚫 {choice.choice_text}"
+        elif state == "costly":
+            # Costly choice: show 🔒 emoji
+            text = f"🔒 {choice.choice_text[:37]}" if len(choice.choice_text) > 37 else f"🔒 {choice.choice_text}"
+        else:
+            # Available: no emoji, truncate to 40 chars
+            text = choice.choice_text[:40] if len(choice.choice_text) > 40 else choice.choice_text
+
+        # Ensure text doesn't exceed Telegram's limit
+        text = text[:50]
+
         callback_data = f"story:choice:{story_id}:{choice.id}"
 
         choice_buttons.append(InlineKeyboardButton(
