@@ -19,10 +19,12 @@ from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
+from sqlalchemy import select
 
 from bot.services.container import ServiceContainer
 from bot.states.user import StoryReadingStates
 from bot.database.enums import StoryProgressStatus, UserRole
+from bot.database.models import StoryChoice
 from bot.middlewares import DatabaseMiddleware
 from bot.utils.keyboards import (
     get_story_choice_keyboard,
@@ -708,6 +710,131 @@ async def handle_confirm_restart(
     except Exception as e:
         logger.error(f"❌ Error reiniciando historia para {user_id}: {e}", exc_info=True)
         await callback.answer("Error al reiniciar", show_alert=True)
+
+
+@story_router.callback_query(lambda c: c.data.startswith("story:confirm:"))
+async def handle_confirm_choice(
+    callback: CallbackQuery,
+    state: FSMContext,
+    container: ServiceContainer
+) -> None:
+    """
+    Procesa la confirmación de una elección costosa.
+
+    Este handler se ejecuta cuando el usuario confirma una elección
+    que tiene costo en besitos. Realiza el cargo y avanza la historia.
+    """
+    user_id = callback.from_user.id
+    parts = callback.data.split(":")
+    story_id = int(parts[2])
+    choice_id = int(parts[3])
+
+    logger.info(f"📖 Usuario {user_id} confirmando elección {choice_id} en historia {story_id}")
+
+    try:
+        # Get user info for role and cost calculation
+        user = await container.wallet.get_or_create_user(user_id)
+        user_role = "VIP" if user.role == UserRole.VIP else "FREE"
+
+        # Get progress
+        progress = await container.narrative.get_story_progress(user_id, story_id)
+        if not progress:
+            await callback.answer("Progreso no encontrado", show_alert=True)
+            return
+
+        # Verify progress is active
+        if progress.status != StoryProgressStatus.ACTIVE:
+            await state.set_state(StoryReadingStates.browsing_stories)
+            await callback.answer("Historia no está activa", show_alert=True)
+            return
+
+        # Get choice details for cost verification
+        result = await container.narrative.session.execute(
+            select(StoryChoice).where(StoryChoice.id == choice_id)
+        )
+        choice = result.scalar_one_or_none()
+
+        if not choice:
+            await callback.answer("Elección no encontrada", show_alert=True)
+            return
+
+        # Calculate cost
+        cost = await container.narrative.calculate_choice_cost(choice, user_role)
+
+        # Check balance before processing
+        balance = await container.wallet.get_balance(user_id)
+        if balance < cost:
+            await handle_insufficient_funds(callback, cost, balance, story_id)
+            return
+
+        # Process the choice
+        success, msg, node, progress = await container.narrative.make_choice(
+            user_id, progress, choice_id
+        )
+
+        if not success:
+            await callback.answer(f"Error: {msg}", show_alert=True)
+            return
+
+        # Deduct cost if applicable
+        if cost > 0:
+            try:
+                await container.wallet.spend_besitos(
+                    user_id=user_id,
+                    amount=cost,
+                    reason=f"Elección en historia {story_id}"
+                )
+            except Exception as e:
+                logger.error(f"Error charging for choice {choice_id}: {e}")
+                # Continue anyway - the choice was made
+
+        # Check if completed
+        if progress.status == StoryProgressStatus.COMPLETED:
+            await state.set_state(StoryReadingStates.story_completed)
+
+            # Get story title
+            stories, _ = await container.narrative.get_available_stories()
+            story_title = next((s.title for s in stories if s.id == story_id), "Historia")
+
+            ending = progress.ending_reached or "Final"
+            text = _get_story_completed_message(story_title, ending)
+            keyboard = get_story_completed_keyboard(story_id)
+
+            await callback.message.edit_text(
+                text=text,
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+            await callback.answer("¡Historia completada!", show_alert=False)
+
+            logger.info(f"📖 Usuario {user_id} completó historia {story_id}, final: {ending}")
+        else:
+            # Get choices for new node
+            success, msg, node, choices = await container.narrative.get_current_node(progress)
+
+            if not success:
+                await state.set_state(StoryReadingStates.reading_node)
+                await callback.answer(f"Error: {msg}", show_alert=True)
+                return
+
+            # Prepare choice states for display
+            choice_states = await _prepare_choice_states(user_id, choices, user_role, container)
+
+            # Display new node
+            progress_text = _format_progress_indicator(node.order_index, 12)
+            caption = _format_node_content(node.content_text, progress_text)
+            keyboard = get_story_choice_keyboard(story_id, choices, show_exit=True, choice_states=choice_states)
+
+            await _display_node_media(callback, node, caption, keyboard)
+            await state.set_state(StoryReadingStates.reading_node)
+            await callback.answer()
+
+            logger.debug(f"📖 Usuario {user_id} avanzó a nodo {node.id}")
+
+    except Exception as e:
+        logger.error(f"❌ Error confirmando elección para {user_id}: {e}", exc_info=True)
+        await state.set_state(StoryReadingStates.reading_node)
+        await callback.answer("Error al procesar elección", show_alert=True)
 
 
 @story_router.callback_query(lambda c: c.data == "stories:menu")
