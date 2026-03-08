@@ -301,8 +301,10 @@ class TransactionType(str, Enum):
     EARN_REWARD = "EARN_REWARD"
     EARN_ADMIN = "EARN_ADMIN"
     EARN_SHOP_REFUND = "EARN_SHOP_REFUND"
+    EARN_STORY_COMPLETION = "EARN_STORY_COMPLETION"
     SPEND_SHOP = "SPEND_SHOP"
     SPEND_ADMIN = "SPEND_ADMIN"
+    SPEND_STORY_CHOICE = "SPEND_STORY_CHOICE"
 
     def __str__(self) -> str:
         """Retorna valor string del enum."""
@@ -318,8 +320,10 @@ class TransactionType(str, Enum):
             TransactionType.EARN_REWARD: "Recompensa",
             TransactionType.EARN_ADMIN: "Otorgado por Admin",
             TransactionType.EARN_SHOP_REFUND: "Reembolso de Tienda",
+            TransactionType.EARN_STORY_COMPLETION: "Completar Historia",
             TransactionType.SPEND_SHOP: "Compra en Tienda",
-            TransactionType.SPEND_ADMIN: "Ajuste por Admin"
+            TransactionType.SPEND_ADMIN: "Ajuste por Admin",
+            TransactionType.SPEND_STORY_CHOICE: "Elección en Historia"
         }
         return names[self]
 
