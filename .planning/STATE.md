@@ -10,9 +10,9 @@
 
 | Attribute | Value |
 |-----------|-------|
-| Phase | 29-admin-story-editor |
-| Plan | 04 (Story Testing and Preview) |
-| Status | ✅ COMPLETED - Phase 29 Done
+| Phase | 30-economy-shop-integration |
+| Plan | 01 (Economy Integration Foundation) |
+| Status | ✅ COMPLETED - Plan 01 Done
 
 **Progress Bar:**
 ```
@@ -26,6 +26,7 @@ v3.0 Narrativa:        [███████░░░] 60%  🔄
 Phase 27: [████████████________] 60% (3/5 plans - Core engine complete)
 Phase 28: [██████______________] 30% (3/5 plans - Story handler integration complete)
 Phase 29: [████████████████████] 100% (4/4 plans - Admin story editor complete) ✅
+Phase 30: [██__________________] 10% (1/5 plans - Economy foundation complete) 🔄
 ```
 
 ---
@@ -92,8 +93,8 @@ Phase 29: [████████████████████] 100% (4
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 29-04 - Story Testing and Preview (all 4 plans complete)
-**Next Action:** Phase 30 - Economy & Shop Integration
+**Last Action:** Completed Plan 30-01 - Economy Integration Foundation (5/5 tasks)
+**Next Action:** Plan 30-02 - Choice Cost Processing
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
@@ -430,3 +431,26 @@ Phase 29: [████████████████████] 100% (4
 **All ADMIN-01 through ADMIN-12 requirements satisfied.**
 
 **SUMMARY:** `.planning/phases/29-admin-story-editor/29-04-SUMMARY.md`
+
+## Plan 30-01 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~10 minutes |
+| Tasks | 5/5 |
+| Commits | 5 |
+| Files Modified | 3 |
+| Lines Added | ~320 |
+
+**Deliverables:**
+- `TransactionType` enum extended with `SPEND_STORY_CHOICE` and `EARN_STORY_COMPLETION`
+- `StoryChoice` model has `vip_cost_besitos` field for VIP discount flexibility
+- `ShopProduct` model has `unlocks_node_id` field with foreign key for shop-node linkage
+- `NarrativeService` accepts wallet, reward, shop, and streak service dependencies
+- Choice condition evaluation with cascading AND/OR logic:
+  - `evaluate_choice_conditions()` - Main evaluation method
+  - `calculate_choice_cost()` - VIP-aware cost calculation
+  - `_format_requirement_message()` - Lucien's voice formatting
+  - Helper methods for level, streak, product, and total_earned conditions
+
+**SUMMARY:** `.planning/phases/30-economy-shop-integration/30-01-SUMMARY.md`
