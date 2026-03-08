@@ -885,3 +885,52 @@ class StoryEditorService:
         logger.info(f"Soft deleted choice {choice_id}")
 
         return (True, "Choice deleted")
+
+    # ===== CHOICE COST CONFIGURATION =====
+
+    async def set_choice_cost(
+        self,
+        choice_id: int,
+        cost_besitos: int,
+        vip_cost_besitos: Optional[int] = None
+    ) -> Tuple[bool, str]:
+        """
+        Set the cost for a choice and optional VIP discount.
+
+        Args:
+            choice_id: ID of the choice to update
+            cost_besitos: Cost in besitos (must be >= 0)
+            vip_cost_besitos: Optional VIP cost (if None, VIP pays cost_besitos)
+
+        Returns:
+            Tuple[bool, str]: (success, message)
+        """
+        # Validate cost_besitos
+        if cost_besitos < 0:
+            return (False, "cost_cannot_be_negative")
+
+        # Validate vip_cost_besitos if provided
+        if vip_cost_besitos is not None and vip_cost_besitos < 0:
+            return (False, "vip_cost_cannot_be_negative")
+
+        # Fetch the choice
+        result = await self.session.execute(
+            select(StoryChoice).where(StoryChoice.id == choice_id)
+        )
+        choice = result.scalar_one_or_none()
+
+        if not choice:
+            return (False, "choice_not_found")
+
+        # Update costs
+        choice.cost_besitos = cost_besitos
+        choice.vip_cost_besitos = vip_cost_besitos
+
+        await self.session.flush()
+
+        logger.info(
+            f"Updated choice {choice_id} costs: regular={cost_besitos}, "
+            f"vip={vip_cost_besitos}"
+        )
+
+        return (True, "cost_updated")
