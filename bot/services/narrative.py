@@ -20,8 +20,8 @@ from sqlalchemy import select, and_, or_, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.database.models import Story, StoryNode, StoryChoice, UserStoryProgress, User
-from bot.database.enums import StoryStatus, NodeType, StoryProgressStatus
+from bot.database.models import Story, StoryNode, StoryChoice, UserStoryProgress, User, Transaction
+from bot.database.enums import StoryStatus, NodeType, StoryProgressStatus, TransactionType
 
 logger = logging.getLogger(__name__)
 
@@ -723,3 +723,70 @@ class NarrativeService:
         # Join with " Y " for multiple requirements
         requirements_text = " Y ".join(missing)
         return f"Necesita: {requirements_text}"
+
+    # ===== CHOICE COST PROCESSING =====
+
+    async def _deduct_choice_cost(
+        self,
+        user_id: int,
+        choice: StoryChoice,
+        user_role: str
+    ) -> Tuple[bool, str, Optional[Transaction]]:
+        """
+        Deduce el costo de una eleccion de forma atomica.
+
+        Calcula el costo usando calculate_choice_cost(), verifica si el usuario
+        tiene suficientes besitos, y realiza la deduccion atomica con registro
+        de transaccion.
+
+        Args:
+            user_id: ID del usuario
+            choice: StoryChoice a procesar
+            user_role: Rol del usuario ("VIP", "FREE", etc.)
+
+        Returns:
+            Tuple[bool, str, Optional[Transaction]]:
+            - (True, "no_cost", None) - Sin costo
+            - (True, "spent", Transaction) - Deduccion exitosa
+            - (False, "insufficient_funds", None) - Fondos insuficientes
+            - (False, "wallet_service_unavailable", None) - Servicio no disponible
+        """
+        # 1. Calcular costo
+        cost = await self.calculate_choice_cost(choice, user_role)
+
+        # 2. Si no hay costo, retornar exito inmediatamente
+        if cost == 0:
+            return True, "no_cost", None
+
+        # 3. Verificar que wallet_service este disponible
+        if self.wallet_service is None:
+            logger.warning(f"WalletService not available for choice cost deduction")
+            return False, "wallet_service_unavailable", None
+
+        # 4. Llamar a spend_besitos para deduccion atomica
+        success, msg, transaction = await self.wallet_service.spend_besitos(
+            user_id=user_id,
+            amount=cost,
+            transaction_type=TransactionType.SPEND_STORY_CHOICE,
+            reason=f"Story choice #{choice.id}: {choice.choice_text[:50]}",
+            metadata={
+                "choice_id": choice.id,
+                "source_node_id": choice.source_node_id,
+                "target_node_id": choice.target_node_id,
+                "user_role": user_role,
+                "original_cost": choice.cost_besitos,
+                "vip_cost": choice.vip_cost_besitos
+            }
+        )
+
+        if success:
+            logger.info(
+                f"User {user_id} spent {cost} besitos for choice {choice.id} "
+                f"({TransactionType.SPEND_STORY_CHOICE.value})"
+            )
+            return True, "spent", transaction
+        else:
+            logger.warning(
+                f"User {user_id} failed to spend {cost} besitos for choice {choice.id}: {msg}"
+            )
+            return False, msg, None
