@@ -945,3 +945,79 @@ class StoryEditorService:
         )
 
         return (True, "cost_updated")
+
+    async def set_choice_conditions(
+        self,
+        choice_id: int,
+        conditions: List[Dict]
+    ) -> Tuple[bool, str]:
+        """
+        Set conditions for accessing a choice.
+
+        Args:
+            choice_id: ID of the choice to configure
+            conditions: List of condition dicts with:
+                - type: "level" | "streak" | "product_owned" | "total_earned"
+                - value: int (for level, streak, total_earned) or int (product_id for product_owned)
+                - condition_group: int (0 for AND, 1+ for OR groups)
+
+        Returns:
+            Tuple[bool, str]: (success, message)
+        """
+        # Fetch the choice
+        result = await self.session.execute(
+            select(StoryChoice).where(StoryChoice.id == choice_id)
+        )
+        choice = result.scalar_one_or_none()
+
+        if not choice:
+            return (False, "choice_not_found")
+
+        # Validate each condition
+        valid_types = {"level", "streak", "product_owned", "total_earned"}
+
+        for i, condition in enumerate(conditions):
+            # Check type
+            cond_type = condition.get("type") or condition.get("condition_type")
+            if cond_type not in valid_types:
+                return (False, f"invalid_condition_type_at_index_{i}")
+
+            # Check value
+            cond_value = condition.get("value") or condition.get("condition_value")
+            if cond_value is None:
+                return (False, f"missing_condition_value_at_index_{i}")
+
+            # Validate value is appropriate for type
+            try:
+                int(cond_value)
+            except (TypeError, ValueError):
+                return (False, f"invalid_condition_value_at_index_{i}")
+
+            # Check group is >= 0
+            group = condition.get("group") or condition.get("condition_group", 0)
+            try:
+                if int(group) < 0:
+                    return (False, f"invalid_condition_group_at_index_{i}")
+            except (TypeError, ValueError):
+                return (False, f"invalid_condition_group_at_index_{i}")
+
+        # Normalize conditions to standard format
+        normalized_conditions = []
+        for condition in conditions:
+            normalized = {
+                "condition_type": condition.get("type") or condition.get("condition_type"),
+                "condition_value": int(condition.get("value") or condition.get("condition_value")),
+                "condition_group": int(condition.get("group") or condition.get("condition_group", 0))
+            }
+            normalized_conditions.append(normalized)
+
+        # Store conditions as JSON
+        choice.conditions = normalized_conditions
+
+        await self.session.flush()
+
+        logger.info(
+            f"Updated choice {choice_id} conditions: {len(normalized_conditions)} conditions"
+        )
+
+        return (True, "conditions_updated")
