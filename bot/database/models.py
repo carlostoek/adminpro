@@ -1786,6 +1786,9 @@ class StoryChoice(Base):
     # Cost to make this choice
     cost_besitos = Column(Integer, nullable=False, default=0)
 
+    # VIP price for this choice (optional - if null, VIP users pay cost_besitos)
+    vip_cost_besitos = Column(Integer, nullable=True)
+
     # Optional conditions for showing this choice
     conditions = Column(JSON, nullable=True)
 
@@ -1821,8 +1824,18 @@ class StoryChoice(Base):
 
     @property
     def is_free(self) -> bool:
-        """Retorna True si la opción es gratuita."""
-        return self.cost_besitos == 0
+        """
+        Retorna True si la opción es gratuita.
+
+        Una opción es gratuita si:
+        - cost_besitos es 0
+        - vip_cost_besitos es None o 0
+        """
+        if self.cost_besitos != 0:
+            return False
+        if self.vip_cost_besitos is not None and self.vip_cost_besitos != 0:
+            return False
+        return True
 
     def __repr__(self) -> str:
         return f"<StoryChoice(id={self.id}, source={self.source_node_id}, target={self.target_node_id})>"
