@@ -294,32 +294,43 @@ class NarrativeService:
         self,
         user_id: int,
         progress: UserStoryProgress,
-        choice_id: int
-    ) -> Tuple[bool, str, Optional[StoryNode], Optional[UserStoryProgress]]:
+        choice_id: int,
+        user_role: str = "FREE"
+    ) -> Tuple[bool, str, Optional[StoryNode], Optional[UserStoryProgress], Dict]:
         """
         Procesa la eleccion de un usuario y avanza la historia.
 
         Persiste el progreso inmediatamente (aunque el commit real lo hace el handler).
-        Actualiza: historial de decisiones, nodo actual, estado si llega a un final.
+        Valida condiciones, deduce costos, y entrega recompensas del nodo destino.
 
         Args:
             user_id: ID del usuario (para verificacion de propiedad)
             progress: Registro de progreso del usuario
             choice_id: ID de la opcion elegida
+            user_role: Rol del usuario ("VIP", "FREE", etc.) para calculo de costos
 
         Returns:
-            Tuple[bool, str, Optional[StoryNode], Optional[UserStoryProgress]]:
-            - (True, "Choice made", target_node, progress) - Exito
-            - (True, "Story completed", target_node, progress) - Llego a un final
-            - (False, "Invalid choice", None, None) - Opcion invalida
-            - (False, "Progress belongs to different user", None, None) - Error de seguridad
+            Tuple[bool, str, Optional[StoryNode], Optional[UserStoryProgress], Dict]:
+            - (True, "Choice made", target_node, progress, info) - Exito
+            - (True, "Story completed", target_node, progress, info) - Llego a un final
+            - (False, "Invalid choice", None, None, {}) - Opcion invalida
+            - (False, "conditions_not_met", None, None, {"missing_requirements": [...]}) - No cumple condiciones
+            - (False, "already_processed", None, None, {}) - Doble gasto detectado
+            - (False, "insufficient_funds", None, None, {"required": X, "balance": Y}) - Sin fondos
+            - (False, "Progress belongs to different user", None, None, {}) - Error de seguridad
+
+            El dict 'info' contiene:
+            - cost_deducted: bool
+            - cost_amount: int
+            - rewards_delivered: List[Dict]
+            - notification_text: Optional[str]
         """
         # 1. Verificar que el progreso pertenece al usuario
         if progress.user_id != user_id:
             logger.warning(
                 f"User {user_id} attempted to access progress belonging to {progress.user_id}"
             )
-            return (False, "Progress belongs to different user", None, None)
+            return (False, "Progress belongs to different user", None, None, {})
 
         # 2. Fetch la opcion con eager loading del nodo destino
         result = await self.session.execute(
@@ -332,35 +343,140 @@ class NarrativeService:
         # 3. Validar la opcion
         if not choice:
             logger.warning(f"Choice {choice_id} not found for user {user_id}")
-            return (False, "Invalid choice", None, None)
+            return (False, "Invalid choice", None, None, {})
 
         if not choice.is_active:
             logger.warning(f"Choice {choice_id} is not active for user {user_id}")
-            return (False, "Invalid choice", None, None)
+            return (False, "Invalid choice", None, None, {})
 
         if choice.source_node_id != progress.current_node_id:
             logger.warning(
                 f"Choice {choice_id} does not belong to current node "
                 f"{progress.current_node_id} for user {user_id}"
             )
-            return (False, "Invalid choice", None, None)
+            return (False, "Invalid choice", None, None, {})
 
-        # 4. Registrar la decision
+        # 4. Validar condiciones de acceso
+        can_access, missing_requirements = await self.evaluate_choice_conditions(
+            user_id, choice
+        )
+        if not can_access:
+            logger.info(
+                f"User {user_id} cannot access choice {choice_id}: {missing_requirements}"
+            )
+            return (
+                False,
+                "conditions_not_met",
+                None,
+                None,
+                {"missing_requirements": missing_requirements}
+            )
+
+        # 5. Verificar idempotencia (prevenir doble-gasto en clicks rapidos)
+        # Buscar transaccion existente para esta eleccion
+        existing_tx_result = await self.session.execute(
+            select(Transaction).where(
+                Transaction.user_id == user_id,
+                Transaction.type == TransactionType.SPEND_STORY_CHOICE,
+                Transaction.transaction_metadata.contains({"choice_id": choice_id}),
+                Transaction.transaction_metadata.contains({"source_node_id": choice.source_node_id})
+            )
+        )
+        existing_tx = existing_tx_result.scalar_one_or_none()
+
+        if existing_tx:
+            logger.warning(
+                f"User {user_id} attempted to process choice {choice_id} again - "
+                "idempotency check failed"
+            )
+            return (False, "already_processed", None, None, {})
+
+        # 6. Deducir costo de la eleccion
+        cost_deducted = False
+        cost_amount = 0
+        deduction_success, deduction_msg, transaction = await self._deduct_choice_cost(
+            user_id, choice, user_role
+        )
+
+        if not deduction_success:
+            if deduction_msg == "insufficient_funds":
+                # Obtener balance actual para el mensaje de error
+                balance = 0
+                if self.wallet_service:
+                    balance = await self.wallet_service.get_balance(user_id)
+
+                cost_amount = await self.calculate_choice_cost(choice, user_role)
+                logger.info(
+                    f"User {user_id} insufficient funds for choice {choice_id}: "
+                    f"needed {cost_amount}, has {balance}"
+                )
+                return (
+                    False,
+                    "insufficient_funds",
+                    None,
+                    None,
+                    {"required": cost_amount, "balance": balance}
+                )
+            elif deduction_msg == "wallet_service_unavailable":
+                # Si no hay wallet service, continuar sin deduccion (degradacion graceful)
+                logger.warning(
+                    f"WalletService unavailable for user {user_id} choice {choice_id}, "
+                    "continuing without cost deduction"
+                )
+            else:
+                # Otro error, retornar fallo
+                return (False, f"cost_deduction_failed: {deduction_msg}", None, None, {})
+        else:
+            cost_deducted = deduction_success and deduction_msg == "spent"
+            if transaction:
+                cost_amount = abs(transaction.amount)
+
+        # 7. Registrar la decision
         decision_record = {
             "choice_id": choice_id,
             "node_id": progress.current_node_id,
-            "made_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+            "made_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            "cost_deducted": cost_deducted,
+            "cost_amount": cost_amount
         }
 
         if progress.decisions_made is None:
             progress.decisions_made = []
         progress.decisions_made.append(decision_record)
 
-        # 5. Avanzar al nodo destino
+        # 8. Avanzar al nodo destino
         target_node = choice.target_node
         progress.current_node_id = choice.target_node_id
 
-        # 6. Verificar si llego a un final
+        # 9. Entregar recompensas del nodo destino
+        rewards_delivered = []
+        notification_text = None
+
+        if target_node:
+            # Cargar recompensas adjuntas al nodo
+            from sqlalchemy.orm import selectinload
+            from bot.database.models import NodeReward
+
+            node_result = await self.session.execute(
+                select(StoryNode)
+                .where(StoryNode.id == target_node.id)
+                .options(selectinload(StoryNode.attached_rewards).selectinload(NodeReward.reward))
+            )
+            target_node_with_rewards = node_result.scalar_one_or_none()
+
+            if target_node_with_rewards:
+                all_delivered, rewards_delivered = await self._deliver_node_rewards(
+                    user_id, target_node_with_rewards
+                )
+
+                # Construir notificacion si hay recompensas exitosas
+                if rewards_delivered:
+                    notification_text = self.build_reward_notification(
+                        rewards_delivered,
+                        node_name=target_node_with_rewards.node_name
+                    )
+
+        # 10. Verificar si llego a un final
         if target_node and target_node.node_type == NodeType.ENDING:
             progress.status = StoryProgressStatus.COMPLETED
             progress.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -370,17 +486,25 @@ class NarrativeService:
                 f"ending: ending_{target_node.id}"
             )
 
-        # 7. Actualizar timestamp
+        # 11. Actualizar timestamp
         progress.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
-        # 8. Marcar como modificado (el handler hara el commit)
-        # SQLAlchemy detecta automaticamente los cambios en objetos attached
-
         logger.info(
-            f"User {user_id} made choice {choice_id} in story {progress.story_id}"
+            f"User {user_id} made choice {choice_id} in story {progress.story_id}, "
+            f"cost_deducted={cost_deducted}, rewards_delivered={len(rewards_delivered)}"
         )
 
-        return (True, "Choice made", target_node, progress)
+        # 12. Construir info adicional
+        info = {
+            "cost_deducted": cost_deducted,
+            "cost_amount": cost_amount,
+            "rewards_delivered": rewards_delivered,
+            "notification_text": notification_text
+        }
+
+        if target_node and target_node.node_type == NodeType.ENDING:
+            return (True, "Story completed", target_node, progress, info)
+        return (True, "Choice made", target_node, progress, info)
 
     async def get_story_progress(
         self,
