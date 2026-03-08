@@ -11,8 +11,8 @@
 | Attribute | Value |
 |-----------|-------|
 | Phase | 30-economy-shop-integration |
-| Plan | 03 (User Choice Economy UI) |
-| Status | ✅ COMPLETED - Plan 03 Done
+| Plan | 04 (Shop-Node Integration) |
+| Status | ✅ COMPLETED - Plan 04 Done
 
 **Progress Bar:**
 ```
@@ -26,7 +26,7 @@ v3.0 Narrativa:        [███████░░░] 60%  🔄
 Phase 27: [████████████________] 60% (3/5 plans - Core engine complete)
 Phase 28: [██████______________] 30% (3/5 plans - Story handler integration complete)
 Phase 29: [████████████████████] 100% (4/4 plans - Admin story editor complete) ✅
-Phase 30: [██████______________] 30% (3/5 plans - User choice economy UI complete) 🔄
+Phase 30: [████████____________] 40% (4/5 plans - Shop-node integration complete) 🔄
 ```
 
 ---
@@ -93,11 +93,15 @@ Phase 30: [██████______________] 30% (3/5 plans - User choice econom
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 30-03 - User Choice Economy UI (5/5 tasks)
-**Next Action:** Plan 30-04 - Node Reward Delivery (Wave 2)
+**Last Action:** Completed Plan 30-04 - Shop-Node Integration (4/4 tasks)
+**Next Action:** Plan 30-05 - Final Wave (if exists) or Phase 30 Complete
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
+- feat(30-04): add set_choice_conditions method to StoryEditorService
+- feat(30-04): update attach_reward_to_node method signature and validation
+- feat(30-04): add set_choice_cost method to StoryEditorService
+- feat(30-04): add node unlocking to shop purchase
 - feat(30-03): update choice selection with economy flow
 - feat(30-03): add insufficient funds handler
 - feat(30-03): add choice confirmation dialog handler
@@ -512,3 +516,34 @@ Phase 30: [██████______________] 30% (3/5 plans - User choice econom
   - Integration with economy flow
 
 **SUMMARY:** `.planning/phases/30-economy-shop-integration/30-03-SUMMARY.md`
+
+## Plan 30-04 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~2 minutes |
+| Tasks | 4/4 |
+| Commits | 4 |
+| Files Modified | 2 |
+| Lines Added | ~185 |
+
+**Deliverables:**
+- `ShopService.purchase_product()` - Enhanced with node unlocking:
+  - Unlocks story nodes when product has `unlocks_node_id`
+  - Creates story progress if user doesn't have one
+  - Updates progress to unlocked node
+  - Returns `unlocked_node_id` and `unlocked_story_id` in result
+- `StoryEditorService.set_choice_cost()` - Configure choice costs:
+  - Validates costs >= 0
+  - Supports VIP discount pricing
+  - Returns `(bool, str)` tuple
+- `StoryEditorService.attach_reward_to_node()` - Enhanced reward attachment:
+  - Updated return type to include `NodeReward` object
+  - Validates node and reward are active
+  - Reactivates soft-deleted associations
+- `StoryEditorService.set_choice_conditions()` - Configure choice conditions:
+  - Validates condition types: level, streak, product_owned, total_earned
+  - Validates values and groups
+  - Normalizes to standard JSON format
+
+**SUMMARY:** `.planning/phases/30-economy-shop-integration/30-04-SUMMARY.md`
