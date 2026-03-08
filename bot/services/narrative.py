@@ -460,3 +460,266 @@ class NarrativeService:
         logger.info(f"User {user_id} abandoned story {progress.story_id}")
 
         return (True, "Story abandoned")
+
+    # ===== CHOICE CONDITION EVALUATION =====
+
+    async def evaluate_choice_conditions(
+        self,
+        user_id: int,
+        choice: StoryChoice
+    ) -> Tuple[bool, List[str]]:
+        """
+        Evalua si un usuario puede acceder a una eleccion basada en sus condiciones.
+
+        Parsea choice.conditions JSON (lista de objetos de condicion) y evalua
+        usando logica AND/OR en cascada.
+
+        Args:
+            user_id: ID del usuario
+            choice: StoryChoice con condiciones a evaluar
+
+        Returns:
+            Tuple[bool, List[str]]: (puede_acceder, requisitos_faltantes)
+
+        Condition types supported:
+            - level: Nivel requerido (usa wallet_service para verificar nivel)
+            - streak: Racha de dias requerida (usa streak_service)
+            - product_owned: Producto de tienda requerido (usa shop_service)
+            - total_earned: Besitos totales ganados requeridos (usa wallet_service)
+        """
+        # Si no hay condiciones, la eleccion es accesible
+        if not choice.conditions:
+            return True, []
+
+        missing_requirements = []
+
+        try:
+            conditions = choice.conditions if isinstance(choice.conditions, list) else []
+        except (TypeError, ValueError):
+            logger.warning(f"Invalid conditions format for choice {choice.id}")
+            return True, []
+
+        # Group conditions by condition_group (0 = AND, 1+ = OR)
+        groups: Dict[int, List[Dict]] = {}
+        for condition in conditions:
+            group = condition.get("condition_group", 0)
+            if group not in groups:
+                groups[group] = []
+            groups[group].append(condition)
+
+        # Evaluate group 0 (AND logic - all must pass)
+        group_0_passed = True
+        if 0 in groups:
+            for condition in groups[0]:
+                passed, requirement = await self._evaluate_single_condition(
+                    user_id, condition
+                )
+                if not passed:
+                    group_0_passed = False
+                    if requirement:
+                        missing_requirements.append(requirement)
+
+        # Evaluate groups 1+ (OR logic - at least one in each group must pass)
+        all_or_groups_passed = True
+        for group_id in sorted(groups.keys()):
+            if group_id == 0:
+                continue
+
+            group_conditions = groups[group_id]
+            if not group_conditions:
+                continue
+
+            group_has_passing = False
+            group_requirements = []
+
+            for condition in group_conditions:
+                passed, requirement = await self._evaluate_single_condition(
+                    user_id, condition
+                )
+                if passed:
+                    group_has_passing = True
+                    break
+                elif requirement:
+                    group_requirements.append(requirement)
+
+            if not group_has_passing:
+                all_or_groups_passed = False
+                missing_requirements.extend(group_requirements)
+
+        can_access = group_0_passed and all_or_groups_passed
+
+        return can_access, missing_requirements
+
+    async def _evaluate_single_condition(
+        self,
+        user_id: int,
+        condition: Dict
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Evalua una sola condicion para un usuario.
+
+        Args:
+            user_id: ID del usuario
+            condition: Dict con condition_type y condition_value
+
+        Returns:
+            Tuple[bool, Optional[str]]: (paso, mensaje_requisito)
+        """
+        condition_type = condition.get("condition_type")
+        condition_value = condition.get("condition_value")
+
+        if not condition_type:
+            return True, None
+
+        try:
+            if condition_type == "level":
+                return await self._check_level_condition(user_id, condition_value)
+            elif condition_type == "streak":
+                return await self._check_streak_condition(user_id, condition_value)
+            elif condition_type == "product_owned":
+                return await self._check_product_condition(user_id, condition_value)
+            elif condition_type == "total_earned":
+                return await self._check_total_earned_condition(user_id, condition_value)
+            else:
+                logger.debug(f"Unknown condition type: {condition_type}")
+                return True, None
+        except Exception as e:
+            logger.error(f"Error evaluating condition {condition_type}: {e}")
+            return True, None  # Fail open to not block users
+
+    async def _check_level_condition(
+        self,
+        user_id: int,
+        required_level: Optional[int]
+    ) -> Tuple[bool, Optional[str]]:
+        """Verifica condicion de nivel."""
+        if required_level is None or required_level <= 1:
+            return True, None
+
+        if self.wallet_service is None:
+            return True, None
+
+        try:
+            current_level = await self.wallet_service.get_user_level(user_id)
+            if current_level >= required_level:
+                return True, None
+            return False, f"nivel {required_level}"
+        except Exception as e:
+            logger.error(f"Error checking level for user {user_id}: {e}")
+            return True, None
+
+    async def _check_streak_condition(
+        self,
+        user_id: int,
+        required_streak: Optional[int]
+    ) -> Tuple[bool, Optional[str]]:
+        """Verifica condicion de racha."""
+        if required_streak is None or required_streak <= 0:
+            return True, None
+
+        if self.streak_service is None:
+            return True, None
+
+        try:
+            from bot.database.enums import StreakType
+            streak_info = await self.streak_service.get_streak_info(
+                user_id, StreakType.DAILY_GIFT
+            )
+            current_streak = streak_info.get("current_streak", 0)
+            if current_streak >= required_streak:
+                return True, None
+            return False, f"racha {required_streak} dias"
+        except Exception as e:
+            logger.error(f"Error checking streak for user {user_id}: {e}")
+            return True, None
+
+    async def _check_product_condition(
+        self,
+        user_id: int,
+        product_id: Optional[int]
+    ) -> Tuple[bool, Optional[str]]:
+        """Verifica condicion de producto poseido."""
+        if product_id is None:
+            return True, None
+
+        if self.shop_service is None:
+            return True, None
+
+        try:
+            # Check if user has purchased this product
+            has_product = await self.shop_service.has_user_purchased(user_id, product_id)
+            if has_product:
+                return True, None
+            return False, "producto especifico"
+        except Exception as e:
+            logger.error(f"Error checking product for user {user_id}: {e}")
+            return True, None
+
+    async def _check_total_earned_condition(
+        self,
+        user_id: int,
+        required_total: Optional[int]
+    ) -> Tuple[bool, Optional[str]]:
+        """Verifica condicion de besitos totales ganados."""
+        if required_total is None or required_total <= 0:
+            return True, None
+
+        if self.wallet_service is None:
+            return True, None
+
+        try:
+            profile = await self.wallet_service.get_profile(user_id)
+            if profile is None:
+                return False, f"{required_total} besitos ganados"
+            if profile.total_earned >= required_total:
+                return True, None
+            return False, f"{required_total} besitos ganados"
+        except Exception as e:
+            logger.error(f"Error checking total earned for user {user_id}: {e}")
+            return True, None
+
+    async def calculate_choice_cost(
+        self,
+        choice: StoryChoice,
+        user_role: str
+    ) -> int:
+        """
+        Calcula el costo para un usuario de hacer esta eleccion.
+
+        Args:
+            choice: StoryChoice a evaluar
+            user_role: Rol del usuario ("VIP", "FREE", etc.)
+
+        Returns:
+            int: Costo en besitos
+
+        Logic:
+            - Si user_role == "VIP" y choice.vip_cost_besitos no es None,
+              retorna vip_cost_besitos
+            - De lo contrario, retorna choice.cost_besitos
+        """
+        if user_role == "VIP" and choice.vip_cost_besitos is not None:
+            return choice.vip_cost_besitos
+        return choice.cost_besitos
+
+    def _format_requirement_message(self, missing: List[str]) -> str:
+        """
+        Formatea requisitos faltantes en mensaje amigable para el usuario.
+
+        Usa la voz de Lucien (formal, elegante).
+
+        Args:
+            missing: Lista de requisitos faltantes
+
+        Returns:
+            str: Mensaje formateado
+        """
+        if not missing:
+            return ""
+
+        if len(missing) == 1:
+            return f"Necesita: {missing[0]}"
+
+        # Join with " Y " for multiple requirements
+        requirements_text = " Y ".join(missing)
+        return f"Necesita: {requirements_text}"
