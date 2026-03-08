@@ -11,8 +11,8 @@
 | Attribute | Value |
 |-----------|-------|
 | Phase | 30-economy-shop-integration |
-| Plan | 02 (Choice Cost Processing) |
-| Status | ✅ COMPLETED - Plan 02 Done
+| Plan | 03 (User Choice Economy UI) |
+| Status | ✅ COMPLETED - Plan 03 Done
 
 **Progress Bar:**
 ```
@@ -26,7 +26,7 @@ v3.0 Narrativa:        [███████░░░] 60%  🔄
 Phase 27: [████████████________] 60% (3/5 plans - Core engine complete)
 Phase 28: [██████______________] 30% (3/5 plans - Story handler integration complete)
 Phase 29: [████████████████████] 100% (4/4 plans - Admin story editor complete) ✅
-Phase 30: [████________________] 20% (2/5 plans - Choice cost processing complete) 🔄
+Phase 30: [██████______________] 30% (3/5 plans - User choice economy UI complete) 🔄
 ```
 
 ---
@@ -93,11 +93,16 @@ Phase 30: [████________________] 20% (2/5 plans - Choice cost processing
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 30-02 - Choice Cost Processing (5/5 tasks)
-**Next Action:** Plan 30-03 - Locked Choice Display (parallel wave 2)
+**Last Action:** Completed Plan 30-03 - User Choice Economy UI (5/5 tasks)
+**Next Action:** Plan 30-04 - Node Reward Delivery (Wave 2)
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
+- feat(30-03): update choice selection with economy flow
+- feat(30-03): add insufficient funds handler
+- feat(30-03): add choice confirmation dialog handler
+- feat(30-03): add choice state preparation helper
+- feat(30-03): update choice keyboard with lock indicators
 - feat(30-02): update ServiceContainer for NarrativeService injection
 - feat(30-02): enhance make_choice with cost and rewards
 - feat(30-02): add batched reward notification builder
@@ -483,3 +488,27 @@ Phase 30: [████________________] 20% (2/5 plans - Choice cost processing
 - ServiceContainer updated to inject wallet, reward, shop, and streak services into NarrativeService
 
 **SUMMARY:** `.planning/phases/30-economy-shop-integration/30-02-SUMMARY.md`
+
+## Plan 30-03 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~15 minutes |
+| Tasks | 5/5 |
+| Commits | 5 |
+| Files Modified | 2 |
+| Lines Added | ~400 |
+
+**Deliverables:**
+- `get_story_choice_keyboard()` - Updated with lock indicators (🔒 costly, 🚫 condition-locked)
+- `_prepare_choice_states()` - Choice state evaluation with conditions and costs
+- `handle_confirm_choice()` - Confirmation dialog handler for costly choices
+- `handle_insufficient_funds()` - Elegant UX with Lucien's voice and recovery path
+- `handle_back_to_story()` - Return to story after canceling confirmation
+- Updated `handle_make_choice()` with:
+  - Condition checks before processing
+  - Confirmation dialog for costly choices
+  - Balance verification
+  - Integration with economy flow
+
+**SUMMARY:** `.planning/phases/30-economy-shop-integration/30-03-SUMMARY.md`
