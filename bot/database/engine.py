@@ -125,12 +125,14 @@ def create_async_engine_with_logging(
             db_url,
             echo=echo,
             poolclass=QueuePool,
-            pool_size=80,
-            max_overflow=40,
+            pool_size=20,
+            max_overflow=10,
             pool_pre_ping=True,
+            pool_timeout=60,
+            pool_recycle=300,
             connect_args={
-                "timeout": 30,
-                "command_timeout": 30
+                "timeout": 60,
+                "command_timeout": 60
             }
         )
     elif dialect == DatabaseDialect.SQLITE:
@@ -207,9 +209,11 @@ async def _create_postgresql_engine(url: str, debug_mode: bool = False) -> Async
     Crea un AsyncEngine optimizado para PostgreSQL.
 
     Configuración:
-    - QueuePool con pool_size=80, max_overflow=40
+    - QueuePool con pool_size=20, max_overflow=10
     - pool_pre_ping=True para validar conexiones
-    - timeout=30, command_timeout=30
+    - pool_timeout=60 para conexiones lentas (cloud)
+    - pool_recycle=300 para evitar conexiones stale
+    - timeout=60, command_timeout=60
 
     Args:
         url: URL de conexión PostgreSQL con asyncpg driver
@@ -224,18 +228,20 @@ async def _create_postgresql_engine(url: str, debug_mode: bool = False) -> Async
         url,
         echo=debug_mode,  # Logging de queries si debug_mode=True
         poolclass=QueuePool,
-        pool_size=80,
-        max_overflow=40,
+        pool_size=20,
+        max_overflow=10,
         pool_pre_ping=True,  # Validar conexiones antes de usar
+        pool_timeout=60,  # Timeout para obtener conexión del pool (Railway puede ser lento)
+        pool_recycle=300,  # Reciclar conexiones cada 5 min (evita conexiones stale en cloud)
         connect_args={
-            "timeout": 30,
-            "command_timeout": 30
+            "timeout": 60,
+            "command_timeout": 60
         }
     )
 
     logger.info(
         "✅ PostgreSQL engine configurado "
-        f"(pool_size=80, max_overflow=40, pool_pre_ping=True, debug={debug_mode})"
+        f"(pool_size=20, max_overflow=10, pool_timeout=60, pool_recycle=300, debug={debug_mode})"
     )
 
     return engine
