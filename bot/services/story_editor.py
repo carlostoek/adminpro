@@ -604,7 +604,7 @@ class StoryEditorService:
         self,
         node_id: int,
         reward_id: int
-    ) -> Tuple[bool, str]:
+    ) -> Tuple[bool, str, Optional[NodeReward]]:
         """
         Attach a reward to a node.
 
@@ -613,25 +613,35 @@ class StoryEditorService:
             reward_id: ID of the reward
 
         Returns:
-            Tuple[bool, str]: (success, message)
+            Tuple[bool, str, Optional[NodeReward]]: (success, message, node_reward)
         """
-        # Verify node exists
+        # Verify node exists and is active
         result = await self.session.execute(
-            select(StoryNode).where(StoryNode.id == node_id)
+            select(StoryNode).where(
+                and_(
+                    StoryNode.id == node_id,
+                    StoryNode.is_active == True
+                )
+            )
         )
         node = result.scalar_one_or_none()
 
         if not node:
-            return (False, "Node not found")
+            return (False, "node_not_found", None)
 
-        # Verify reward exists
+        # Verify reward exists and is active
         result = await self.session.execute(
-            select(Reward).where(Reward.id == reward_id)
+            select(Reward).where(
+                and_(
+                    Reward.id == reward_id,
+                    Reward.is_active == True
+                )
+            )
         )
         reward = result.scalar_one_or_none()
 
         if not reward:
-            return (False, "Reward not found")
+            return (False, "reward_not_found", None)
 
         # Check for existing association
         result = await self.session.execute(
@@ -646,11 +656,11 @@ class StoryEditorService:
 
         if existing:
             if existing.is_active:
-                return (False, "Reward is already attached to this node")
+                return (False, "already_attached", existing)
             # Reactivate if previously deactivated
             existing.is_active = True
             logger.info(f"Reactivated reward {reward_id} for node {node_id}")
-            return (True, "Reward reattached to node")
+            return (True, "reward_attached", existing)
 
         # Create new association
         node_reward = NodeReward(
@@ -660,10 +670,11 @@ class StoryEditorService:
         )
 
         self.session.add(node_reward)
+        await self.session.flush()
 
         logger.info(f"Attached reward {reward_id} to node {node_id}")
 
-        return (True, "Reward attached to node")
+        return (True, "reward_attached", node_reward)
 
     async def detach_reward_from_node(
         self,
