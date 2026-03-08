@@ -1070,6 +1070,14 @@ class ShopProduct(Base):
     # Analytics
     purchase_count = Column(Integer, nullable=False, default=0)
 
+    # Shop-node linkage: story node unlocked when purchasing this product
+    unlocks_node_id = Column(
+        Integer,
+        ForeignKey("story_nodes.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     updated_at = Column(
@@ -1089,6 +1097,11 @@ class ShopProduct(Base):
         "UserContentAccess",
         back_populates="shop_product",
         cascade="all, delete-orphan"
+    )
+    unlocked_node = relationship(
+        "StoryNode",
+        foreign_keys=[unlocks_node_id],
+        lazy="selectin"
     )
 
     # Indexes for efficient queries
