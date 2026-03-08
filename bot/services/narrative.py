@@ -49,14 +49,29 @@ class NarrativeService:
     - Sigue patron de ContentService y SubscriptionService
     """
 
-    def __init__(self, session: AsyncSession):
+    def __init__(
+        self,
+        session: AsyncSession,
+        wallet_service=None,
+        reward_service=None,
+        shop_service=None,
+        streak_service=None
+    ):
         """
         Inicializa el servicio.
 
         Args:
             session: Sesion de base de datos SQLAlchemy async
+            wallet_service: WalletService opcional para operaciones de economia
+            reward_service: RewardService opcional para reclamar recompensas
+            shop_service: ShopService opcional para verificar productos
+            streak_service: StreakService opcional para verificar rachas
         """
         self.session = session
+        self.wallet_service = wallet_service
+        self.reward_service = reward_service
+        self.shop_service = shop_service
+        self.streak_service = streak_service
         logger.debug("NarrativeService inicializado")
 
     async def get_available_stories(
