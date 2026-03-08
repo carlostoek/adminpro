@@ -827,6 +827,84 @@ class NarrativeService:
 
         return all_delivered, results
 
+    def build_reward_notification(
+        self,
+        reward_results: List[Dict],
+        node_name: Optional[str] = None
+    ) -> str:
+        """
+        Construye una notificacion agrupada de recompensas entregadas.
+
+        Filtra solo las recompensas exitosas y construye un mensaje con
+        la voz de Diana (🫦) para contenido orientado al usuario.
+
+        Args:
+            reward_results: Lista de resultados de _deliver_node_rewards()
+            node_name: Nombre opcional del nodo para contexto
+
+        Returns:
+            str: Mensaje HTML formateado o string vacio si no hay recompensas
+        """
+        # 1. Filtrar solo recompensas exitosas
+        successful_rewards = [r for r in reward_results if r.get("success")]
+
+        if not successful_rewards:
+            return ""
+
+        # 2. Construir mensaje con voz de Diana (🫦)
+        if len(successful_rewards) == 1:
+            reward = successful_rewards[0]
+            text = "🫦 <b>Sorpresa...</b>\n\n"
+            text += f"Has recibido: {self._format_reward_description(reward)}"
+        else:
+            text = "🫦 <b>Qué suerte...</b>\n\n"
+            text += "Has recibido:\n"
+            for reward in successful_rewards:
+                text += f"- {self._format_reward_description(reward)}\n"
+
+        # 3. Agregar contexto del nodo si se proporciona
+        if node_name:
+            text += f"\n<i>Por alcanzar: {node_name}</i>"
+
+        return text
+
+    def _format_reward_description(self, reward_result: Dict) -> str:
+        """
+        Formatea la descripcion de una recompensa segun su tipo.
+
+        Args:
+            reward_result: Dict con reward_id, reward_name, details
+
+        Returns:
+            str: Descripcion formateada con emoji
+        """
+        details = reward_result.get("details", {})
+        reward = details.get("reward")
+
+        if not reward:
+            # Fallback si no tenemos el objeto reward
+            return reward_result.get("reward_name", "Recompensa")
+
+        from bot.database.enums import RewardType
+
+        if reward.reward_type == RewardType.BESITOS:
+            amount = details.get("reward_result", {}).get("amount", 0)
+            return f"💰 +{amount} besitos"
+
+        elif reward.reward_type == RewardType.VIP_EXTENSION:
+            days = details.get("reward_result", {}).get("days", 0)
+            return f"⭐ +{days} días VIP"
+
+        elif reward.reward_type == RewardType.CONTENT:
+            return "🎁 Contenido exclusivo"
+
+        elif reward.reward_type == RewardType.BADGE:
+            badge_name = details.get("reward_result", {}).get("badge_name", "Especial")
+            badge_emoji = details.get("reward_result", {}).get("emoji", "🏆")
+            return f"{badge_emoji} Insignia {badge_name}"
+
+        return reward.name
+
     async def _deduct_choice_cost(
         self,
         user_id: int,
