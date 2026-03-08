@@ -600,7 +600,13 @@ class ServiceContainer:
         if self._narrative_service is None:
             from bot.services.narrative import NarrativeService
             logger.debug("🔄 Lazy loading: NarrativeService")
-            self._narrative_service = NarrativeService(self._session)
+            self._narrative_service = NarrativeService(
+                self._session,
+                wallet_service=self.wallet,
+                reward_service=self.reward,
+                shop_service=self.shop,
+                streak_service=self.streak
+            )
 
         return self._narrative_service
 
