@@ -726,6 +726,107 @@ class NarrativeService:
 
     # ===== CHOICE COST PROCESSING =====
 
+    async def _deliver_node_rewards(
+        self,
+        user_id: int,
+        node: StoryNode
+    ) -> Tuple[bool, List[Dict]]:
+        """
+        Entrega las recompensas asociadas a un nodo cuando el usuario lo alcanza.
+
+        Consulta node.attached_rewards, verifica que cada recompensa este activa
+        y no haya sido reclamada previamente (para recompensas no repetibles),
+        y llama a reward_service.claim_reward() para entregarlas.
+
+        Args:
+            user_id: ID del usuario
+            node: StoryNode alcanzado
+
+        Returns:
+            Tuple[bool, List[Dict]]:
+            - all_delivered: True si todas las recompensas se entregaron
+            - results: Lista de dicts con reward_id, reward_name, success, message, details
+        """
+        # 1. Si no hay recompensas o reward_service no disponible, retornar vacio
+        if not node.attached_rewards or self.reward_service is None:
+            return True, []
+
+        results = []
+        all_delivered = True
+
+        # 2. Iterar sobre las recompensas adjuntas al nodo
+        for node_reward in node.attached_rewards:
+            # Saltar si no esta activa
+            if not node_reward.is_active:
+                continue
+
+            reward = node_reward.reward
+            if not reward or not reward.is_active:
+                continue
+
+            # 3. Verificar si ya fue reclamada (previene replay farming)
+            # Para recompensas no repetibles, verificar claim_count
+            if not reward.is_repeatable:
+                from bot.database.models import UserReward
+                from bot.database.enums import RewardStatus
+
+                user_reward_result = await self.session.execute(
+                    select(UserReward).where(
+                        UserReward.user_id == user_id,
+                        UserReward.reward_id == reward.id
+                    )
+                )
+                user_reward = user_reward_result.scalar_one_or_none()
+
+                if user_reward and user_reward.claim_count > 0:
+                    # Ya fue reclamada, saltar
+                    results.append({
+                        "reward_id": reward.id,
+                        "reward_name": reward.name,
+                        "success": False,
+                        "message": "already_claimed",
+                        "details": {"claim_count": user_reward.claim_count}
+                    })
+                    continue
+
+            # 4. Intentar reclamar la recompensa
+            try:
+                success, msg, details = await self.reward_service.claim_reward(
+                    user_id=user_id,
+                    reward_id=reward.id
+                )
+
+                results.append({
+                    "reward_id": reward.id,
+                    "reward_name": reward.name,
+                    "success": success,
+                    "message": msg,
+                    "details": details
+                })
+
+                if not success:
+                    all_delivered = False
+                    logger.warning(
+                        f"Failed to deliver reward {reward.id} to user {user_id}: {msg}"
+                    )
+                else:
+                    logger.info(
+                        f"Delivered reward {reward.id} ({reward.name}) to user {user_id}"
+                    )
+
+            except Exception as e:
+                logger.error(f"Error delivering reward {reward.id} to user {user_id}: {e}")
+                results.append({
+                    "reward_id": reward.id,
+                    "reward_name": reward.name,
+                    "success": False,
+                    "message": f"error: {str(e)}",
+                    "details": {}
+                })
+                all_delivered = False
+
+        return all_delivered, results
+
     async def _deduct_choice_cost(
         self,
         user_id: int,
