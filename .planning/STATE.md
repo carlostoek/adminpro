@@ -11,8 +11,8 @@
 | Attribute | Value |
 |-----------|-------|
 | Phase | 30-economy-shop-integration |
-| Plan | 01 (Economy Integration Foundation) |
-| Status | ✅ COMPLETED - Plan 01 Done
+| Plan | 02 (Choice Cost Processing) |
+| Status | ✅ COMPLETED - Plan 02 Done
 
 **Progress Bar:**
 ```
@@ -26,7 +26,7 @@ v3.0 Narrativa:        [███████░░░] 60%  🔄
 Phase 27: [████████████________] 60% (3/5 plans - Core engine complete)
 Phase 28: [██████______________] 30% (3/5 plans - Story handler integration complete)
 Phase 29: [████████████████████] 100% (4/4 plans - Admin story editor complete) ✅
-Phase 30: [██__________________] 10% (1/5 plans - Economy foundation complete) 🔄
+Phase 30: [████________________] 20% (2/5 plans - Choice cost processing complete) 🔄
 ```
 
 ---
@@ -93,11 +93,16 @@ Phase 30: [██__________________] 10% (1/5 plans - Economy foundation complet
 
 ## Session Continuity
 
-**Last Action:** Completed Plan 30-01 - Economy Integration Foundation (5/5 tasks)
-**Next Action:** Plan 30-02 - Choice Cost Processing
+**Last Action:** Completed Plan 30-02 - Choice Cost Processing (5/5 tasks)
+**Next Action:** Plan 30-03 - Locked Choice Display (parallel wave 2)
 **Blockers:** None
 
 **Recent Commits (v3.0 Narrativa):**
+- feat(30-02): update ServiceContainer for NarrativeService injection
+- feat(30-02): enhance make_choice with cost and rewards
+- feat(30-02): add batched reward notification builder
+- feat(30-02): add node reward delivery method to NarrativeService
+- feat(30-02): add choice cost deduction method to NarrativeService
 - fix(29): add missing 'and_' import in story_management handler
 - fix(29): improve node type selection and add missing nodes button
 - feat(29): add database migrations for Story.is_active column
@@ -454,3 +459,27 @@ Phase 30: [██__________________] 10% (1/5 plans - Economy foundation complet
   - Helper methods for level, streak, product, and total_earned conditions
 
 **SUMMARY:** `.planning/phases/30-economy-shop-integration/30-01-SUMMARY.md`
+
+## Plan 30-02 Completion
+
+| Metric | Value |
+|--------|-------|
+| Duration | ~15 minutes |
+| Tasks | 5/5 |
+| Commits | 5 |
+| Files Modified | 2 |
+| Lines Added | ~395 |
+
+**Deliverables:**
+- `_deduct_choice_cost()` - Atomic besitos deduction with wallet_service.spend_besitos()
+- `_deliver_node_rewards()` - Node reward delivery with replay farming protection
+- `build_reward_notification()` - Batched reward messages with Diana's voice (🫦)
+- Enhanced `make_choice()` with:
+  - Condition validation before processing
+  - Idempotency check to prevent double-spending
+  - Cost deduction with SPEND_STORY_CHOICE transaction type
+  - Node reward delivery after advancing
+  - Enhanced return tuple with cost_deducted, rewards_delivered, notification_text
+- ServiceContainer updated to inject wallet, reward, shop, and streak services into NarrativeService
+
+**SUMMARY:** `.planning/phases/30-economy-shop-integration/30-02-SUMMARY.md`
