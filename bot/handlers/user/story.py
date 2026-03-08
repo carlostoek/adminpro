@@ -181,6 +181,70 @@ def _get_status_badge(status: StoryProgressStatus) -> str:
     return badges.get(status, "📖")
 
 
+async def _prepare_choice_states(
+    user_id: int,
+    choices: List,
+    user_role: str,
+    container: ServiceContainer
+) -> List[Dict]:
+    """
+    Prepara el estado de visualización de cada elección.
+
+    Evalúa condiciones y calcula costos para determinar el estado
+    de cada elección (disponible, costosa, bloqueada por condición).
+
+    Args:
+        user_id: ID del usuario
+        choices: Lista de StoryChoice
+        user_role: Rol del usuario ("VIP", "FREE", etc.)
+        container: ServiceContainer para acceder a servicios
+
+    Returns:
+        Lista de dicts con estado de cada elección:
+        - choice_id: int
+        - state: "available" | "costly" | "condition_locked"
+        - cost: Optional[int]
+        - vip_cost: Optional[int]
+        - missing_requirements: List[str]
+    """
+    choice_states = []
+
+    # Get user balance for cost evaluation
+    try:
+        user_balance = await container.wallet.get_balance(user_id)
+    except Exception as e:
+        logger.warning(f"Could not get balance for user {user_id}: {e}")
+        user_balance = 0
+
+    for choice in choices:
+        # Evaluate conditions
+        can_access, missing_requirements = await container.narrative.evaluate_choice_conditions(
+            user_id, choice
+        )
+
+        # Calculate cost
+        cost = await container.narrative.calculate_choice_cost(choice, user_role)
+        vip_cost = choice.vip_cost_besitos if choice.vip_cost_besitos is not None else cost
+
+        # Determine state
+        if not can_access:
+            state = "condition_locked"
+        elif cost > 0:
+            state = "costly"
+        else:
+            state = "available"
+
+        choice_states.append({
+            "choice_id": choice.id,
+            "state": state,
+            "cost": cost,
+            "vip_cost": vip_cost,
+            "missing_requirements": missing_requirements
+        })
+
+    return choice_states
+
+
 async def _display_node_media(
     message_or_callback,
     node,
