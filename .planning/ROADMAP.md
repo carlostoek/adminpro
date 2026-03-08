@@ -11,7 +11,7 @@ Transformación desde un bot Telegram local con SQLite hacia una solución produ
 - ✅ **v1.2 Primer Despliegue** - Phases 14-18 (shipped 2026-01-30)
 - ✅ **v2.0 Gamificación** - Phases 19-24 (shipped 2026-02-17)
 - ✅ **v2.1 Deployment Readiness** - Phases 25-26 (shipped 2026-02-21)
-- 🔄 **v3.0 Narrativa** - Phases 27-30 (in progress)
+- ✅ **v3.0 Narrativa** - Phases 27-30 (shipped 2026-03-08)
 
 ## Phases
 
@@ -305,6 +305,28 @@ Broadcasting improvements with optional reactions/content protection and complet
 
 </details>
 
+<details>
+<summary>✅ v3.0 Narrativa (Phases 27-30) — SHIPPED 2026-03-08</summary>
+
+Sistema narrativo modular con historias ramificadas integradas a la infraestructura de gamificación. Admins pueden crear historias interactivas con nodos y decisiones. Usuarios experimentan narrativas personalizadas con progresión, acceso por tier (Free/VIP), e integración económica (costos/recompensas en besitos).
+
+**4 phases, 43 requirements, 14 plans**
+
+**Key features:**
+- Story, StoryNode, StoryChoice, UserStoryProgress models with tree structure
+- NarrativeService with economy integration (wallet, reward, shop, streak)
+- StoryEditorService for admin CRUD and validation
+- User story reading experience with progress tracking and tier filtering
+- Choice costs with VIP discounts and condition evaluation (AND/OR)
+- Node rewards delivered when users reach specific nodes
+- Shop products can unlock story nodes as purchase bonus
+- PRODUCT_OWNED condition type for product-gated content
+- Batched reward notifications and double-spending protection
+
+**[Full phases 27-30 archived in milestones/v3.0-ROADMAP.md]**
+
+</details>
+
 ---
 
 # v3.0 Narrativa - Branching Story System
@@ -443,7 +465,8 @@ Plans:
 
 ---
 
-## Phase 30: Economy & Shop Integration
+### Phase 30: Economy & Shop Integration ✅
+**Status:** Complete — 2026-03-08
 
 **Goal:** Full integration with existing gamification systems - choice costs, rewards, conditions, and shop connectivity.
 
@@ -486,9 +509,9 @@ Plans:
 | Phase | Status | Requirements | Success Criteria Met |
 |-------|--------|--------------|---------------------|
 | 27 - Core Narrative Engine | **Complete** | 5/5 | 5/5 |
-| 28 - User Story Experience | Planned | 15/15 | 0/10 |
-| 29 - Admin Story Editor | Planned | 13/13 | 0/9 |
-| 30 - Economy & Shop Integration | Planned | 10/10 | 0/11 |
+| 28 - User Story Experience | Complete | 15/15 | 10/10 |
+| 29 - Admin Story Editor | Complete | 13/13 | 9/9 |
+| 30 - Economy & Shop Integration | **Complete** | 10/10 | 11/11 |
 
 **Coverage:** 43/43 requirements mapped (100%)
 
