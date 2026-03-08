@@ -542,6 +542,13 @@ async def handle_start_story(
             await callback.answer(f"Error: {msg}", show_alert=True)
             return
 
+        # Get user info for role and choice state evaluation
+        user = await container.wallet.get_or_create_user(user_id)
+        user_role = "VIP" if user.role == UserRole.VIP else "FREE"
+
+        # Prepare choice states for display
+        choice_states = await _prepare_choice_states(user_id, choices, user_role, container)
+
         # Display node
         await state.set_state(StoryReadingStates.reading_node)
 
@@ -551,7 +558,7 @@ async def handle_start_story(
         # Format content with Diana's voice
         progress_text = _format_progress_indicator(node.order_index, 12)  # Total will come from story
         caption = _format_node_content(node.content_text, progress_text)
-        keyboard = get_story_choice_keyboard(story_id, choices, show_exit=True)
+        keyboard = get_story_choice_keyboard(story_id, choices, show_exit=True, choice_states=choice_states)
 
         await _display_node_media(callback, node, caption, keyboard)
         await callback.answer()
@@ -570,10 +577,11 @@ async def handle_make_choice(
     container: ServiceContainer
 ) -> None:
     """
-    Procesa elección del usuario con manejo de race conditions.
+    Procesa elección del usuario con manejo de race conditions y economía.
 
     NARR-06: User choice transitions to next node and saves progress
     NARR-10: System handles story completion (end nodes)
+    ECON-01: Choice costs evaluated and charged
     """
     user_id = callback.from_user.id
     parts = callback.data.split(":")
@@ -604,7 +612,84 @@ async def handle_make_choice(
             await callback.answer("Historia no está activa", show_alert=True)
             return
 
-        # Make choice
+        # Get choice details
+        result = await container.narrative.session.execute(
+            select(StoryChoice).where(StoryChoice.id == choice_id)
+        )
+        choice = result.scalar_one_or_none()
+
+        if not choice:
+            await state.set_state(StoryReadingStates.reading_node)
+            await callback.answer("Elección no encontrada", show_alert=True)
+            return
+
+        # Get user info for role and cost calculation
+        user = await container.wallet.get_or_create_user(user_id)
+        user_role = "VIP" if user.role == UserRole.VIP else "FREE"
+
+        # Check conditions
+        can_access, missing_requirements = await container.narrative.evaluate_choice_conditions(
+            user_id, choice
+        )
+
+        if not can_access:
+            # Show requirements message
+            requirements_text = container.narrative._format_requirement_message(missing_requirements)
+            await state.set_state(StoryReadingStates.reading_node)
+            await callback.answer(
+                f"No cumple los requisitos: {requirements_text}",
+                show_alert=True
+            )
+            return
+
+        # Calculate cost
+        cost = await container.narrative.calculate_choice_cost(choice, user_role)
+
+        # If costly choice, show confirmation dialog
+        if cost > 0:
+            # Get user balance
+            balance = await container.wallet.get_balance(user_id)
+
+            # Build confirmation message with Lucien's voice
+            if user_role == "VIP" and choice.vip_cost_besitos is not None and choice.vip_cost_besitos != choice.cost_besitos:
+                # VIP discount shown
+                cost_text = f"Costo: {cost} besitos (VIP: era {choice.cost_besitos})"
+            else:
+                cost_text = f"Costo: {cost} besitos"
+
+            confirmation_text = f"""🎩 <b>Confirmar decisión</b>
+
+{choice.choice_text}
+
+{cost_text}
+Tu balance: {balance} besitos
+
+<i>¿Desea proceder?</i>"""
+
+            # Show confirmation keyboard
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="✅ Confirmar",
+                        callback_data=f"story:confirm:{story_id}:{choice_id}"
+                    ),
+                    InlineKeyboardButton(
+                        text="❌ Cancelar",
+                        callback_data=f"story:back:{story_id}"
+                    )
+                ]
+            ])
+
+            await callback.message.edit_text(
+                text=confirmation_text,
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+            await state.set_state(StoryReadingStates.reading_node)
+            await callback.answer()
+            return
+
+        # Free choice - process immediately
         success, msg, node, progress = await container.narrative.make_choice(
             user_id, progress, choice_id
         )
@@ -646,13 +731,15 @@ async def handle_make_choice(
             # Check if node has no choices (error condition)
             if not choices and node.node_type != "ending":
                 logger.error(f"Nodo {node.id} sin opciones y no es final")
-                # Still show content but with exit button only
                 choices = []
+
+            # Prepare choice states for display
+            choice_states = await _prepare_choice_states(user_id, choices, user_role, container)
 
             # Display new node
             progress_text = _format_progress_indicator(node.order_index, 12)
             caption = _format_node_content(node.content_text, progress_text)
-            keyboard = get_story_choice_keyboard(story_id, choices, show_exit=True)
+            keyboard = get_story_choice_keyboard(story_id, choices, show_exit=True, choice_states=choice_states)
 
             await _display_node_media(callback, node, caption, keyboard)
             await state.set_state(StoryReadingStates.reading_node)
@@ -703,6 +790,59 @@ async def handle_story_exit(
     except Exception as e:
         logger.error(f"❌ Error saliendo de historia para {user_id}: {e}", exc_info=True)
         await callback.answer("Error al salir", show_alert=True)
+
+
+@story_router.callback_query(lambda c: c.data.startswith("story:back:"))
+async def handle_back_to_story(
+    callback: CallbackQuery,
+    state: FSMContext,
+    container: ServiceContainer
+) -> None:
+    """
+    Volver a la historia actual (después de cancelar confirmación).
+
+    Recarga el nodo actual con las opciones y sus estados.
+    """
+    user_id = callback.from_user.id
+    story_id = int(callback.data.split(":")[2])
+
+    logger.info(f"🔙 Usuario {user_id} volviendo a historia {story_id}")
+
+    try:
+        # Get progress
+        progress = await container.narrative.get_story_progress(user_id, story_id)
+        if not progress:
+            await callback.answer("Progreso no encontrado", show_alert=True)
+            return
+
+        # Get user info for role
+        user = await container.wallet.get_or_create_user(user_id)
+        user_role = "VIP" if user.role == UserRole.VIP else "FREE"
+
+        # Get current node
+        success, msg, node, choices = await container.narrative.get_current_node(progress)
+
+        if not success:
+            await callback.answer(f"Error: {msg}", show_alert=True)
+            return
+
+        # Prepare choice states for display
+        choice_states = await _prepare_choice_states(user_id, choices, user_role, container)
+
+        # Display node
+        await state.set_state(StoryReadingStates.reading_node)
+
+        # Format content with Diana's voice
+        progress_text = _format_progress_indicator(node.order_index, 12)
+        caption = _format_node_content(node.content_text, progress_text)
+        keyboard = get_story_choice_keyboard(story_id, choices, show_exit=True, choice_states=choice_states)
+
+        await _display_node_media(callback, node, caption, keyboard)
+        await callback.answer()
+
+    except Exception as e:
+        logger.error(f"❌ Error volviendo a historia para {user_id}: {e}", exc_info=True)
+        await callback.answer("Error al cargar historia", show_alert=True)
 
 
 @story_router.callback_query(lambda c: c.data == "story:back_to_list")
