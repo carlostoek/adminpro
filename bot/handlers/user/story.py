@@ -123,6 +123,65 @@ def _get_error_message(context: str = "") -> str:
 Permítame consultar con Diana sobre este inconveniente.</i>"""
 
 
+def _get_insufficient_funds_message(required: int, balance: int) -> str:
+    """
+    Mensaje de fondos insuficientes con voz de Lucien.
+
+    Args:
+        required: Cantidad de besitos requerida
+        balance: Balance actual del usuario
+
+    Returns:
+        Mensaje formateado con voz de Lucien
+    """
+    return f"""🎩 <b>Atención</b>
+
+Para esta decisión necesita hacer una inversión de {required} besitos, ahora cuenta con {balance} besitos.
+
+Le sugiero que vaya a reclamar su regalo del día, tal vez con eso pueda acceder."""
+
+
+async def handle_insufficient_funds(
+    callback: CallbackQuery,
+    required: int,
+    balance: int,
+    story_id: int
+) -> None:
+    """
+    Muestra mensaje elegante de fondos insuficientes con opciones de recuperación.
+
+    Args:
+        callback: CallbackQuery para responder
+        required: Cantidad de besitos requerida
+        balance: Balance actual del usuario
+        story_id: ID de la historia para poder volver
+    """
+    text = _get_insufficient_funds_message(required, balance)
+
+    # Build recovery keyboard
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="🎁 Ir a regalo diario",
+            callback_data="menu:daily_gift"
+        )],
+        [InlineKeyboardButton(
+            text="💰 Cómo ganar besitos",
+            callback_data="menu:economy"
+        )],
+        [InlineKeyboardButton(
+            text="🔙 Volver a la historia",
+            callback_data=f"story:back:{story_id}"
+        )]
+    ])
+
+    await callback.message.edit_text(
+        text=text,
+        reply_markup=keyboard,
+        parse_mode="HTML"
+    )
+    await callback.answer("Fondos insuficientes", show_alert=True)
+
+
 # ============================================================================
 # DIANA'S VOICE MESSAGES (Content)
 # ============================================================================
