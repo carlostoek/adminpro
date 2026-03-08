@@ -339,12 +339,64 @@ class ShopService:
 
         await self.session.flush()
 
+        # Handle node unlocking if product has unlocks_node_id
+        unlocked_node_id = None
+        unlocked_story_id = None
+
+        if product.unlocks_node_id is not None:
+            # Local import to avoid circular dependency
+            from bot.services.narrative import NarrativeService
+
+            # Get the node to find its story
+            from bot.database.models import StoryNode
+            node_result = await self.session.execute(
+                select(StoryNode).where(StoryNode.id == product.unlocks_node_id)
+            )
+            unlocked_node = node_result.scalar_one_or_none()
+
+            if unlocked_node:
+                unlocked_story_id = unlocked_node.story_id
+
+                # Check if user already has progress for this story
+                from bot.database.models import UserStoryProgress
+                progress_result = await self.session.execute(
+                    select(UserStoryProgress).where(
+                        UserStoryProgress.user_id == user_id,
+                        UserStoryProgress.story_id == unlocked_story_id
+                    )
+                )
+                existing_progress = progress_result.scalar_one_or_none()
+
+                if existing_progress is None:
+                    # Create new progress using NarrativeService
+                    narrative_service = NarrativeService(self.session)
+                    success, msg, progress = await narrative_service.start_story(
+                        user_id=user_id,
+                        story_id=unlocked_story_id
+                    )
+                    if success and progress:
+                        # Update progress to set current_node_id to the unlocked node
+                        progress.current_node_id = product.unlocks_node_id
+                        self.logger.info(
+                            f"User {user_id} unlocked story {unlocked_story_id} "
+                            f"at node {product.unlocks_node_id} via product {product_id}"
+                        )
+                else:
+                    # User already has progress, just update to the unlocked node
+                    existing_progress.current_node_id = product.unlocks_node_id
+                    self.logger.info(
+                        f"User {user_id} advanced to unlocked node {product.unlocks_node_id} "
+                        f"in story {unlocked_story_id} via product {product_id}"
+                    )
+
+                unlocked_node_id = product.unlocks_node_id
+
         self.logger.info(
             f"✅ User {user_id} purchased product {product_id} "
             f"({product.name}) for {price_to_pay} besitos"
         )
 
-        return True, "success", {
+        result = {
             "product": product,
             "content_set": product.content_set,
             "price_paid": price_to_pay,
@@ -352,6 +404,13 @@ class ShopService:
             "access_record": access_record,
             "is_repurchase": is_owned
         }
+
+        # Add node unlock info if applicable
+        if unlocked_node_id:
+            result["unlocked_node_id"] = unlocked_node_id
+            result["unlocked_story_id"] = unlocked_story_id
+
+        return True, "success", result
 
     async def check_ownership(
         self,
