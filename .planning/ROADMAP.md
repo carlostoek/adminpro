@@ -278,9 +278,9 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24 → 25
 | 24. Admin Configuration | v2.0 | 9/9 | Complete | 2026-02-21 |
 | 25. Broadcasting Improvements | v2.1 | 1/1 | Complete | 2026-02-21 |
 | 26. Initial Data Migration | v2.1 | 3/3 | Complete | 2026-02-21 |
-| 27. Future Enhancements | v2.2+ | 0/0 | Planned | - |
+| 27. Security Audit Fixes | v2.2+ | 0/5 | Planned | - |
 
-**Overall Progress:** 105 plans complete (0 pending)
+**Overall Progress:** 105 plans complete (5 pending)
 
 <details>
 <summary>✅ v2.1 Deployment Readiness (Phases 25-26) — SHIPPED 2026-02-21</summary>
@@ -298,10 +298,40 @@ Broadcasting improvements with optional reactions/content protection and complet
 - Default rewards: Primeros Pasos, Ahorrador Principiante, Racha de 7 Dias
 - Default shop products with VIP discounts
 
+
+### Phase 27: Security Audit Fixes
+**Goal:** Fix 29 security findings from audit (8 critical + 21 warnings)
+**Requirements:** Security fixes for race conditions, atomicity failures, and code quality
+**Dependencies:** All previous phases
+**Plans:** 5 plans
+**Status:** Planned — 5 waves
+
+**Critical Issues:**
+- C-001 to C-008: Race conditions in token redemption, VIP entry, and bulk operations
+
+**Wave Structure:**
+- Wave 1: Race condition fixes (redeem_vip_token, create_free_request, approve_ready_free_requests, vip_entry)
+- Wave 2: Atomicity fixes (user_management role changes, transaction separation)
+- Wave 3: Warnings (rate limiting, pagination, datetime migration)
+
+**Success Criteria:**
+1. No race conditions in token redemption or VIP entry flow
+2. Database and Telegram state remain consistent on failures
+3. Bulk operations use rate limiting and pagination
+4. All datetime operations use timezone-aware datetimes
+5. All existing tests pass
+
+Plans:
+- [ ] 27-01-PLAN.md — Fix redeem_vip_token and create_free_request race conditions
+- [ ] 27-02-PLAN.md — Fix approve_ready_free_requests and kick_expired_vip race conditions
+- [ ] 27-03-PLAN.md — Fix vip_entry.py race conditions in stage progression
+- [ ] 27-04-PLAN.md — Fix user_management.py atomicity and subscription.py long transactions
+- [ ] 27-05-PLAN.md — Rate limiting, pagination, datetime fixes
+
 **[Full phases 25-26 archived in milestones/v2.1-ROADMAP.md]**
 
 </details>
 
 ---
 
-*Last updated: 2026-02-21 after Phase 26 planning*
+*Last updated: 2026-03-12 after Phase 27 planning*
