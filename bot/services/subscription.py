@@ -579,7 +579,7 @@ class SubscriptionService:
 
         return count
 
-    async def kick_expired_vip_from_channel(self, channel_id: str) -> int:
+    async def kick_expired_vip_from_channel(self, channel_id: str) -> Tuple[int, int, int]:
         """
         Expulsa suscriptores expirados del canal VIP con ban permanente.
 
@@ -589,41 +589,81 @@ class SubscriptionService:
         El ban es PERMANENTE - el usuario permanece baneado hasta que
         active un nuevo token (cuando se llama a unban_from_vip_channel).
 
+        Usa kicked_from_channel_at para trackear progreso y permitir reintentos.
+
         Args:
             channel_id: ID del canal VIP (ej: "-1001234567890")
 
         Returns:
-            Cantidad de usuarios baneados
+            Tuple[int, int, int]: (kicked_count, already_kicked_count, failed_count)
         """
-        # Buscar suscriptores expirados
+        # Buscar suscriptores expirados que aún no han sido expulsados
         result = await self.session.execute(
-            select(VIPSubscriber).where(
-                VIPSubscriber.status == "expired"
+            select(VIPSubscriber)
+            .where(
+                VIPSubscriber.status == "expired",
+                VIPSubscriber.kicked_from_channel_at.is_(None)  # Not yet kicked
             )
+            .order_by(VIPSubscriber.expiry_date)
+            .limit(100)  # Batch processing
         )
         expired_subscribers = result.scalars().all()
 
-        banned_count = 0
+        if not expired_subscribers:
+            return (0, 0, 0)
+
+        kicked_count = 0
+        failed_count = 0
+
         for subscriber in expired_subscribers:
             try:
-                # Banear del canal (permanente - sin unban)
+                # Intentar banear del canal
                 await self.bot.ban_chat_member(
                     chat_id=channel_id,
                     user_id=subscriber.user_id
                 )
 
-                banned_count += 1
+                # Marcar como expulsado exitosamente
+                subscriber.kicked_from_channel_at = datetime.utcnow()
+                kicked_count += 1
+
                 logger.info(f"🚫 Usuario baneado de VIP (suscripción expirada): {_mask_user_id(subscriber.user_id)}")
 
             except Exception as e:
-                logger.warning(
-                    f"⚠️ No se pudo banear a user {_mask_user_id(subscriber.user_id)}: {e}"
-                )
+                error_str = str(e).lower()
 
-        if banned_count > 0:
-            logger.info(f"✅ {banned_count} usuario(s) baneados del canal VIP (permanente)")
+                # Verificar si el usuario ya no está en el canal (éxito parcial)
+                if "user not found" in error_str or "user is not a member" in error_str:
+                    # Usuario ya no está en el canal - marcar como hecho
+                    subscriber.kicked_from_channel_at = datetime.utcnow()
+                    logger.info(f"✅ Usuario {_mask_user_id(subscriber.user_id)} ya no estaba en el canal")
+                else:
+                    # Error real - se reintentará en la próxima ejecución
+                    failed_count += 1
+                    logger.warning(
+                        f"⚠️ No se pudo banear a user {_mask_user_id(subscriber.user_id)}: {e}"
+                    )
 
-        return banned_count
+        # Flush para persistir los cambios de kicked_from_channel_at
+        await self.session.flush()
+
+        # Contar cuántos ya fueron expulsados en total (para reporting)
+        already_kicked_result = await self.session.execute(
+            select(func.count(VIPSubscriber.id))
+            .where(
+                VIPSubscriber.status == "expired",
+                VIPSubscriber.kicked_from_channel_at.isnot(None)
+            )
+        )
+        total_kicked = already_kicked_result.scalar_one()
+
+        if kicked_count > 0 or failed_count > 0:
+            logger.info(
+                f"✅ VIP kick results: {kicked_count} newly kicked, "
+                f"{total_kicked - kicked_count} already out, {failed_count} failed (will retry)"
+            )
+
+        return (kicked_count, total_kicked - kicked_count, failed_count)
 
     async def unban_from_vip_channel(
         self,
