@@ -207,7 +207,8 @@ async def test_error_handling_across_services(mock_bot, test_session, test_user)
 
     # Caso 3: Crear solicitud (debe funcionar)
     print("  3. Creando solicitud Free...")
-    request = await container.subscription.create_free_request(test_user.user_id)
+    success, msg, request = await container.subscription.create_free_request(test_user.user_id)
+    assert success is True
     assert request is not None
     print(f"     OK: Solicitud creada sin errores")
 
