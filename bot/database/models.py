@@ -18,7 +18,7 @@ from typing import Optional, List
 
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime,
-    BigInteger, JSON, ForeignKey, Index, Float, Enum, Numeric, desc
+    BigInteger, JSON, ForeignKey, Index, Float, Enum, Numeric, desc, UniqueConstraint
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -358,10 +358,17 @@ class FreeChannelRequest(Base):
     processed = Column(Boolean, default=False, nullable=False, index=True)
     processed_at = Column(DateTime, nullable=True)
 
+    # Campo para constraint único - True solo cuando está pendiente
+    # Permite que el usuario tenga múltiples solicitudes procesadas pero solo una pendiente
+    pending_request = Column(Boolean, default=True, nullable=False, index=True)
+
     # Índice compuesto para queries de pendientes por fecha
+    # Unique constraint para prevenir race conditions en solicitudes pendientes
     __table_args__ = (
         Index('idx_user_date', 'user_id', 'request_date'),
         Index('idx_processed_date', 'processed', 'request_date'),
+        UniqueConstraint('user_id', 'pending_request', name='uq_user_pending_request',
+                         sqlite_where=(pending_request == True)),
     )
 
     def minutes_since_request(self) -> int:
