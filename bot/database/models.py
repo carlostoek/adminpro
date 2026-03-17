@@ -309,6 +309,14 @@ class VIPSubscriber(Base):
     vip_entry_token = Column(String(64), unique=True, nullable=True)  # One-time token for Stage 3 link
     invite_link_sent_at = Column(DateTime, nullable=True)  # When Stage 3 link was generated
 
+    # Tracking de expulsión del canal (Phase 27 - Security Audit)
+    kicked_from_channel_at = Column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="When user was kicked from channel (NULL = not kicked)"
+    )
+
     # Token usado
     token_id = Column(Integer, ForeignKey("invitation_tokens.id"), nullable=False)
     token = relationship("InvitationToken", back_populates="subscribers")
@@ -320,6 +328,7 @@ class VIPSubscriber(Base):
     __table_args__ = (
         Index('idx_status_expiry', 'status', 'expiry_date'),
         Index('idx_vip_entry_stage', 'vip_entry_stage'),  # Phase 13: Stage lookup optimization
+        Index('idx_vip_expired_not_kicked', 'status', 'kicked_from_channel_at'),  # Phase 27: For kick retry logic
     )
 
     def is_expired(self) -> bool:
