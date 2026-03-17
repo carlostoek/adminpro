@@ -296,7 +296,9 @@ async def start_background_tasks(bot: Bot):
         id="expire_vip",
         name="Expulsar VIPs expirados",
         replace_existing=True,
-        max_instances=1  # No permitir múltiples instancias simultáneas
+        max_instances=1,  # No permitir múltiples instancias simultáneas
+        misfire_grace_time=300,  # 5 minutes grace time
+        coalesce=True  # Coalesce missed jobs into one
     )
     logger.info(
         f"✅ Tarea programada: Expulsión VIP (cada {Config.CLEANUP_INTERVAL_MINUTES} min)"
@@ -311,7 +313,9 @@ async def start_background_tasks(bot: Bot):
         id="process_free_queue",
         name="Procesar cola Free",
         replace_existing=True,
-        max_instances=1
+        max_instances=1,
+        misfire_grace_time=60,  # 1 minute grace time
+        coalesce=True  # Coalesce missed jobs into one
     )
     logger.info(
         f"✅ Tarea programada: Cola Free (cada {Config.PROCESS_FREE_QUEUE_MINUTES} min)"
@@ -326,7 +330,9 @@ async def start_background_tasks(bot: Bot):
         id="cleanup_old_data",
         name="Limpieza de datos antiguos",
         replace_existing=True,
-        max_instances=1
+        max_instances=1,
+        misfire_grace_time=3600,  # 1 hour grace time
+        coalesce=True  # Coalesce missed jobs into one
     )
     logger.info("✅ Tarea programada: Limpieza (diaria 3 AM UTC)")
 
@@ -339,7 +345,9 @@ async def start_background_tasks(bot: Bot):
         id="expire_streaks",
         name="Expiración de rachas diarias",
         replace_existing=True,
-        max_instances=1
+        max_instances=1,
+        misfire_grace_time=3600,  # 1 hour grace time
+        coalesce=True  # Coalesce missed jobs into one
     )
     logger.info("✅ Tarea programada: Expiración de rachas (medianoche UTC)")
 
