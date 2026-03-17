@@ -1174,18 +1174,12 @@ class SubscriptionService:
             channel_name = "Canal Free"
 
         # Procesar solo las solicitudes que fueron efectivamente reclamadas
-        # Re-query para obtener las que realmente fueron marcadas por este worker
-        claimed_result = await self.session.execute(
-            select(FreeChannelRequest.id, FreeChannelRequest.user_id)
-            .where(
-                FreeChannelRequest.id.in_(candidate_ids),
-                FreeChannelRequest.processed == True,
-                FreeChannelRequest.pending_request == False  # Recién procesadas
-            )
-        )
-        claimed_requests = claimed_result.all()
+        # Usar user_id_map directamente en lugar de re-query (evita nueva transacción)
+        # Las solicitudes fueron marcadas como procesadas en el UPDATE anterior
+        claimed_request_ids = candidate_ids[:update_result.rowcount] if update_result.rowcount > 0 else []
 
-        for request_id, user_id in claimed_requests:
+        for request_id in claimed_request_ids:
+            user_id = user_id_map[request_id]
             try:
                 # 1. Aprobar ChatJoinRequest directamente
                 await self.bot.approve_chat_join_request(
