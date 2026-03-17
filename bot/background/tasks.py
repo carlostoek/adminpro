@@ -8,7 +8,7 @@ Tareas:
 - Limpieza de solicitudes expiradas al inicio (post-restart)
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from aiogram import Bot
@@ -220,7 +220,7 @@ async def cleanup_expired_requests_after_restart(bot: Bot):
         async with get_session() as session:
             # Buscar solicitudes pendientes con más de 15 minutos de antigüedad
             # (Los ChatJoinRequest de Telegram expiran después de ~10 minutos)
-            cutoff_time = datetime.utcnow() - timedelta(minutes=15)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=15)
 
             result = await session.execute(
                 select(FreeChannelRequest).where(
@@ -238,7 +238,7 @@ async def cleanup_expired_requests_after_restart(bot: Bot):
             expired_count = 0
             for request in old_requests:
                 request.processed = True
-                request.processed_at = datetime.utcnow()
+                request.processed_at = datetime.now(timezone.utc)
                 expired_count += 1
                 logger.info(
                     f"🧹 Solicitud marcada como expirada (post-reinicio): "

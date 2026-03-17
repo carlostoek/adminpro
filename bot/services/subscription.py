@@ -18,6 +18,11 @@ import asyncio
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
+
+
+def utc_now():
+    """Get current UTC time as timezone-aware datetime."""
+    return datetime.now(timezone.utc)
 from typing import Optional, List, Tuple, Dict, Any
 
 from aiogram import Bot
@@ -165,7 +170,7 @@ class SubscriptionService:
         token = InvitationToken(
             token=token_str,
             generated_by=generated_by,
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             duration_hours=duration_hours,
             used=False,
             plan_id=plan_id  # Vincular con plan (opcional)
@@ -256,12 +261,12 @@ class SubscriptionService:
             .where(
                 InvitationToken.token == token_str,
                 InvitationToken.used == False,
-                InvitationToken.expires_at > datetime.utcnow()
+                InvitationToken.expires_at > utc_now()
             )
             .values(
                 used=True,
                 used_by=user_id,
-                used_at=datetime.utcnow()
+                used_at=utc_now()
             )
         )
 
@@ -298,7 +303,7 @@ class SubscriptionService:
 
             # Si ya expiró, partir desde ahora
             if existing_subscriber.is_expired():
-                existing_subscriber.expiry_date = datetime.utcnow() + extension
+                existing_subscriber.expiry_date = utc_now() + extension
             else:
                 # Si aún está activo, extender desde la fecha actual de expiración
                 existing_subscriber.expiry_date += extension
@@ -323,11 +328,11 @@ class SubscriptionService:
             return True, "✅ Suscripción VIP extendida exitosamente", existing_subscriber
 
         # Usuario nuevo: crear suscripción
-        expiry_date = datetime.utcnow() + timedelta(hours=token.duration_hours)
+        expiry_date = utc_now() + timedelta(hours=token.duration_hours)
 
         subscriber = VIPSubscriber(
             user_id=user_id,
-            join_date=datetime.utcnow(),
+            join_date=utc_now(),
             expiry_date=expiry_date,
             status="active",
             token_id=token.id
@@ -452,7 +457,7 @@ class SubscriptionService:
             ValueError: Si el usuario ya es VIP o token inválido
         """
         # Calculate expiry
-        expiry_date = datetime.utcnow() + timedelta(hours=duration_hours)
+        expiry_date = utc_now() + timedelta(hours=duration_hours)
 
         # Check if subscriber already exists (renewal)
         result = await self.session.execute(
@@ -471,7 +476,7 @@ class SubscriptionService:
 
             # Si ya expiró, partir desde ahora
             if existing_subscriber.is_expired():
-                existing_subscriber.expiry_date = datetime.utcnow() + extension
+                existing_subscriber.expiry_date = utc_now() + extension
             else:
                 # Si aún está activo, extender desde la fecha actual de expiración
                 existing_subscriber.expiry_date += extension
@@ -504,7 +509,7 @@ class SubscriptionService:
             subscriber = VIPSubscriber(
                 user_id=user_id,
                 token_id=token_id,
-                join_date=datetime.utcnow(),
+                join_date=utc_now(),
                 expiry_date=expiry_date,
                 status="active",
                 vip_entry_stage=1  # Phase 13: Start ritual at stage 1
@@ -577,7 +582,7 @@ class SubscriptionService:
                         previous_role=UserRole.VIP,
                         change_metadata={
                             "vip_subscriber_id": subscriber.id,
-                            "expired_at": datetime.utcnow().isoformat(),
+                            "expired_at": utc_now().isoformat(),
                             "original_expiry": subscriber.expiry_date.isoformat() if subscriber.expiry_date else None
                         }
                     )
@@ -670,7 +675,7 @@ class SubscriptionService:
             await self.session.execute(
                 update(VIPSubscriber)
                 .where(VIPSubscriber.id == vip_id)
-                .values(kicked_from_channel_at=datetime.utcnow())
+                .values(kicked_from_channel_at=utc_now())
             )
 
         # Commit all updates at once
@@ -820,7 +825,7 @@ class SubscriptionService:
         try:
             request = FreeChannelRequest(
                 user_id=user_id,
-                request_date=datetime.utcnow(),
+                request_date=utc_now(),
                 processed=False,
                 pending_request=True  # Para el unique constraint
             )
@@ -970,7 +975,7 @@ class SubscriptionService:
                 # Continuar con la creación de nueva solicitud abajo
             else:
                 # Solicitud aún dentro del tiempo de espera - verificar anti-spam
-                spam_cutoff = datetime.utcnow() - timedelta(minutes=Config.FREE_REQUEST_SPAM_WINDOW_MINUTES)
+                spam_cutoff = utc_now() - timedelta(minutes=Config.FREE_REQUEST_SPAM_WINDOW_MINUTES)
 
                 if existing.request_date >= spam_cutoff:
                     # Solicitud muy reciente - rechazar duplicado
@@ -983,7 +988,7 @@ class SubscriptionService:
                     # Solicitud antigua pero aún no cumple tiempo de espera
                     # Actualizar el request_date para "reanimar" la solicitud
                     # (el usuario reactivó su solicitud antes de que expirara)
-                    existing.request_date = datetime.utcnow()
+                    existing.request_date = utc_now()
                     await self.session.commit()
                     await self.session.refresh(existing)
                     logger.info(
@@ -1033,7 +1038,7 @@ class SubscriptionService:
         # Crear nueva solicitud limpia
         request = FreeChannelRequest(
             user_id=user_id,
-            request_date=datetime.utcnow(),
+            request_date=utc_now(),
             processed=False,
             pending_request=True  # Para el unique constraint
         )
@@ -1059,7 +1064,7 @@ class SubscriptionService:
             Lista de solicitudes procesadas
         """
         # Calcular timestamp límite
-        cutoff_time = datetime.utcnow() - timedelta(minutes=wait_time_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=wait_time_minutes)
 
         # Buscar solicitudes listas para procesar
         result = await self.session.execute(
@@ -1076,7 +1081,7 @@ class SubscriptionService:
         # Marcar como procesadas
         for request in ready_requests:
             request.processed = True
-            request.processed_at = datetime.utcnow()
+            request.processed_at = utc_now()
             request.pending_request = False  # Remove from unique constraint
 
         await self.session.commit()
@@ -1095,7 +1100,7 @@ class SubscriptionService:
         Returns:
             Cantidad de solicitudes eliminadas
         """
-        cutoff_date = datetime.utcnow() - timedelta(days=days_old)
+        cutoff_date = utc_now() - timedelta(days=days_old)
 
         result = await self.session.execute(
             delete(FreeChannelRequest).where(
@@ -1137,7 +1142,7 @@ class SubscriptionService:
             Tuple[int, int]: (success_count, error_count)
         """
         # Calcular timestamp límite
-        cutoff_time = datetime.utcnow() - timedelta(minutes=wait_time_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=wait_time_minutes)
 
         # Step 1: Obtener IDs de solicitudes candidatas (con LIMIT para batching)
         select_result = await self.session.execute(
@@ -1167,7 +1172,7 @@ class SubscriptionService:
             )
             .values(
                 processed=True,
-                processed_at=datetime.utcnow(),
+                processed_at=utc_now(),
                 pending_request=False  # Remove from unique constraint
             )
         )
@@ -1323,7 +1328,7 @@ class SubscriptionService:
         Raises:
             TelegramAPIError: Si el bot no tiene permisos en el canal
         """
-        expire_date = datetime.utcnow() + timedelta(hours=expire_hours)
+        expire_date = utc_now() + timedelta(hours=expire_hours)
 
         invite_link = await self.bot.create_chat_invite_link(
             chat_id=channel_id,
@@ -1441,7 +1446,7 @@ class SubscriptionService:
 
                     # Marcar como procesada
                     request.processed = True
-                    request.processed_at = datetime.utcnow()
+                    request.processed_at = utc_now()
                     request.pending_request = False  # Remove from unique constraint
 
                     # Enviar mensaje de aprobación con Lucien's voice
@@ -1492,7 +1497,7 @@ class SubscriptionService:
                     if is_final_error:
                         # Marcar como procesada para no volver a intentar
                         request.processed = True
-                        request.processed_at = datetime.utcnow()
+                        request.processed_at = utc_now()
                         request.pending_request = False  # Remove from unique constraint
                         logger.warning(
                             f"⚠️ Solicitud de user {_mask_user_id(request.user_id)} no se pudo aprobar "
@@ -1544,7 +1549,7 @@ class SubscriptionService:
 
                     # Marcar como procesada
                     request.processed = True
-                    request.processed_at = datetime.utcnow()
+                    request.processed_at = utc_now()
                     request.pending_request = False  # Remove from unique constraint
 
                     success_count += 1
