@@ -7,10 +7,17 @@ Responsabilidades:
 - Gestión de suscriptores VIP (crear, extender, expirar)
 - Gestión de solicitudes Free (crear, procesar)
 - Limpieza automática de datos antiguos
+
+Security considerations:
+- All token operations use atomic UPDATE with rowcount check
+- Bulk operations use rate limiting to prevent API abuse
+- Database transactions are separated from slow API calls
+- All datetime operations use timezone-aware datetimes
 """
+import asyncio
 import logging
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Tuple, Dict, Any
 
 from aiogram import Bot
@@ -620,7 +627,9 @@ class SubscriptionService:
         failed_user_ids = []
         already_out_user_ids = []
 
-        for vip_id, user_id in expired_vips:
+        RATE_LIMIT_DELAY = 0.1  # 100ms between API calls
+
+        for i, (vip_id, user_id) in enumerate(expired_vips):
             try:
                 # Intentar banear del canal
                 await self.bot.ban_chat_member(
@@ -630,6 +639,10 @@ class SubscriptionService:
 
                 kicked_user_ids.append((vip_id, user_id))
                 logger.info(f"🚫 Usuario baneado de VIP (suscripción expirada): {_mask_user_id(user_id)}")
+
+                # Rate limiting: sleep between API calls (but not after the last one)
+                if i < len(expired_vips) - 1:
+                    await asyncio.sleep(RATE_LIMIT_DELAY)
 
             except Exception as e:
                 error_str = str(e).lower()
@@ -1183,7 +1196,9 @@ class SubscriptionService:
         # Las solicitudes fueron marcadas como procesadas en el UPDATE anterior
         claimed_request_ids = candidate_ids[:update_result.rowcount] if update_result.rowcount > 0 else []
 
-        for request_id in claimed_request_ids:
+        RATE_LIMIT_DELAY = 0.1  # 100ms between API calls
+
+        for i, request_id in enumerate(claimed_request_ids):
             user_id = user_id_map[request_id]
             try:
                 # 1. Aprobar ChatJoinRequest directamente
@@ -1243,6 +1258,10 @@ class SubscriptionService:
 
                 success_count += 1
                 logger.info(f"✅ Solicitud Free aprobada: user {_mask_user_id(user_id)}")
+
+                # Rate limiting: sleep between API calls (but not after the last one)
+                if i < len(claimed_request_ids) - 1:
+                    await asyncio.sleep(RATE_LIMIT_DELAY)
 
             except Exception as e:
                 error_count += 1
