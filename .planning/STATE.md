@@ -10,8 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Current Position
 
 **Milestone:** v2.1 Deployment Readiness ✅ COMPLETE
-**Phase:** 26 - Initial Data Migration ✅ COMPLETE
-**Status:** v2.1 milestone archived, ready for v2.2 planning
+**Phase:** 27 - Security Audit Fixes 🔄 IN PROGRESS
+**Status:** Fixed C-001, C-002, C-003, C-004; continuing with remaining issues
+
+**Current Plan:** 27-02 - Race Condition Fixes C-003/C-004 (4/4 tasks complete)
+**Next:** 27-03 - FSM Security Audit
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -26,6 +29,7 @@ Phase 23: [██████████] 100% - Rewards System ✅ COMPLETE
 Phase 24: [██████████] 100% - Admin Configuration ✅ COMPLETE
 Phase 25: [██████████] 100% - Broadcasting Improvements ✅ COMPLETE
 Phase 26: [██████████] 100% - Initial Data Migration ✅ COMPLETE
+Phase 27: [██████    ] 50% - Security Audit Fixes 🔄 (Plans 01-02 complete)
 
 Overall v2.0:  [██████████] 100% (43/43 requirements) ✅
 Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
@@ -34,9 +38,9 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 ## Performance Metrics
 
 **Historical Velocity:**
-- Total plans completed: 68
+- Total plans completed: 70
 - Average duration: ~10.6 min
-- Total execution time: ~15.5 hours
+- Total execution time: ~16 hours
 
 **By Milestone:**
 
@@ -85,6 +89,9 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 | Safe formula evaluation | Regex validation + restricted eval for level formulas | **Implemented** |
 | Admin credit/debit | EARN_ADMIN/SPEND_ADMIN with audit metadata | **Implemented** |
 | Economy config in BotConfig | level_formula, besitos_per_reaction, etc. | **Implemented** |
+| Atomic UPDATE with rowcount check | Prevent race condition C-001 (token reuse) - SQLite-compatible | **Implemented (27-01)** |
+| INSERT with IntegrityError handling | Prevent race condition C-002 (spam requests) - SQLite-compatible | **Implemented (27-01)** |
+| Partial unique constraint with pending_request | Allow multiple processed but one pending request per user | **Implemented (27-01)** |
 
 ### Critical Implementation Notes
 
@@ -97,6 +104,8 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 - Reaction deduplication: one per user per content (regardless of emoji)
 - Rate limiting: 30-second cooldown between reactions
 - Daily limits: configurable per-user caps
+- Token redemption: atomic UPDATE with rowcount check prevents double-spend
+- Free request creation: INSERT with unique constraint prevents spam
 
 **Streak Calculation:**
 - UTC-based day boundaries
@@ -142,6 +151,15 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 | 26-03 | ✅ COMPLETE | Shop products seeder - Default products with content sets for gamification shop |
 
 **Phase 26 Status:** ✅ COMPLETE - 3/3 plans delivered
+
+### Phase 27 Progress
+
+| Plan | Status | Description |
+|------|--------|-------------|
+| 27-01 | ✅ COMPLETE | Race Condition Fixes - Fixed C-001 (token reuse) and C-002 (spam requests) with atomic operations |
+| 27-02 | ✅ COMPLETE | Race Condition Fixes C-003/C-004 - Fixed kick tracking and approve_ready race conditions with atomic UPDATE |
+
+**Phase 27 Status:** 🔄 IN PROGRESS - 2/4 plans delivered
 
 ### Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
 
