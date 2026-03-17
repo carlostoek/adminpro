@@ -21,7 +21,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models import VIPSubscriber, User
-from bot.services.subscription import SubscriptionService
+from bot.services.subscription import SubscriptionService, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ class VIPEntryService:
             .where(
                 VIPSubscriber.user_id == user_id,
                 VIPSubscriber.vip_entry_stage == from_stage,  # Must match expected stage
-                VIPSubscriber.expiry_date > datetime.utcnow(),  # Subscription not expired
+                VIPSubscriber.expiry_date > utc_now(),  # Subscription not expired
                 VIPSubscriber.status == "active"  # Subscription active
             )
             .values(vip_entry_stage=next_stage)
@@ -231,7 +231,7 @@ class VIPEntryService:
         user_id, current_stage, expiry_date = subscriber_data
 
         # Validate pre-conditions before attempting UPDATE
-        if expiry_date and expiry_date < datetime.utcnow():
+        if expiry_date and expiry_date < utc_now():
             return (False, "Tu suscripción VIP ha expirado", None)
 
         if current_stage != 3:
@@ -279,7 +279,7 @@ class VIPEntryService:
             select(VIPSubscriber).where(
                 VIPSubscriber.vip_entry_token == token,
                 VIPSubscriber.vip_entry_stage == 3,
-                VIPSubscriber.expiry_date > datetime.utcnow()
+                VIPSubscriber.expiry_date > utc_now()
             )
         )
         subscriber = result.scalar_one_or_none()
@@ -330,7 +330,7 @@ class VIPEntryService:
             )
 
             # Update invite_link_sent_at timestamp
-            subscriber.invite_link_sent_at = datetime.utcnow()
+            subscriber.invite_link_sent_at = utc_now()
 
             logger.info(f"✅ 24h invite link created for user {user_id}")
             return invite_link

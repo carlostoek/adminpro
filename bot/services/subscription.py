@@ -18,16 +18,16 @@ import asyncio
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional, List, Tuple, Dict, Any
 
 
 def utc_now():
-    """Get current UTC time as timezone-aware datetime."""
-    return datetime.now(timezone.utc)
-from typing import Optional, List, Tuple, Dict, Any
+    """Get current UTC time as naive datetime (matching database storage format)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 from aiogram import Bot
 from aiogram.types import ChatInviteLink
-from sqlalchemy import select, delete, func, update
+from sqlalchemy import select, delete, func, update, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -269,12 +269,13 @@ class SubscriptionService:
 
         # ATOMIC UPDATE: Marcar token como usado SOLO si no está usado y no expiró
         # El rowcount indica si el UPDATE afectó alguna fila
+        # Expiration check: created_at + duration_hours > now()
         result = await self.session.execute(
             update(InvitationToken)
             .where(
                 InvitationToken.token == token_str,
                 InvitationToken.used == False,
-                InvitationToken.expires_at > utc_now()
+                text("datetime(created_at, '+' || duration_hours || ' hours') > datetime('now')")
             )
             .values(
                 used=True,
