@@ -61,11 +61,14 @@ async def expire_and_kick_vip_subscribers(bot: Bot):
                 logger.info(f"✅ {expired_count} VIP(s) expirados y cambios de rol logueados")
 
                 # Expulsar del canal
-                kicked_count = await container.subscription.kick_expired_vip_from_channel(
+                kicked_count, already_kicked, failed_count = await container.subscription.kick_expired_vip_from_channel(
                     vip_channel_id
                 )
 
-                logger.info(f"✅ {kicked_count} usuario(s) expulsados del canal VIP")
+                logger.info(
+                    f"✅ VIP kick results: {kicked_count} newly kicked, "
+                    f"{already_kicked} already out, {failed_count} failed (will retry)"
+                )
             else:
                 logger.info("✅ No hay VIPs para expirar")
 
