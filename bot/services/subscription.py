@@ -516,7 +516,11 @@ class SubscriptionService:
 
         return subscriber
 
-    async def expire_vip_subscribers(self, container: Optional[ServiceContainer] = None) -> int:
+    async def expire_vip_subscribers(
+        self,
+        container: Optional[ServiceContainer] = None,
+        batch_size: int = 100
+    ) -> int:
         """
         Marca como expirados los suscriptores VIP cuya fecha pasó.
 
@@ -526,16 +530,17 @@ class SubscriptionService:
 
         Args:
             container: ServiceContainer opcional para logging de cambios de rol
+            batch_size: Máximo de registros a procesar por llamada (paginación)
 
         Returns:
             Cantidad de suscriptores expirados
         """
-        # Buscar suscriptores activos con fecha de expiración pasada
+        # Buscar suscriptores activos con fecha de expiración pasada (con LIMIT)
         result = await self.session.execute(
             select(VIPSubscriber).where(
                 VIPSubscriber.status == "active",
-                VIPSubscriber.expiry_date < datetime.utcnow()
-            )
+                VIPSubscriber.expiry_date < datetime.now(timezone.utc)
+            ).limit(batch_size)
         )
         expired_subscribers = result.scalars().all()
 
