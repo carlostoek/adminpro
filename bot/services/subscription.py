@@ -136,8 +136,15 @@ class SubscriptionService:
             ValueError: Si duration_hours es inválido
             RuntimeError: Si no se puede generar token único después de 10 intentos
         """
-        if duration_hours < 1:
-            raise ValueError("duration_hours debe ser al menos 1")
+        # Validate inputs
+        if not isinstance(generated_by, int) or generated_by <= 0:
+            raise ValueError("generated_by must be a positive integer")
+        if not isinstance(duration_hours, int) or duration_hours <= 0:
+            raise ValueError("duration_hours must be a positive integer")
+        if duration_hours > 8760:  # Max 1 year
+            raise ValueError("duration_hours cannot exceed 8760 (1 year)")
+        if plan_id is not None and (not isinstance(plan_id, int) or plan_id <= 0):
+            raise ValueError("plan_id must be a positive integer or None")
 
         # Generar token único
         max_attempts = 10
@@ -254,6 +261,12 @@ class SubscriptionService:
                 - str: Mensaje descriptivo
                 - Optional[VIPSubscriber]: Suscriptor creado/actualizado
         """
+        # Validate inputs
+        if not token_str or not isinstance(token_str, str):
+            return (False, "Token inválido", None)
+        if not isinstance(user_id, int) or user_id <= 0:
+            return (False, "ID de usuario inválido", None)
+
         # ATOMIC UPDATE: Marcar token como usado SOLO si no está usado y no expiró
         # El rowcount indica si el UPDATE afectó alguna fila
         result = await self.session.execute(
