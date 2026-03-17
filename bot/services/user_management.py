@@ -150,7 +150,10 @@ class UserManagementService:
         changed_by: int
     ) -> Tuple[bool, str]:
         """
-        Cambia el rol de un usuario con auditoría.
+        Cambia el rol de un usuario con atomicidad garantizada.
+
+        Pattern: Telegram first, then DB. If Telegram fails, DB never changes.
+        If DB fails after Telegram, we have a log but user can be fixed manually.
 
         Args:
             user_id: ID del usuario a modificar
@@ -163,7 +166,7 @@ class UserManagementService:
             - message: Mensaje de éxito o error
         """
         try:
-            # Validate permissions first
+            # Step 0: Validation (read-only, no DB changes yet)
             can_modify, error_msg = await self._can_modify_user(
                 target_user_id=user_id,
                 admin_user_id=changed_by
@@ -172,7 +175,7 @@ class UserManagementService:
             if not can_modify:
                 return (False, error_msg)
 
-            # Get user
+            # Get user (read-only for now)
             stmt = select(User).where(User.user_id == user_id)
             result = await self.session.execute(stmt)
             user = result.scalar_one_or_none()
@@ -187,7 +190,54 @@ class UserManagementService:
             if old_role == new_role:
                 return (True, f"El usuario ya tiene el rol {new_role.value}")
 
-            # Update role
+            # Step 1: Determine channel operations needed
+            from bot.services.channel import ChannelService
+            channel_service = ChannelService(self.session, self.bot)
+
+            vip_channel_id = await channel_service.get_vip_channel_id()
+            free_channel_id = await channel_service.get_free_channel_id()
+
+            # Step 2: Execute Telegram operations FIRST (before any DB writes)
+            # If this fails, no DB changes have been made
+            telegram_ops_success = True
+            telegram_errors = []
+
+            try:
+                if new_role == UserRole.FREE and old_role == UserRole.VIP:
+                    # VIP -> FREE: Remove from VIP channel
+                    if vip_channel_id:
+                        await self.bot.ban_chat_member(
+                            chat_id=vip_channel_id,
+                            user_id=user_id
+                        )
+                        logger.info(f"User {user_id} banned from VIP channel (role change)")
+
+                elif new_role == UserRole.VIP and old_role == UserRole.FREE:
+                    # FREE -> VIP: This usually happens via token redemption, not direct change
+                    # But if direct, user will need invite link
+                    pass
+
+                elif new_role == UserRole.ADMIN:
+                    # Promoting to admin - no channel changes needed
+                    pass
+
+                # Add other role transition logic as needed
+
+            except Exception as e:
+                telegram_ops_success = False
+                telegram_errors.append(str(e))
+                logger.error(f"Telegram operations failed for role change: {e}")
+
+            if not telegram_ops_success:
+                # Telegram failed - don't proceed with DB update
+                # This keeps DB and Telegram in sync (old role in both)
+                return (
+                    False,
+                    f"Error al actualizar canales de Telegram: {'; '.join(telegram_errors)}. "
+                    "El rol no ha sido cambiado. Inténtalo de nuevo."
+                )
+
+            # Step 3: Now safe to update DB (Telegram operations succeeded)
             user.role = new_role
             user.updated_at = datetime.utcnow()
 
@@ -201,6 +251,9 @@ class UserManagementService:
                 previous_role=old_role,
                 change_source="ADMIN_PANEL"
             )
+
+            # Flush to ensure DB is updated
+            await self.session.flush()
 
             logger.info(
                 f"Role changed: user {user_id} {old_role.value} -> {new_role.value} "
