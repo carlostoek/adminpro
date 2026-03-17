@@ -651,3 +651,41 @@ None
 *State updated: 2026-02-21 - Phase 26-03 complete*
 *Milestone v2.0 (Gamification) COMPLETE*
 *Milestone v2.1 (Deployment Readiness) COMPLETE*
+---
+
+## Session Continuity
+
+**Last session:** 2026-03-17 — Completed Phase 27 Plan 01: Race Condition Fixes
+**Stopped at:** Plan 27-01 complete - Fixed C-001 and C-002 with atomic operations
+**Next:** Phase 27 Plan 02 - Async Transaction Safety
+
+### Phase 27-01 COMPLETION SUMMARY
+
+**Delivered:** 4 tasks
+**Duration:** ~25 minutes
+**Key Achievements:**
+- Fixed C-001: Race condition in redeem_vip_token using atomic UPDATE with rowcount check
+- Fixed C-002: Race condition in create_free_request using INSERT with IntegrityError handling
+- Added pending_request boolean column and partial unique constraint to FreeChannelRequest
+- Updated all callers to handle new tuple return signature
+- All changes SQLite-compatible (no SELECT FOR UPDATE)
+
+**Files Modified:**
+- `bot/database/models.py` - Added pending_request column and unique constraint
+- `bot/services/subscription.py` - Atomic operations for token redemption and free requests
+- `tests/test_system/test_free_flow.py` - Updated for new return signature
+- `tests/test_integration.py` - Updated for new return signature
+- `tests/test_e2e_flows.py` - Updated for new return signature
+
+**Commits:**
+- 2dbba05: feat(27-01): add unique constraint for pending free requests
+- ebfd230: fix(27-01): fix race condition C-001 in redeem_vip_token
+- cbfdd4d: fix(27-01): fix race condition C-002 in create_free_request
+- dc4250b: fix(27-01): update callers and tests for new create_free_request signature
+
+---
+
+*State updated: 2026-03-17 - Phase 27-01 complete*
+*Milestone v2.0 (Gamification) COMPLETE*
+*Milestone v2.1 (Deployment Readiness) COMPLETE*
+*Phase 27 (Security Audit Fixes) IN PROGRESS*
