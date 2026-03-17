@@ -13,7 +13,7 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 **Phase:** 27 - Security Audit Fixes 🔄 IN PROGRESS
 **Status:** All critical issues fixed: C-001, C-002, C-003, C-004, C-007, C-008 ✅
 
-**Current Plan:** 27-04 - Atomicity and Transaction Safety (4/4 tasks complete)
+**Current Plan:** 27-05 - Rate Limiting and Timezone-Aware Datetimes (7/7 tasks complete)
 **Next:** Phase 27 complete - All security audit issues fixed
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
@@ -96,6 +96,10 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 | Telegram-first pattern for role changes | Do Telegram API calls before DB updates to ensure consistency | **Implemented (27-04)** |
 | Explicit session.commit() before API calls | Release DB locks before slow Telegram operations | **Implemented (27-04)** |
 | Three-phase transaction pattern | SELECT → API → UPDATE/commit for long operations | **Implemented (27-04)** |
+| Rate limiting for bulk operations | 100ms delay between Telegram API calls to prevent rate limits | **Implemented (27-05)** |
+| Timezone-aware datetimes | utc_now() helper using datetime.now(timezone.utc) | **Implemented (27-05)** |
+| Pagination for bulk queries | LIMIT 100 for all bulk operations | **Implemented (27-05)** |
+| APScheduler misfire handling | misfire_grace_time and coalesce for job resilience | **Implemented (27-05)** |
 
 ### Critical Implementation Notes
 
@@ -163,8 +167,9 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 | 27-01 | ✅ COMPLETE | Race Condition Fixes - Fixed C-001 (token reuse) and C-002 (spam requests) with atomic operations |
 | 27-02 | ✅ COMPLETE | Race Condition Fixes C-003/C-004 - Fixed kick tracking and approve_ready race conditions with atomic UPDATE |
 | 27-04 | ✅ COMPLETE | Atomicity and Transaction Safety - Fixed C-007 (role changes) and C-008 (long transactions) |
+| 27-05 | ✅ COMPLETE | Rate Limiting and Timezone-Aware Datetimes - Fixed W-001, W-002, W-003, W-004, W-006 |
 
-**Phase 27 Status:** ✅ COMPLETE - 3/3 plans delivered
+**Phase 27 Status:** ✅ COMPLETE - 4/4 plans delivered
 
 ### Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
 
@@ -212,8 +217,8 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-17T07:39:43Z
-**Stopped at:** Completed 27-04-PLAN.md - Atomicity and Transaction Safety fixes
+**Last session:** 2026-03-17T07:42:21Z
+**Stopped at:** Completed 27-05-PLAN.md - Rate Limiting and Timezone-Aware Datetimes
 **Next:** Phase 27 complete - All security audit issues fixed
 
 ### Wave 4 Summary
