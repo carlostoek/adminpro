@@ -15,7 +15,7 @@ from typing import Optional, List, Tuple, Dict, Any
 
 from aiogram import Bot
 from aiogram.types import ChatInviteLink
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, delete, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -221,6 +221,10 @@ class SubscriptionService:
         """
         Canjea un token VIP y crea/extiende suscripción.
 
+        ATÓMICO: Usa UPDATE con WHERE y rowcount check para prevenir
+        race conditions (C-001). Múltiples requests concurrentes resultan
+        en solo un canje exitoso.
+
         Si el usuario ya es VIP:
         - Extiende su suscripción (no crea nueva)
 
@@ -237,16 +241,36 @@ class SubscriptionService:
                 - str: Mensaje descriptivo
                 - Optional[VIPSubscriber]: Suscriptor creado/actualizado
         """
-        # Validar token
-        is_valid, message, token = await self.validate_token(token_str)
+        # ATOMIC UPDATE: Marcar token como usado SOLO si no está usado y no expiró
+        # El rowcount indica si el UPDATE afectó alguna fila
+        result = await self.session.execute(
+            update(InvitationToken)
+            .where(
+                InvitationToken.token == token_str,
+                InvitationToken.used == False,
+                InvitationToken.expires_at > datetime.utcnow()
+            )
+            .values(
+                used=True,
+                used_by=user_id,
+                used_at=datetime.utcnow()
+            )
+        )
 
-        if not is_valid:
-            return False, message, None
+        if result.rowcount == 0:
+            # Token ya fue usado, expiró, o no existe
+            # Esto previene race conditions: solo el primer UPDATE exitoso pasa
+            logger.warning(
+                f"⚠️ Token {_mask_token(token_str)} race condition o inválido "
+                f"para user {_mask_user_id(user_id)}"
+            )
+            return False, "❌ Token inválido, expirado o ya fue usado", None
 
-        # Marcar token como usado
-        token.used = True
-        token.used_by = user_id
-        token.used_at = datetime.utcnow()
+        # Token marcado como usado exitosamente - obtener datos para la suscripción
+        token_result = await self.session.execute(
+            select(InvitationToken).where(InvitationToken.token == token_str)
+        )
+        token = token_result.scalar_one()
 
         # Verificar si usuario ya es VIP
         result = await self.session.execute(
