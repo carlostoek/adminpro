@@ -84,9 +84,12 @@ class VIPEntryService:
         return stage
 
 
-    async def advance_stage(self, user_id: int, from_stage: int) -> bool:
+    async def advance_stage(self, user_id: int, from_stage: int) -> Tuple[bool, str]:
         """
-        Avanza a la siguiente etapa del flujo VIP.
+        Avanza a la siguiente etapa del flujo VIP con protección contra race conditions.
+
+        Usa UPDATE atómico con cláusula WHERE condicional para prevenir
+        condiciones de carrera donde múltiples requests intentan avanzar la etapa.
 
         Valida:
         - Suscripción no expirada
@@ -95,52 +98,56 @@ class VIPEntryService:
 
         Args:
             user_id: ID del usuario
-            from_stage: Etapa actual (para validación)
+            from_stage: Etapa actual esperada (para validación)
 
         Returns:
-            True si etapa avanzó correctamente, False si error
+            Tuple de (success, message):
+            - success: True si la etapa fue avanzada exitosamente
+            - message: Mensaje de éxito o error detallado
         """
-        # Get subscriber
-        result = await self.session.execute(
-            select(VIPSubscriber).where(VIPSubscriber.user_id == user_id)
-        )
-        subscriber = result.scalar_one_or_none()
+        # Validate stage progression logic first
+        if from_stage not in (1, 2):
+            return (False, f"No se puede avanzar desde la etapa {from_stage}")
 
-        if not subscriber:
-            logger.error(f"❌ VIPSubscriber not found for user {user_id}")
-            return False
-
-        # Validate subscription not expired
-        if subscriber.is_expired():
-            logger.warning(
-                f"⚠️ Cannot advance stage: User {user_id} subscription expired"
-            )
-            return False
-
-        # Validate from_stage matches current stage
-        current_stage = subscriber.vip_entry_stage if subscriber.vip_entry_stage else 0
-
-        if from_stage != current_stage:
-            logger.warning(
-                f"⚠️ Stage mismatch: expected {current_stage}, got {from_stage} "
-                f"for user {user_id}"
-            )
-            return False
-
-        # Validate sequential progression (no skips)
-        if from_stage not in (1, 2):  # Only advance from stage 1 or 2
-            logger.warning(f"⚠️ Cannot advance from stage {from_stage}")
-            return False
-
-        # Advance to next stage
         next_stage = from_stage + 1
-        subscriber.vip_entry_stage = next_stage
 
-        logger.info(
-            f"✅ User {user_id} VIP entry advanced: stage {from_stage} → {next_stage}"
+        # Atomic UPDATE: only update if conditions match
+        # This prevents race conditions where another request already advanced the stage
+        result = await self.session.execute(
+            update(VIPSubscriber)
+            .where(
+                VIPSubscriber.user_id == user_id,
+                VIPSubscriber.vip_entry_stage == from_stage,  # Must match expected stage
+                VIPSubscriber.expiry_date > datetime.utcnow(),  # Subscription not expired
+                VIPSubscriber.status == "active"  # Subscription active
+            )
+            .values(vip_entry_stage=next_stage)
         )
 
-        return True
+        if result.rowcount == 0:
+            # UPDATE failed - check why for better error message
+            subscriber_result = await self.session.execute(
+                select(VIPSubscriber).where(VIPSubscriber.user_id == user_id)
+            )
+            subscriber = subscriber_result.scalar_one_or_none()
+
+            if not subscriber:
+                return (False, "Suscripción VIP no encontrada")
+
+            if subscriber.is_expired():
+                return (False, "Tu suscripción VIP ha expirado")
+
+            current = subscriber.vip_entry_stage or 0
+            if current != from_stage:
+                if current > from_stage:
+                    return (False, f"Ya has avanzado a la etapa {current}")
+                else:
+                    return (False, f"Etapa incorrecta. Actual: {current}, Esperada: {from_stage}")
+
+            return (False, "No se pudo avanzar la etapa")
+
+        logger.info(f"User {user_id} VIP entry advanced: stage {from_stage} -> {next_stage}")
+        return (True, f"Etapa {next_stage} desbloqueada")
 
     # ===== TOKEN GENERATION =====
 
