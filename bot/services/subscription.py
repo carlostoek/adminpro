@@ -16,6 +16,7 @@ from typing import Optional, List, Tuple, Dict, Any
 from aiogram import Bot
 from aiogram.types import ChatInviteLink
 from sqlalchemy import select, delete, func, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -734,48 +735,68 @@ class SubscriptionService:
 
     # ===== CANAL FREE =====
 
-    async def create_free_request(self, user_id: int) -> FreeChannelRequest:
+    async def create_free_request(
+        self, user_id: int
+    ) -> Tuple[bool, str, Optional[FreeChannelRequest]]:
         """
-        Crea una solicitud de acceso al canal Free.
+        Crea una solicitud de acceso al canal Free con protección contra race conditions.
 
-        Si el usuario ya tiene una solicitud pendiente, la retorna.
+        ATÓMICO: Usa INSERT con unique constraint y IntegrityError handling (C-002).
+        SQLite-compatible: no requiere SELECT FOR UPDATE.
 
         Args:
             user_id: ID del usuario
 
         Returns:
-            FreeChannelRequest: Solicitud creada o existente
+            Tuple[bool, str, Optional[FreeChannelRequest]]:
+                - bool: True si éxito, False si ya existe solicitud pendiente
+                - str: Mensaje descriptivo
+                - Optional[FreeChannelRequest]: Solicitud creada o None si error
         """
-        # Verificar si ya tiene solicitud pendiente
-        result = await self.session.execute(
-            select(FreeChannelRequest).where(
-                FreeChannelRequest.user_id == user_id,
-                FreeChannelRequest.processed == False
-            ).order_by(FreeChannelRequest.request_date.desc())
-        )
-        existing = result.scalar_one_or_none()
-
-        if existing:
-            logger.info(
-                f"ℹ️ Usuario {_mask_user_id(user_id)} ya tiene solicitud Free pendiente "
-                f"(hace {existing.minutes_since_request()} min)"
+        # Intentar INSERT directo - la base de datos fuerza unicidad via constraint
+        try:
+            request = FreeChannelRequest(
+                user_id=user_id,
+                request_date=datetime.utcnow(),
+                processed=False,
+                pending_request=True  # Para el unique constraint
             )
-            return existing
+            self.session.add(request)
+            await self.session.flush()  # Forzar el INSERT sin commit completo
 
-        # Crear nueva solicitud
-        request = FreeChannelRequest(
-            user_id=user_id,
-            request_date=datetime.utcnow(),
-            processed=False
-        )
+            logger.info(f"✅ Solicitud Free creada: user {_mask_user_id(user_id)}")
+            return True, "✅ Solicitud creada exitosamente", request
 
-        self.session.add(request)
-        await self.session.commit()
-        await self.session.refresh(request)
+        except IntegrityError:
+            # Violación de constraint único - usuario ya tiene solicitud pendiente
+            # SQLite requiere rollback después de IntegrityError
+            await self.session.rollback()
 
-        logger.info(f"✅ Solicitud Free creada: user {_mask_user_id(user_id)}")
+            # Obtener solicitud existente para mensaje detallado
+            result = await self.session.execute(
+                select(FreeChannelRequest).where(
+                    FreeChannelRequest.user_id == user_id,
+                    FreeChannelRequest.processed == False
+                ).order_by(FreeChannelRequest.request_date.desc())
+            )
+            existing = result.scalar_one_or_none()
 
-        return request
+            if existing:
+                wait_msg = f" (tiempo en cola: {existing.minutes_since_request()} min)"
+                logger.info(
+                    f"⚠️ Usuario {_mask_user_id(user_id)} intentó crear solicitud duplicada{wait_msg}"
+                )
+                return (
+                    False,
+                    f"❌ Ya tienes una solicitud pendiente{wait_msg}",
+                    existing
+                )
+
+            logger.warning(
+                f"⚠️ IntegrityError en solicitud Free para user {_mask_user_id(user_id)} "
+                f"pero no se encontró solicitud existente"
+            )
+            return False, "❌ Ya tienes una solicitud pendiente", None
 
     async def get_free_request(self, user_id: int) -> Optional[FreeChannelRequest]:
         """
