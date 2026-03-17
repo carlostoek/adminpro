@@ -202,28 +202,88 @@ class VIPEntryService:
         raise RuntimeError("Could not generate unique entry token")
 
 
+    async def validate_and_consume_entry_token(self, token: str) -> Tuple[bool, str, Optional[int]]:
+        """
+        Valida y consume atómicamente un token de entrada.
+
+        Esto previene condiciones de carrera donde el mismo token es usado múltiples veces.
+
+        Args:
+            token: Token de entrada a validar y consumir
+
+        Returns:
+            Tuple de (success, message, user_id):
+            - success: True si el token es válido y fue consumido
+            - message: Mensaje de éxito o error
+            - user_id: ID del usuario si exitoso, None si falló
+        """
+        # Step 1: Get user_id BEFORE consuming token (avoids race condition in lookup)
+        # This is read-only, no locks needed
+        subscriber_result = await self.session.execute(
+            select(VIPSubscriber.user_id, VIPSubscriber.vip_entry_stage, VIPSubscriber.expiry_date)
+            .where(VIPSubscriber.vip_entry_token == token)
+        )
+        subscriber_data = subscriber_result.one_or_none()
+
+        if not subscriber_data:
+            return (False, "Token de entrada inválido", None)
+
+        user_id, current_stage, expiry_date = subscriber_data
+
+        # Validate pre-conditions before attempting UPDATE
+        if expiry_date and expiry_date < datetime.utcnow():
+            return (False, "Tu suscripción VIP ha expirado", None)
+
+        if current_stage != 3:
+            if current_stage is None:
+                return (False, "El acceso ya fue completado anteriormente", None)
+            return (False, f"Completa la etapa {current_stage} primero", None)
+
+        # Step 2: Atomic UPDATE to consume token
+        # This ensures only one request can successfully consume the token
+        result = await self.session.execute(
+            update(VIPSubscriber)
+            .where(
+                VIPSubscriber.vip_entry_token == token,
+                VIPSubscriber.vip_entry_stage == 3  # Double-check stage hasn't changed
+            )
+            .values(
+                vip_entry_stage=None,  # Flow complete
+                vip_entry_token=None   # Token consumed
+            )
+        )
+
+        if result.rowcount == 0:
+            # Another request consumed the token between our read and UPDATE
+            return (False, "El token ya fue utilizado. Inténtalo de nuevo.", None)
+
+        # Success - we already have user_id from Step 1, no race condition here
+        logger.info(f"Entry token consumed for user {user_id}")
+        return (True, "Acceso VIP confirmado", user_id)
+
+
     async def is_entry_token_valid(self, token: str) -> bool:
         """
-        Verifica si un token de entrada es válido.
+        Verifica si un token de entrada es válido (chequeo no destructivo para UI).
+
+        Nota: Esto NO consume el token. Use validate_and_consume_entry_token
+        para validación de acceso real.
 
         Args:
             token: Token a verificar
 
         Returns:
-            True si token existe y corresponde a usuario en etapa 3
+            True si token existe, corresponde a usuario en etapa 3, y no ha expirado
         """
         result = await self.session.execute(
             select(VIPSubscriber).where(
                 VIPSubscriber.vip_entry_token == token,
-                VIPSubscriber.vip_entry_stage == 3
+                VIPSubscriber.vip_entry_stage == 3,
+                VIPSubscriber.expiry_date > datetime.utcnow()
             )
         )
         subscriber = result.scalar_one_or_none()
-
-        if subscriber and not subscriber.is_expired():
-            return True
-
-        return False
+        return subscriber is not None
 
     # ===== INVITE LINK CREATION =====
 
