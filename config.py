@@ -129,6 +129,13 @@ class Config:
         os.getenv("FREE_REQUEST_SPAM_WINDOW_MINUTES", "5")
     )
 
+    # ===== RATE LIMITING FOR BULK OPERATIONS =====
+    # Rate limiting for Telegram API bulk operations
+    TELEGRAM_RATE_LIMIT_RPS: int = 30  # Requests per second (Telegram allows ~30 msg/sec)
+    TELEGRAM_RATE_LIMIT_DELAY: float = 1.0 / TELEGRAM_RATE_LIMIT_RPS  # Delay between requests
+    BULK_OPERATION_BATCH_SIZE: int = 100  # Max records per batch
+    BULK_OPERATION_RATE_LIMIT_DELAY: float = 0.1  # 100ms between bulk API calls
+
     # ===== HEALTH CHECK =====
     # Puerto para el endpoint de health check (FastAPI)
     # Default: 8000 (no debe colisionar con otros servicios)
