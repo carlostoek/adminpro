@@ -971,7 +971,8 @@ class SubscriptionService:
         request = FreeChannelRequest(
             user_id=user_id,
             request_date=datetime.utcnow(),
-            processed=False
+            processed=False,
+            pending_request=True  # Para el unique constraint
         )
 
         self.session.add(request)
@@ -1013,6 +1014,7 @@ class SubscriptionService:
         for request in ready_requests:
             request.processed = True
             request.processed_at = datetime.utcnow()
+            request.pending_request = False  # Remove from unique constraint
 
         await self.session.commit()
 
@@ -1055,8 +1057,14 @@ class SubscriptionService:
         """
         Aprueba solicitudes Free que cumplieron tiempo de espera.
 
-        Usa approve_chat_join_request() de Telegram API en lugar de invite links.
-        Este es el método moderno recomendado por Telegram.
+        Usa UPDATE atómico con rowcount check para prevenir race conditions.
+        SQLite-compatible (no usa SKIP LOCKED).
+
+        Flujo seguro:
+        1. SELECT para obtener candidatos (con LIMIT para batching)
+        2. UPDATE atómico marca solicitudes como procesadas
+        3. Commit para liberar locks
+        4. Llamadas a Telegram API (fuera de transacción)
 
         Args:
             wait_time_minutes: Tiempo mínimo de espera requerido
@@ -1068,19 +1076,52 @@ class SubscriptionService:
         # Calcular timestamp límite
         cutoff_time = datetime.utcnow() - timedelta(minutes=wait_time_minutes)
 
-        # Buscar solicitudes listas para aprobar
-        result = await self.session.execute(
-            select(FreeChannelRequest).where(
+        # Step 1: Obtener IDs de solicitudes candidatas (con LIMIT para batching)
+        select_result = await self.session.execute(
+            select(FreeChannelRequest.id, FreeChannelRequest.user_id)
+            .where(
                 FreeChannelRequest.processed == False,
                 FreeChannelRequest.request_date <= cutoff_time
-            ).order_by(FreeChannelRequest.request_date.asc())
+            )
+            .order_by(FreeChannelRequest.request_date)
+            .limit(100)  # Batch processing para evitar memory issues
         )
-        ready_requests = result.scalars().all()
+        candidates = select_result.all()  # List of (id, user_id) tuples
 
-        if not ready_requests:
+        if not candidates:
             logger.debug("✓ No hay solicitudes Free listas para aprobar")
             return 0, 0
 
+        # Step 2: Atomically mark estas solicitudes específicas como procesadas
+        candidate_ids = [row[0] for row in candidates]
+        user_id_map = {row[0]: row[1] for row in candidates}
+
+        update_result = await self.session.execute(
+            update(FreeChannelRequest)
+            .where(
+                FreeChannelRequest.id.in_(candidate_ids),
+                FreeChannelRequest.processed == False  # Still unprocessed (race check)
+            )
+            .values(
+                processed=True,
+                processed_at=datetime.utcnow(),
+                pending_request=False  # Remove from unique constraint
+            )
+        )
+
+        # Verificar si hubo race condition (otro worker procesó algunas)
+        if update_result.rowcount != len(candidate_ids):
+            logger.warning(
+                f"⚠️ Race condition detectado: esperado {len(candidate_ids)} updates, "
+                f"obtenido {update_result.rowcount}. Algunas solicitudes fueron procesadas por otro worker."
+            )
+
+        # Commit para liberar locks antes de llamadas API
+        await self.session.commit()
+
+        logger.info(f"🔒 Claimed {update_result.rowcount} solicitudes para procesamiento")
+
+        # Step 3: Procesar solicitudes reclamadas (no DB locks held during API calls)
         success_count = 0
         error_count = 0
 
@@ -1092,26 +1133,34 @@ class SubscriptionService:
             logger.warning(f"⚠️ No se pudo obtener info del canal Free: {e}")
             channel_name = "Canal Free"
 
-        # Aprobar cada solicitud usando Telegram API
-        for request in ready_requests:
+        # Procesar solo las solicitudes que fueron efectivamente reclamadas
+        # Re-query para obtener las que realmente fueron marcadas por este worker
+        claimed_result = await self.session.execute(
+            select(FreeChannelRequest.id, FreeChannelRequest.user_id)
+            .where(
+                FreeChannelRequest.id.in_(candidate_ids),
+                FreeChannelRequest.processed == True,
+                FreeChannelRequest.pending_request == False  # Recién procesadas
+            )
+        )
+        claimed_requests = claimed_result.all()
+
+        for request_id, user_id in claimed_requests:
             try:
                 # 1. Aprobar ChatJoinRequest directamente
                 await self.bot.approve_chat_join_request(
                     chat_id=free_channel_id,
-                    user_id=request.user_id
+                    user_id=user_id
                 )
 
-                # 2. Obtener enlace del canal (dinámicamente generado si no existe)
-                # Import UserFlowMessages
+                # 2. Obtener enlace del canal
                 from bot.services.message.user_flows import UserFlowMessages
                 from bot.services.channel import ChannelService
 
-                # Usar ChannelService para obtener o crear el enlace dinámicamente
                 channel_service = ChannelService(self.session, self.bot)
                 channel_link = await channel_service.get_or_create_free_channel_invite_link()
 
                 if not channel_link:
-                    # Fallback: intentar obtener desde BotConfig (legacy) o construir URL pública
                     config_result = await self.session.execute(
                         select(BotConfig).where(BotConfig.id == 1)
                     )
@@ -1122,11 +1171,8 @@ class SubscriptionService:
                     elif free_channel_id.startswith('@'):
                         channel_link = f"t.me/{free_channel_id[1:]}"
                         logger.warning("⚠️ Usando fallback t.me URL para canal público")
-                    else:
-                        logger.error("❌ No se pudo obtener ni crear enlace de invitación")
-                        # Continuar sin enviar mensaje (la aprobación ya se hizo)
 
-                # 3. Enviar mensaje de aprobación con Lucien's voice
+                # 3. Enviar mensaje de aprobación
                 if channel_link:
                     try:
                         flows = UserFlowMessages()
@@ -1136,66 +1182,53 @@ class SubscriptionService:
                         )
 
                         await self.bot.send_message(
-                            chat_id=request.user_id,
+                            chat_id=user_id,
                             text=approval_text,
                             reply_markup=keyboard,
                             parse_mode="HTML"
                         )
 
                         logger.info(
-                            f"✅ Aprobación enviada a user {_mask_user_id(request.user_id)} con enlace al canal"
+                            f"✅ Aprobación enviada a user {_mask_user_id(user_id)} con enlace al canal"
                         )
                     except Exception as notify_error:
-                        # Distinguir entre usuario que bloqueó el bot vs otros errores
                         error_type = type(notify_error).__name__
                         if "Forbidden" in error_type or "blocked" in str(notify_error).lower():
                             logger.warning(
-                                f"⚠️ Usuario {_mask_user_id(request.user_id)} bloqueó el bot, no se envió confirmación"
+                                f"⚠️ Usuario {_mask_user_id(user_id)} bloqueó el bot"
                             )
                         else:
                             logger.error(
-                                f"❌ Error inesperado enviando confirmación a {_mask_user_id(request.user_id)}: {notify_error}"
+                                f"❌ Error enviando confirmación a {_mask_user_id(user_id)}: {notify_error}"
                             )
-                        # No falla la aprobación si el mensaje no se envía
-
-                # 4. Marcar como procesada
-                request.processed = True
-                request.processed_at = datetime.utcnow()
 
                 success_count += 1
-                logger.info(f"✅ Solicitud Free aprobada: user {_mask_user_id(request.user_id)}")
+                logger.info(f"✅ Solicitud Free aprobada: user {_mask_user_id(user_id)}")
 
             except Exception as e:
                 error_count += 1
                 error_msg = str(e).lower()
 
-                # Verificar si es un error de solicitud expirada/cancelada
-                # Esto ocurre cuando el ChatJoinRequest de Telegram expiró o fue cancelado
-                # O cuando el usuario ya está en el canal (USER_ALREADY_PARTICIPANT)
+                # Verificar si es error de solicitud expirada
                 is_expired_error = any(
                     keyword in error_msg
-                    for keyword in ["expired", "not found", "no pending", "request expired", "user_not_participant", "user_already_participant"]
+                    for keyword in ["expired", "not found", "no pending", "request expired",
+                                   "user_not_participant", "user_already_participant"]
                 )
 
                 if is_expired_error:
-                    # Marcar como procesada para no volver a intentar
-                    request.processed = True
-                    request.processed_at = datetime.utcnow()
                     logger.warning(
-                        f"⚠️ Solicitud de user {_mask_user_id(request.user_id)} expiró o fue cancelada. "
-                        f"Marcada como procesada para evitar reintentos."
+                        f"⚠️ Solicitud de user {_mask_user_id(user_id)} expiró o fue cancelada. "
+                        f"Ya marcada como procesada para evitar reintentos."
                     )
                 else:
                     logger.error(
-                        f"❌ Error aprobando solicitud de user {_mask_user_id(request.user_id)}: {e}"
+                        f"❌ Error aprobando solicitud de user {_mask_user_id(user_id)}: {e}"
                     )
-
-        # Commit todos los cambios
-        await self.session.commit()
 
         logger.info(
             f"📊 Procesamiento Free completado: {success_count} aprobadas, "
-            f"{error_count} errores"
+            f"{error_count} errores (batch: {len(candidates)}, claimed: {update_result.rowcount})"
         )
 
         return success_count, error_count
@@ -1346,6 +1379,7 @@ class SubscriptionService:
                     # Marcar como procesada
                     request.processed = True
                     request.processed_at = datetime.utcnow()
+                    request.pending_request = False  # Remove from unique constraint
 
                     # Enviar mensaje de aprobación con Lucien's voice
                     if channel_link:
@@ -1396,6 +1430,7 @@ class SubscriptionService:
                         # Marcar como procesada para no volver a intentar
                         request.processed = True
                         request.processed_at = datetime.utcnow()
+                        request.pending_request = False  # Remove from unique constraint
                         logger.warning(
                             f"⚠️ Solicitud de user {_mask_user_id(request.user_id)} no se pudo aprobar "
                             f"({e}). Marcada como procesada para evitar reintentos."
@@ -1447,6 +1482,7 @@ class SubscriptionService:
                     # Marcar como procesada
                     request.processed = True
                     request.processed_at = datetime.utcnow()
+                    request.pending_request = False  # Remove from unique constraint
 
                     success_count += 1
                     logger.info(f"🚫 Solicitud Free rechazada (bulk): user {_mask_user_id(request.user_id)}")
