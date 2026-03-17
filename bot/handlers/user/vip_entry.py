@@ -193,11 +193,12 @@ async def handle_vip_entry_stage_transition(
         await callback.answer("❌ Transición inválida", show_alert=True)
         return
 
-    # Advance stage
-    success = await service.advance_stage(user_id, current_stage)
+    # Advance stage (with race condition protection)
+    success, msg = await service.advance_stage(user_id, current_stage)
 
     if not success:
-        await callback.answer("❌ Error al avanzar etapa", show_alert=True)
+        logger.warning(f"⚠️ Stage advance failed for user {user_id}: {msg}")
+        await callback.answer(f"❌ {msg}", show_alert=True)
         return
 
     # Stage 3 special handling: UserRole change + audit log
