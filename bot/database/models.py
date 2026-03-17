@@ -372,12 +372,12 @@ class FreeChannelRequest(Base):
     pending_request = Column(Boolean, default=True, nullable=False, index=True)
 
     # Índice compuesto para queries de pendientes por fecha
-    # Unique constraint para prevenir race conditions en solicitudes pendientes
     __table_args__ = (
         Index('idx_user_date', 'user_id', 'request_date'),
         Index('idx_processed_date', 'processed', 'request_date'),
-        UniqueConstraint('user_id', 'pending_request', name='uq_user_pending_request',
-                         sqlite_where=(pending_request == True)),
+        # Unique constraint simplificado para SQLite (sin sqlite_where)
+        # La protección contra race conditions se maneja en el servicio con IntegrityError
+        UniqueConstraint('user_id', name='uq_user_one_request'),
     )
 
     def minutes_since_request(self) -> int:
