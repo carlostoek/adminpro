@@ -278,7 +278,7 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24 → 25
 | 24. Admin Configuration | v2.0 | 9/9 | Complete | 2026-02-21 |
 | 25. Broadcasting Improvements | v2.1 | 1/1 | Complete | 2026-02-21 |
 | 26. Initial Data Migration | v2.1 | 3/3 | Complete | 2026-02-21 |
-| 27. Security Audit Fixes | v2.2+ | 0/5 | Planned | - |
+| 27. Security Audit Fixes | v2.2+ | 5/5 | Complete | 2026-03-17 |
 
 **Overall Progress:** 105 plans complete (5 pending)
 
@@ -304,7 +304,7 @@ Broadcasting improvements with optional reactions/content protection and complet
 **Requirements:** Security fixes for race conditions, atomicity failures, and code quality
 **Dependencies:** All previous phases
 **Plans:** 5 plans
-**Status:** Planned — 5 waves
+**Status:** Complete — 2026-03-17
 
 **Critical Issues:**
 - C-001 to C-008: Race conditions in token redemption, VIP entry, and bulk operations
@@ -322,11 +322,11 @@ Broadcasting improvements with optional reactions/content protection and complet
 5. All existing tests pass
 
 Plans:
-- [ ] 27-01-PLAN.md — Fix redeem_vip_token and create_free_request race conditions
-- [ ] 27-02-PLAN.md — Fix approve_ready_free_requests and kick_expired_vip race conditions
-- [ ] 27-03-PLAN.md — Fix vip_entry.py race conditions in stage progression
-- [ ] 27-04-PLAN.md — Fix user_management.py atomicity and subscription.py long transactions
-- [ ] 27-05-PLAN.md — Rate limiting, pagination, datetime fixes
+- [x] 27-01-PLAN.md — Fix redeem_vip_token and create_free_request race conditions
+- [x] 27-02-PLAN.md — Fix approve_ready_free_requests and kick_expired_vip race conditions
+- [x] 27-03-PLAN.md — Fix vip_entry.py race conditions in stage progression
+- [x] 27-04-PLAN.md — Fix user_management.py atomicity and subscription.py long transactions
+- [x] 27-05-PLAN.md — Rate limiting, pagination, datetime fixes
 
 **[Full phases 25-26 archived in milestones/v2.1-ROADMAP.md]**
 
