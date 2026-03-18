@@ -27,6 +27,7 @@ alembic/versions/*.py
 !alembic/versions/20260211_000001_fix_reaction_unique_constraint_add_emoji.py
 # Data migrations (seed data for production) - explicitly committed
 !alembic/versions/20260221_000001_seed_gamification_data.py
+!alembic/versions/20260317_142234_add_pending_request_column.py
 
 # IDE
 .vscode/
