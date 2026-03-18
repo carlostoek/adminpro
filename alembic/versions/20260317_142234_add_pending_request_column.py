@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 # revision identifiers, used by Alembic.
@@ -29,17 +30,17 @@ def upgrade() -> None:
 
     # Check if column already exists (database-specific)
     if dialect == 'sqlite':
-        result = conn.execute("""
+        result = conn.execute(text("""
             SELECT COUNT(*) FROM pragma_table_info('free_channel_requests')
             WHERE name = 'pending_request'
-        """)
+        """))
         column_exists = result.scalar() > 0
     else:  # postgresql and others
-        result = conn.execute("""
+        result = conn.execute(text("""
             SELECT COUNT(*) FROM information_schema.columns
             WHERE table_name = 'free_channel_requests'
             AND column_name = 'pending_request'
-        """)
+        """))
         column_exists = result.scalar() > 0
 
     if not column_exists:
@@ -51,21 +52,21 @@ def upgrade() -> None:
 
         # Update existing rows (SQLite uses 1/0, PostgreSQL uses true/false)
         if dialect == 'sqlite':
-            op.execute("""
+            op.execute(text("""
                 UPDATE free_channel_requests
                 SET pending_request = CASE
                     WHEN processed = 1 THEN 0
                     ELSE 1
                 END
-            """)
+            """))
         else:
-            op.execute("""
+            op.execute(text("""
                 UPDATE free_channel_requests
                 SET pending_request = CASE
                     WHEN processed = true THEN false
                     ELSE true
                 END
-            """)
+            """))
 
         # Set NOT NULL with default
         with op.batch_alter_table('free_channel_requests') as batch_op:
@@ -91,17 +92,17 @@ def downgrade() -> None:
 
     # Check if column exists before dropping (database-specific)
     if dialect == 'sqlite':
-        result = conn.execute("""
+        result = conn.execute(text("""
             SELECT COUNT(*) FROM pragma_table_info('free_channel_requests')
             WHERE name = 'pending_request'
-        """)
+        """))
         column_exists = result.scalar() > 0
     else:  # postgresql and others
-        result = conn.execute("""
+        result = conn.execute(text("""
             SELECT COUNT(*) FROM information_schema.columns
             WHERE table_name = 'free_channel_requests'
             AND column_name = 'pending_request'
-        """)
+        """))
         column_exists = result.scalar() > 0
 
     if column_exists:
