@@ -558,7 +558,7 @@ class SubscriptionService:
         result = await self.session.execute(
             select(VIPSubscriber).where(
                 VIPSubscriber.status == "active",
-                VIPSubscriber.expiry_date < datetime.now(timezone.utc)
+                VIPSubscriber.expiry_date < utc_now()
             ).limit(batch_size)
         )
         expired_subscribers = result.scalars().all()

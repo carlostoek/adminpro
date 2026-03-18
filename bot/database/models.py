@@ -18,7 +18,7 @@ from typing import Optional, List
 
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime,
-    BigInteger, JSON, ForeignKey, Index, Float, Enum, Numeric, desc, UniqueConstraint
+    BigInteger, JSON, ForeignKey, Index, Float, Enum, Numeric, desc, UniqueConstraint, text
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -375,9 +375,9 @@ class FreeChannelRequest(Base):
     __table_args__ = (
         Index('idx_user_date', 'user_id', 'request_date'),
         Index('idx_processed_date', 'processed', 'request_date'),
-        # Unique constraint simplificado para SQLite (sin sqlite_where)
-        # La protección contra race conditions se maneja en el servicio con IntegrityError
-        UniqueConstraint('user_id', name='uq_user_one_request'),
+        # Partial unique constraint to allow only one pending request per user.
+        # This is the database-level protection against C-002 race condition.
+        UniqueConstraint('user_id', 'pending_request', name='uq_user_pending_request', sqlite_where=text("pending_request = 1")),
     )
 
     def minutes_since_request(self) -> int:
