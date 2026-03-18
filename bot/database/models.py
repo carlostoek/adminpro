@@ -18,7 +18,7 @@ from typing import Optional, List
 
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime,
-    BigInteger, JSON, ForeignKey, Index, Float, Enum, Numeric, desc
+    BigInteger, JSON, ForeignKey, Index, Float, Enum, Numeric, desc, UniqueConstraint, text
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
@@ -309,6 +309,14 @@ class VIPSubscriber(Base):
     vip_entry_token = Column(String(64), unique=True, nullable=True)  # One-time token for Stage 3 link
     invite_link_sent_at = Column(DateTime, nullable=True)  # When Stage 3 link was generated
 
+    # Tracking de expulsión del canal (Phase 27 - Security Audit)
+    kicked_from_channel_at = Column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="When user was kicked from channel (NULL = not kicked)"
+    )
+
     # Token usado
     token_id = Column(Integer, ForeignKey("invitation_tokens.id"), nullable=False)
     token = relationship("InvitationToken", back_populates="subscribers")
@@ -320,6 +328,7 @@ class VIPSubscriber(Base):
     __table_args__ = (
         Index('idx_status_expiry', 'status', 'expiry_date'),
         Index('idx_vip_entry_stage', 'vip_entry_stage'),  # Phase 13: Stage lookup optimization
+        Index('idx_vip_expired_not_kicked', 'status', 'kicked_from_channel_at'),  # Phase 27: For kick retry logic
     )
 
     def is_expired(self) -> bool:
@@ -358,10 +367,18 @@ class FreeChannelRequest(Base):
     processed = Column(Boolean, default=False, nullable=False, index=True)
     processed_at = Column(DateTime, nullable=True)
 
+    # Campo para constraint único - True solo cuando está pendiente
+    # Permite que el usuario tenga múltiples solicitudes procesadas pero solo una pendiente
+    pending_request = Column(Boolean, default=True, nullable=False, index=True)
+
     # Índice compuesto para queries de pendientes por fecha
     __table_args__ = (
         Index('idx_user_date', 'user_id', 'request_date'),
         Index('idx_processed_date', 'processed', 'request_date'),
+        # Partial unique index to allow only one pending request per user.
+        # This is the database-level protection against C-002 race condition.
+        # Using Index with unique=True instead of UniqueConstraint for SQLite compatibility.
+        Index('uq_user_pending_request', 'user_id', unique=True, sqlite_where=text("pending_request = 1")),
     )
 
     def minutes_since_request(self) -> int:

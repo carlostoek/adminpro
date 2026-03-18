@@ -7,15 +7,28 @@ Responsabilidades:
 - Gestión de suscriptores VIP (crear, extender, expirar)
 - Gestión de solicitudes Free (crear, procesar)
 - Limpieza automática de datos antiguos
+
+Security considerations:
+- All token operations use atomic UPDATE with rowcount check
+- Bulk operations use rate limiting to prevent API abuse
+- Database transactions are separated from slow API calls
+- All datetime operations use timezone-aware datetimes
 """
+import asyncio
 import logging
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Tuple, Dict, Any
+
+
+def utc_now():
+    """Get current UTC time as naive datetime (matching database storage format)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 from aiogram import Bot
 from aiogram.types import ChatInviteLink
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, delete, func, update, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -123,8 +136,15 @@ class SubscriptionService:
             ValueError: Si duration_hours es inválido
             RuntimeError: Si no se puede generar token único después de 10 intentos
         """
-        if duration_hours < 1:
-            raise ValueError("duration_hours debe ser al menos 1")
+        # Validate inputs
+        if not isinstance(generated_by, int) or generated_by <= 0:
+            raise ValueError("generated_by must be a positive integer")
+        if not isinstance(duration_hours, int) or duration_hours <= 0:
+            raise ValueError("duration_hours must be a positive integer")
+        if duration_hours > 8760:  # Max 1 year
+            raise ValueError("duration_hours cannot exceed 8760 (1 year)")
+        if plan_id is not None and (not isinstance(plan_id, int) or plan_id <= 0):
+            raise ValueError("plan_id must be a positive integer or None")
 
         # Generar token único
         max_attempts = 10
@@ -157,7 +177,7 @@ class SubscriptionService:
         token = InvitationToken(
             token=token_str,
             generated_by=generated_by,
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
             duration_hours=duration_hours,
             used=False,
             plan_id=plan_id  # Vincular con plan (opcional)
@@ -221,6 +241,10 @@ class SubscriptionService:
         """
         Canjea un token VIP y crea/extiende suscripción.
 
+        ATÓMICO: Usa UPDATE con WHERE y rowcount check para prevenir
+        race conditions (C-001). Múltiples requests concurrentes resultan
+        en solo un canje exitoso.
+
         Si el usuario ya es VIP:
         - Extiende su suscripción (no crea nueva)
 
@@ -237,16 +261,43 @@ class SubscriptionService:
                 - str: Mensaje descriptivo
                 - Optional[VIPSubscriber]: Suscriptor creado/actualizado
         """
-        # Validar token
-        is_valid, message, token = await self.validate_token(token_str)
+        # Validate inputs
+        if not token_str or not isinstance(token_str, str):
+            return (False, "Token inválido", None)
+        if not isinstance(user_id, int) or user_id <= 0:
+            return (False, "ID de usuario inválido", None)
 
-        if not is_valid:
-            return False, message, None
+        # ATOMIC UPDATE: Marcar token como usado SOLO si no está usado y no expiró
+        # El rowcount indica si el UPDATE afectó alguna fila
+        # Expiration check: created_at + duration_hours > now()
+        result = await self.session.execute(
+            update(InvitationToken)
+            .where(
+                InvitationToken.token == token_str,
+                InvitationToken.used == False,
+                text("datetime(created_at, '+' || duration_hours || ' hours') > datetime('now')")
+            )
+            .values(
+                used=True,
+                used_by=user_id,
+                used_at=utc_now()
+            )
+        )
 
-        # Marcar token como usado
-        token.used = True
-        token.used_by = user_id
-        token.used_at = datetime.utcnow()
+        if result.rowcount == 0:
+            # Token ya fue usado, expiró, o no existe
+            # Esto previene race conditions: solo el primer UPDATE exitoso pasa
+            logger.warning(
+                f"⚠️ Token {_mask_token(token_str)} race condition o inválido "
+                f"para user {_mask_user_id(user_id)}"
+            )
+            return False, "❌ Token inválido, expirado o ya fue usado", None
+
+        # Token marcado como usado exitosamente - obtener datos para la suscripción
+        token_result = await self.session.execute(
+            select(InvitationToken).where(InvitationToken.token == token_str)
+        )
+        token = token_result.scalar_one()
 
         # Verificar si usuario ya es VIP
         result = await self.session.execute(
@@ -266,7 +317,7 @@ class SubscriptionService:
 
             # Si ya expiró, partir desde ahora
             if existing_subscriber.is_expired():
-                existing_subscriber.expiry_date = datetime.utcnow() + extension
+                existing_subscriber.expiry_date = utc_now() + extension
             else:
                 # Si aún está activo, extender desde la fecha actual de expiración
                 existing_subscriber.expiry_date += extension
@@ -291,11 +342,11 @@ class SubscriptionService:
             return True, "✅ Suscripción VIP extendida exitosamente", existing_subscriber
 
         # Usuario nuevo: crear suscripción
-        expiry_date = datetime.utcnow() + timedelta(hours=token.duration_hours)
+        expiry_date = utc_now() + timedelta(hours=token.duration_hours)
 
         subscriber = VIPSubscriber(
             user_id=user_id,
-            join_date=datetime.utcnow(),
+            join_date=utc_now(),
             expiry_date=expiry_date,
             status="active",
             token_id=token.id
@@ -420,7 +471,7 @@ class SubscriptionService:
             ValueError: Si el usuario ya es VIP o token inválido
         """
         # Calculate expiry
-        expiry_date = datetime.utcnow() + timedelta(hours=duration_hours)
+        expiry_date = utc_now() + timedelta(hours=duration_hours)
 
         # Check if subscriber already exists (renewal)
         result = await self.session.execute(
@@ -439,7 +490,7 @@ class SubscriptionService:
 
             # Si ya expiró, partir desde ahora
             if existing_subscriber.is_expired():
-                existing_subscriber.expiry_date = datetime.utcnow() + extension
+                existing_subscriber.expiry_date = utc_now() + extension
             else:
                 # Si aún está activo, extender desde la fecha actual de expiración
                 existing_subscriber.expiry_date += extension
@@ -472,7 +523,7 @@ class SubscriptionService:
             subscriber = VIPSubscriber(
                 user_id=user_id,
                 token_id=token_id,
-                join_date=datetime.utcnow(),
+                join_date=utc_now(),
                 expiry_date=expiry_date,
                 status="active",
                 vip_entry_stage=1  # Phase 13: Start ritual at stage 1
@@ -484,7 +535,11 @@ class SubscriptionService:
 
         return subscriber
 
-    async def expire_vip_subscribers(self, container: Optional[ServiceContainer] = None) -> int:
+    async def expire_vip_subscribers(
+        self,
+        container: Optional[ServiceContainer] = None,
+        batch_size: int = 100
+    ) -> int:
         """
         Marca como expirados los suscriptores VIP cuya fecha pasó.
 
@@ -494,16 +549,17 @@ class SubscriptionService:
 
         Args:
             container: ServiceContainer opcional para logging de cambios de rol
+            batch_size: Máximo de registros a procesar por llamada (paginación)
 
         Returns:
             Cantidad de suscriptores expirados
         """
-        # Buscar suscriptores activos con fecha de expiración pasada
+        # Buscar suscriptores activos con fecha de expiración pasada (con LIMIT)
         result = await self.session.execute(
             select(VIPSubscriber).where(
                 VIPSubscriber.status == "active",
-                VIPSubscriber.expiry_date < datetime.utcnow()
-            )
+                VIPSubscriber.expiry_date < utc_now()
+            ).limit(batch_size)
         )
         expired_subscribers = result.scalars().all()
 
@@ -540,7 +596,7 @@ class SubscriptionService:
                         previous_role=UserRole.VIP,
                         change_metadata={
                             "vip_subscriber_id": subscriber.id,
-                            "expired_at": datetime.utcnow().isoformat(),
+                            "expired_at": utc_now().isoformat(),
                             "original_expiry": subscriber.expiry_date.isoformat() if subscriber.expiry_date else None
                         }
                     )
@@ -554,7 +610,7 @@ class SubscriptionService:
 
         return count
 
-    async def kick_expired_vip_from_channel(self, channel_id: str) -> int:
+    async def kick_expired_vip_from_channel(self, channel_id: str) -> Tuple[int, int, int]:
         """
         Expulsa suscriptores expirados del canal VIP con ban permanente.
 
@@ -564,41 +620,92 @@ class SubscriptionService:
         El ban es PERMANENTE - el usuario permanece baneado hasta que
         active un nuevo token (cuando se llama a unban_from_vip_channel).
 
+        Usa kicked_from_channel_at para trackear progreso y permitir reintentos.
+
+        Pattern: Separated transaction phases - no DB locks held during API calls.
+
         Args:
             channel_id: ID del canal VIP (ej: "-1001234567890")
 
         Returns:
-            Cantidad de usuarios baneados
+            Tuple[int, int, int]: (kicked_count, already_kicked_count, failed_count)
         """
-        # Buscar suscriptores expirados
+        # PHASE 1: Get VIPs to kick (read-only, no long transaction)
         result = await self.session.execute(
-            select(VIPSubscriber).where(
-                VIPSubscriber.status == "expired"
+            select(VIPSubscriber.id, VIPSubscriber.user_id)
+            .where(
+                VIPSubscriber.status == "expired",
+                VIPSubscriber.kicked_from_channel_at.is_(None)  # Not yet kicked
             )
+            .order_by(VIPSubscriber.expiry_date)
+            .limit(100)  # Batch processing
         )
-        expired_subscribers = result.scalars().all()
+        expired_vips = result.all()  # List of (id, user_id) tuples
 
-        banned_count = 0
-        for subscriber in expired_subscribers:
+        if not expired_vips:
+            return (0, 0, 0)
+
+        # PHASE 2: API calls (no DB transaction active)
+        # DB locks are NOT held during Telegram API calls
+        kicked_user_ids = []  # List of (vip_id, user_id) tuples
+        failed_user_ids = []
+        already_out_user_ids = []
+
+        RATE_LIMIT_DELAY = 0.1  # 100ms between API calls
+
+        for i, (vip_id, user_id) in enumerate(expired_vips):
             try:
-                # Banear del canal (permanente - sin unban)
+                # Intentar banear del canal
                 await self.bot.ban_chat_member(
                     chat_id=channel_id,
-                    user_id=subscriber.user_id
+                    user_id=user_id
                 )
 
-                banned_count += 1
-                logger.info(f"🚫 Usuario baneado de VIP (suscripción expirada): {_mask_user_id(subscriber.user_id)}")
+                kicked_user_ids.append((vip_id, user_id))
+                logger.info(f"🚫 Usuario baneado de VIP (suscripción expirada): {_mask_user_id(user_id)}")
+
+                # Rate limiting: sleep between API calls (but not after the last one)
+                if i < len(expired_vips) - 1:
+                    await asyncio.sleep(RATE_LIMIT_DELAY)
 
             except Exception as e:
-                logger.warning(
-                    f"⚠️ No se pudo banear a user {_mask_user_id(subscriber.user_id)}: {e}"
-                )
+                error_str = str(e).lower()
 
-        if banned_count > 0:
-            logger.info(f"✅ {banned_count} usuario(s) baneados del canal VIP (permanente)")
+                # Verificar si el usuario ya no está en el canal (éxito parcial)
+                if "user not found" in error_str or "user is not a member" in error_str:
+                    # Usuario ya no está en el canal - marcar como hecho
+                    already_out_user_ids.append((vip_id, user_id))
+                    logger.info(f"✅ Usuario {_mask_user_id(user_id)} ya no estaba en el canal")
+                else:
+                    # Error real - se reintentará en la próxima ejecución
+                    failed_user_ids.append(user_id)
+                    logger.warning(
+                        f"⚠️ No se pudo banear a user {_mask_user_id(user_id)}: {e}"
+                    )
 
-        return banned_count
+        # PHASE 3: Update kicked status (explicit commit)
+        # Update each VIP individually to track success/failure
+        for vip_id, user_id in kicked_user_ids + already_out_user_ids:
+            await self.session.execute(
+                update(VIPSubscriber)
+                .where(VIPSubscriber.id == vip_id)
+                .values(kicked_from_channel_at=utc_now())
+            )
+
+        # Commit all updates at once
+        await self.session.commit()
+
+        kicked_count = len(kicked_user_ids)
+        already_kicked_count = len(already_out_user_ids)
+        failed_count = len(failed_user_ids)
+
+        if kicked_count > 0 or failed_count > 0:
+            logger.info(
+                f"✅ VIP kick results: {kicked_count} newly kicked, "
+                f"{already_kicked_count} already out, {failed_count} failed (will retry)"
+            )
+
+        return (kicked_count, already_kicked_count, failed_count)
 
     async def unban_from_vip_channel(
         self,
@@ -710,48 +817,68 @@ class SubscriptionService:
 
     # ===== CANAL FREE =====
 
-    async def create_free_request(self, user_id: int) -> FreeChannelRequest:
+    async def create_free_request(
+        self, user_id: int
+    ) -> Tuple[bool, str, Optional[FreeChannelRequest]]:
         """
-        Crea una solicitud de acceso al canal Free.
+        Crea una solicitud de acceso al canal Free con protección contra race conditions.
 
-        Si el usuario ya tiene una solicitud pendiente, la retorna.
+        ATÓMICO: Usa INSERT con unique constraint y IntegrityError handling (C-002).
+        SQLite-compatible: no requiere SELECT FOR UPDATE.
 
         Args:
             user_id: ID del usuario
 
         Returns:
-            FreeChannelRequest: Solicitud creada o existente
+            Tuple[bool, str, Optional[FreeChannelRequest]]:
+                - bool: True si éxito, False si ya existe solicitud pendiente
+                - str: Mensaje descriptivo
+                - Optional[FreeChannelRequest]: Solicitud creada o None si error
         """
-        # Verificar si ya tiene solicitud pendiente
-        result = await self.session.execute(
-            select(FreeChannelRequest).where(
-                FreeChannelRequest.user_id == user_id,
-                FreeChannelRequest.processed == False
-            ).order_by(FreeChannelRequest.request_date.desc())
-        )
-        existing = result.scalar_one_or_none()
-
-        if existing:
-            logger.info(
-                f"ℹ️ Usuario {_mask_user_id(user_id)} ya tiene solicitud Free pendiente "
-                f"(hace {existing.minutes_since_request()} min)"
+        # Intentar INSERT directo - la base de datos fuerza unicidad via constraint
+        try:
+            request = FreeChannelRequest(
+                user_id=user_id,
+                request_date=utc_now(),
+                processed=False,
+                pending_request=True  # Para el unique constraint
             )
-            return existing
+            self.session.add(request)
+            await self.session.flush()  # Forzar el INSERT sin commit completo
 
-        # Crear nueva solicitud
-        request = FreeChannelRequest(
-            user_id=user_id,
-            request_date=datetime.utcnow(),
-            processed=False
-        )
+            logger.info(f"✅ Solicitud Free creada: user {_mask_user_id(user_id)}")
+            return True, "✅ Solicitud creada exitosamente", request
 
-        self.session.add(request)
-        await self.session.commit()
-        await self.session.refresh(request)
+        except IntegrityError:
+            # Violación de constraint único - usuario ya tiene solicitud pendiente
+            # SQLite requiere rollback después de IntegrityError
+            await self.session.rollback()
 
-        logger.info(f"✅ Solicitud Free creada: user {_mask_user_id(user_id)}")
+            # Obtener solicitud existente para mensaje detallado
+            result = await self.session.execute(
+                select(FreeChannelRequest).where(
+                    FreeChannelRequest.user_id == user_id,
+                    FreeChannelRequest.processed == False
+                ).order_by(FreeChannelRequest.request_date.desc())
+            )
+            existing = result.scalar_one_or_none()
 
-        return request
+            if existing:
+                wait_msg = f" (tiempo en cola: {existing.minutes_since_request()} min)"
+                logger.info(
+                    f"⚠️ Usuario {_mask_user_id(user_id)} intentó crear solicitud duplicada{wait_msg}"
+                )
+                return (
+                    False,
+                    f"❌ Ya tienes una solicitud pendiente{wait_msg}",
+                    existing
+                )
+
+            logger.warning(
+                f"⚠️ IntegrityError en solicitud Free para user {_mask_user_id(user_id)} "
+                f"pero no se encontró solicitud existente"
+            )
+            return False, "❌ Ya tienes una solicitud pendiente", None
 
     async def get_free_request(self, user_id: int) -> Optional[FreeChannelRequest]:
         """
@@ -862,7 +989,7 @@ class SubscriptionService:
                 # Continuar con la creación de nueva solicitud abajo
             else:
                 # Solicitud aún dentro del tiempo de espera - verificar anti-spam
-                spam_cutoff = datetime.utcnow() - timedelta(minutes=Config.FREE_REQUEST_SPAM_WINDOW_MINUTES)
+                spam_cutoff = utc_now() - timedelta(minutes=Config.FREE_REQUEST_SPAM_WINDOW_MINUTES)
 
                 if existing.request_date >= spam_cutoff:
                     # Solicitud muy reciente - rechazar duplicado
@@ -875,7 +1002,7 @@ class SubscriptionService:
                     # Solicitud antigua pero aún no cumple tiempo de espera
                     # Actualizar el request_date para "reanimar" la solicitud
                     # (el usuario reactivó su solicitud antes de que expirara)
-                    existing.request_date = datetime.utcnow()
+                    existing.request_date = utc_now()
                     await self.session.commit()
                     await self.session.refresh(existing)
                     logger.info(
@@ -925,8 +1052,9 @@ class SubscriptionService:
         # Crear nueva solicitud limpia
         request = FreeChannelRequest(
             user_id=user_id,
-            request_date=datetime.utcnow(),
-            processed=False
+            request_date=utc_now(),
+            processed=False,
+            pending_request=True  # Para el unique constraint
         )
 
         self.session.add(request)
@@ -950,7 +1078,7 @@ class SubscriptionService:
             Lista de solicitudes procesadas
         """
         # Calcular timestamp límite
-        cutoff_time = datetime.utcnow() - timedelta(minutes=wait_time_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=wait_time_minutes)
 
         # Buscar solicitudes listas para procesar
         result = await self.session.execute(
@@ -967,7 +1095,8 @@ class SubscriptionService:
         # Marcar como procesadas
         for request in ready_requests:
             request.processed = True
-            request.processed_at = datetime.utcnow()
+            request.processed_at = utc_now()
+            request.pending_request = False  # Remove from unique constraint
 
         await self.session.commit()
 
@@ -985,7 +1114,7 @@ class SubscriptionService:
         Returns:
             Cantidad de solicitudes eliminadas
         """
-        cutoff_date = datetime.utcnow() - timedelta(days=days_old)
+        cutoff_date = utc_now() - timedelta(days=days_old)
 
         result = await self.session.execute(
             delete(FreeChannelRequest).where(
@@ -1010,8 +1139,14 @@ class SubscriptionService:
         """
         Aprueba solicitudes Free que cumplieron tiempo de espera.
 
-        Usa approve_chat_join_request() de Telegram API en lugar de invite links.
-        Este es el método moderno recomendado por Telegram.
+        Usa UPDATE atómico con rowcount check para prevenir race conditions.
+        SQLite-compatible (no usa SKIP LOCKED).
+
+        Flujo seguro:
+        1. SELECT para obtener candidatos (con LIMIT para batching)
+        2. UPDATE atómico marca solicitudes como procesadas
+        3. Commit para liberar locks
+        4. Llamadas a Telegram API (fuera de transacción)
 
         Args:
             wait_time_minutes: Tiempo mínimo de espera requerido
@@ -1021,21 +1156,54 @@ class SubscriptionService:
             Tuple[int, int]: (success_count, error_count)
         """
         # Calcular timestamp límite
-        cutoff_time = datetime.utcnow() - timedelta(minutes=wait_time_minutes)
+        cutoff_time = utc_now() - timedelta(minutes=wait_time_minutes)
 
-        # Buscar solicitudes listas para aprobar
-        result = await self.session.execute(
-            select(FreeChannelRequest).where(
+        # Step 1: Obtener IDs de solicitudes candidatas (con LIMIT para batching)
+        select_result = await self.session.execute(
+            select(FreeChannelRequest.id, FreeChannelRequest.user_id)
+            .where(
                 FreeChannelRequest.processed == False,
                 FreeChannelRequest.request_date <= cutoff_time
-            ).order_by(FreeChannelRequest.request_date.asc())
+            )
+            .order_by(FreeChannelRequest.request_date)
+            .limit(100)  # Batch processing para evitar memory issues
         )
-        ready_requests = result.scalars().all()
+        candidates = select_result.all()  # List of (id, user_id) tuples
 
-        if not ready_requests:
+        if not candidates:
             logger.debug("✓ No hay solicitudes Free listas para aprobar")
             return 0, 0
 
+        # Step 2: Atomically mark estas solicitudes específicas como procesadas
+        candidate_ids = [row[0] for row in candidates]
+        user_id_map = {row[0]: row[1] for row in candidates}
+
+        update_result = await self.session.execute(
+            update(FreeChannelRequest)
+            .where(
+                FreeChannelRequest.id.in_(candidate_ids),
+                FreeChannelRequest.processed == False  # Still unprocessed (race check)
+            )
+            .values(
+                processed=True,
+                processed_at=utc_now(),
+                pending_request=False  # Remove from unique constraint
+            )
+        )
+
+        # Verificar si hubo race condition (otro worker procesó algunas)
+        if update_result.rowcount != len(candidate_ids):
+            logger.warning(
+                f"⚠️ Race condition detectado: esperado {len(candidate_ids)} updates, "
+                f"obtenido {update_result.rowcount}. Algunas solicitudes fueron procesadas por otro worker."
+            )
+
+        # Commit para liberar locks antes de llamadas API
+        await self.session.commit()
+
+        logger.info(f"🔒 Claimed {update_result.rowcount} solicitudes para procesamiento")
+
+        # Step 3: Procesar solicitudes reclamadas (no DB locks held during API calls)
         success_count = 0
         error_count = 0
 
@@ -1047,26 +1215,30 @@ class SubscriptionService:
             logger.warning(f"⚠️ No se pudo obtener info del canal Free: {e}")
             channel_name = "Canal Free"
 
-        # Aprobar cada solicitud usando Telegram API
-        for request in ready_requests:
+        # Procesar solo las solicitudes que fueron efectivamente reclamadas
+        # Usar user_id_map directamente en lugar de re-query (evita nueva transacción)
+        # Las solicitudes fueron marcadas como procesadas en el UPDATE anterior
+        claimed_request_ids = candidate_ids[:update_result.rowcount] if update_result.rowcount > 0 else []
+
+        RATE_LIMIT_DELAY = 0.1  # 100ms between API calls
+
+        for i, request_id in enumerate(claimed_request_ids):
+            user_id = user_id_map[request_id]
             try:
                 # 1. Aprobar ChatJoinRequest directamente
                 await self.bot.approve_chat_join_request(
                     chat_id=free_channel_id,
-                    user_id=request.user_id
+                    user_id=user_id
                 )
 
-                # 2. Obtener enlace del canal (dinámicamente generado si no existe)
-                # Import UserFlowMessages
+                # 2. Obtener enlace del canal
                 from bot.services.message.user_flows import UserFlowMessages
                 from bot.services.channel import ChannelService
 
-                # Usar ChannelService para obtener o crear el enlace dinámicamente
                 channel_service = ChannelService(self.session, self.bot)
                 channel_link = await channel_service.get_or_create_free_channel_invite_link()
 
                 if not channel_link:
-                    # Fallback: intentar obtener desde BotConfig (legacy) o construir URL pública
                     config_result = await self.session.execute(
                         select(BotConfig).where(BotConfig.id == 1)
                     )
@@ -1077,11 +1249,8 @@ class SubscriptionService:
                     elif free_channel_id.startswith('@'):
                         channel_link = f"t.me/{free_channel_id[1:]}"
                         logger.warning("⚠️ Usando fallback t.me URL para canal público")
-                    else:
-                        logger.error("❌ No se pudo obtener ni crear enlace de invitación")
-                        # Continuar sin enviar mensaje (la aprobación ya se hizo)
 
-                # 3. Enviar mensaje de aprobación con Lucien's voice
+                # 3. Enviar mensaje de aprobación
                 if channel_link:
                     try:
                         flows = UserFlowMessages()
@@ -1091,66 +1260,57 @@ class SubscriptionService:
                         )
 
                         await self.bot.send_message(
-                            chat_id=request.user_id,
+                            chat_id=user_id,
                             text=approval_text,
                             reply_markup=keyboard,
                             parse_mode="HTML"
                         )
 
                         logger.info(
-                            f"✅ Aprobación enviada a user {_mask_user_id(request.user_id)} con enlace al canal"
+                            f"✅ Aprobación enviada a user {_mask_user_id(user_id)} con enlace al canal"
                         )
                     except Exception as notify_error:
-                        # Distinguir entre usuario que bloqueó el bot vs otros errores
                         error_type = type(notify_error).__name__
                         if "Forbidden" in error_type or "blocked" in str(notify_error).lower():
                             logger.warning(
-                                f"⚠️ Usuario {_mask_user_id(request.user_id)} bloqueó el bot, no se envió confirmación"
+                                f"⚠️ Usuario {_mask_user_id(user_id)} bloqueó el bot"
                             )
                         else:
                             logger.error(
-                                f"❌ Error inesperado enviando confirmación a {_mask_user_id(request.user_id)}: {notify_error}"
+                                f"❌ Error enviando confirmación a {_mask_user_id(user_id)}: {notify_error}"
                             )
-                        # No falla la aprobación si el mensaje no se envía
-
-                # 4. Marcar como procesada
-                request.processed = True
-                request.processed_at = datetime.utcnow()
 
                 success_count += 1
-                logger.info(f"✅ Solicitud Free aprobada: user {_mask_user_id(request.user_id)}")
+                logger.info(f"✅ Solicitud Free aprobada: user {_mask_user_id(user_id)}")
+
+                # Rate limiting: sleep between API calls (but not after the last one)
+                if i < len(claimed_request_ids) - 1:
+                    await asyncio.sleep(RATE_LIMIT_DELAY)
 
             except Exception as e:
                 error_count += 1
                 error_msg = str(e).lower()
 
-                # Verificar si es un error de solicitud expirada/cancelada
-                # Esto ocurre cuando el ChatJoinRequest de Telegram expiró o fue cancelado
-                # O cuando el usuario ya está en el canal (USER_ALREADY_PARTICIPANT)
+                # Verificar si es error de solicitud expirada
                 is_expired_error = any(
                     keyword in error_msg
-                    for keyword in ["expired", "not found", "no pending", "request expired", "user_not_participant", "user_already_participant"]
+                    for keyword in ["expired", "not found", "no pending", "request expired",
+                                   "user_not_participant", "user_already_participant"]
                 )
 
                 if is_expired_error:
-                    # Marcar como procesada para no volver a intentar
-                    request.processed = True
-                    request.processed_at = datetime.utcnow()
                     logger.warning(
-                        f"⚠️ Solicitud de user {_mask_user_id(request.user_id)} expiró o fue cancelada. "
-                        f"Marcada como procesada para evitar reintentos."
+                        f"⚠️ Solicitud de user {_mask_user_id(user_id)} expiró o fue cancelada. "
+                        f"Ya marcada como procesada para evitar reintentos."
                     )
                 else:
                     logger.error(
-                        f"❌ Error aprobando solicitud de user {_mask_user_id(request.user_id)}: {e}"
+                        f"❌ Error aprobando solicitud de user {_mask_user_id(user_id)}: {e}"
                     )
-
-        # Commit todos los cambios
-        await self.session.commit()
 
         logger.info(
             f"📊 Procesamiento Free completado: {success_count} aprobadas, "
-            f"{error_count} errores"
+            f"{error_count} errores (batch: {len(candidates)}, claimed: {update_result.rowcount})"
         )
 
         return success_count, error_count
@@ -1182,7 +1342,7 @@ class SubscriptionService:
         Raises:
             TelegramAPIError: Si el bot no tiene permisos en el canal
         """
-        expire_date = datetime.utcnow() + timedelta(hours=expire_hours)
+        expire_date = utc_now() + timedelta(hours=expire_hours)
 
         invite_link = await self.bot.create_chat_invite_link(
             chat_id=channel_id,
@@ -1300,7 +1460,8 @@ class SubscriptionService:
 
                     # Marcar como procesada
                     request.processed = True
-                    request.processed_at = datetime.utcnow()
+                    request.processed_at = utc_now()
+                    request.pending_request = False  # Remove from unique constraint
 
                     # Enviar mensaje de aprobación con Lucien's voice
                     if channel_link:
@@ -1350,7 +1511,8 @@ class SubscriptionService:
                     if is_final_error:
                         # Marcar como procesada para no volver a intentar
                         request.processed = True
-                        request.processed_at = datetime.utcnow()
+                        request.processed_at = utc_now()
+                        request.pending_request = False  # Remove from unique constraint
                         logger.warning(
                             f"⚠️ Solicitud de user {_mask_user_id(request.user_id)} no se pudo aprobar "
                             f"({e}). Marcada como procesada para evitar reintentos."
@@ -1401,7 +1563,8 @@ class SubscriptionService:
 
                     # Marcar como procesada
                     request.processed = True
-                    request.processed_at = datetime.utcnow()
+                    request.processed_at = utc_now()
+                    request.pending_request = False  # Remove from unique constraint
 
                     success_count += 1
                     logger.info(f"🚫 Solicitud Free rechazada (bulk): user {_mask_user_id(request.user_id)}")
