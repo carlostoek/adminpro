@@ -375,9 +375,10 @@ class FreeChannelRequest(Base):
     __table_args__ = (
         Index('idx_user_date', 'user_id', 'request_date'),
         Index('idx_processed_date', 'processed', 'request_date'),
-        # Partial unique constraint to allow only one pending request per user.
+        # Partial unique index to allow only one pending request per user.
         # This is the database-level protection against C-002 race condition.
-        UniqueConstraint('user_id', 'pending_request', name='uq_user_pending_request', sqlite_where=text("pending_request = 1")),
+        # Using Index with unique=True instead of UniqueConstraint for SQLite compatibility.
+        Index('uq_user_pending_request', 'user_id', unique=True, sqlite_where=text("pending_request = 1")),
     )
 
     def minutes_since_request(self) -> int:
