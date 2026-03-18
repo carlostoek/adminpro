@@ -8,7 +8,7 @@ Tareas:
 - Limpieza de solicitudes expiradas al inicio (post-restart)
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from aiogram import Bot
@@ -61,11 +61,14 @@ async def expire_and_kick_vip_subscribers(bot: Bot):
                 logger.info(f"✅ {expired_count} VIP(s) expirados y cambios de rol logueados")
 
                 # Expulsar del canal
-                kicked_count = await container.subscription.kick_expired_vip_from_channel(
+                kicked_count, already_kicked, failed_count = await container.subscription.kick_expired_vip_from_channel(
                     vip_channel_id
                 )
 
-                logger.info(f"✅ {kicked_count} usuario(s) expulsados del canal VIP")
+                logger.info(
+                    f"✅ VIP kick results: {kicked_count} newly kicked, "
+                    f"{already_kicked} already out, {failed_count} failed (will retry)"
+                )
             else:
                 logger.info("✅ No hay VIPs para expirar")
 
@@ -217,7 +220,7 @@ async def cleanup_expired_requests_after_restart(bot: Bot):
         async with get_session() as session:
             # Buscar solicitudes pendientes con más de 15 minutos de antigüedad
             # (Los ChatJoinRequest de Telegram expiran después de ~10 minutos)
-            cutoff_time = datetime.utcnow() - timedelta(minutes=15)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=15)
 
             result = await session.execute(
                 select(FreeChannelRequest).where(
@@ -235,7 +238,7 @@ async def cleanup_expired_requests_after_restart(bot: Bot):
             expired_count = 0
             for request in old_requests:
                 request.processed = True
-                request.processed_at = datetime.utcnow()
+                request.processed_at = datetime.now(timezone.utc)
                 expired_count += 1
                 logger.info(
                     f"🧹 Solicitud marcada como expirada (post-reinicio): "
@@ -293,7 +296,9 @@ async def start_background_tasks(bot: Bot):
         id="expire_vip",
         name="Expulsar VIPs expirados",
         replace_existing=True,
-        max_instances=1  # No permitir múltiples instancias simultáneas
+        max_instances=1,  # No permitir múltiples instancias simultáneas
+        misfire_grace_time=300,  # 5 minutes grace time
+        coalesce=True  # Coalesce missed jobs into one
     )
     logger.info(
         f"✅ Tarea programada: Expulsión VIP (cada {Config.CLEANUP_INTERVAL_MINUTES} min)"
@@ -308,7 +313,9 @@ async def start_background_tasks(bot: Bot):
         id="process_free_queue",
         name="Procesar cola Free",
         replace_existing=True,
-        max_instances=1
+        max_instances=1,
+        misfire_grace_time=60,  # 1 minute grace time
+        coalesce=True  # Coalesce missed jobs into one
     )
     logger.info(
         f"✅ Tarea programada: Cola Free (cada {Config.PROCESS_FREE_QUEUE_MINUTES} min)"
@@ -323,7 +330,9 @@ async def start_background_tasks(bot: Bot):
         id="cleanup_old_data",
         name="Limpieza de datos antiguos",
         replace_existing=True,
-        max_instances=1
+        max_instances=1,
+        misfire_grace_time=3600,  # 1 hour grace time
+        coalesce=True  # Coalesce missed jobs into one
     )
     logger.info("✅ Tarea programada: Limpieza (diaria 3 AM UTC)")
 
@@ -336,7 +345,9 @@ async def start_background_tasks(bot: Bot):
         id="expire_streaks",
         name="Expiración de rachas diarias",
         replace_existing=True,
-        max_instances=1
+        max_instances=1,
+        misfire_grace_time=3600,  # 1 hour grace time
+        coalesce=True  # Coalesce missed jobs into one
     )
     logger.info("✅ Tarea programada: Expiración de rachas (medianoche UTC)")
 

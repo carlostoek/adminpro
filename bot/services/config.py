@@ -786,3 +786,29 @@ class ConfigService:
 
         logger.info(f"⭐ max_reward_vip_days updated: {value}")
         return True, "value_updated"
+
+    # ===== RATE LIMITING CONFIGURATION =====
+
+    async def get_telegram_rate_limit_delay(self) -> float:
+        """Get delay between Telegram API calls for rate limiting.
+
+        Returns:
+            Delay in seconds (~30 requests per second)
+        """
+        return 0.033  # ~30 requests per second
+
+    async def get_bulk_batch_size(self) -> int:
+        """Get batch size for bulk operations.
+
+        Returns:
+            Maximum records to process per batch
+        """
+        return 100
+
+    async def get_bulk_rate_limit_delay(self) -> float:
+        """Get delay between bulk operation API calls.
+
+        Returns:
+            Delay in seconds (100ms between calls)
+        """
+        return 0.1  # 100ms between calls

@@ -28,10 +28,11 @@ async def test_create_free_request(test_session, mock_bot):
     test_session.add(user)
     await test_session.commit()
 
-    request = await subscription_service.create_free_request(
+    success, message, request = await subscription_service.create_free_request(
         user_id=user_id
     )
 
+    assert success is True
     assert request is not None
     assert request.user_id == user_id
     assert request.processed is False
@@ -54,7 +55,9 @@ async def test_process_free_queue(test_session, mock_bot):
 
     # Create requests
     for uid in user_ids:
-        await subscription_service.create_free_request(uid)
+        success, _, request = await subscription_service.create_free_request(uid)
+        assert success is True
+        assert request is not None
 
     await test_session.commit()
 
@@ -92,18 +95,21 @@ async def test_duplicate_free_request_blocked(test_session, mock_bot):
     await test_session.commit()
 
     # First request
-    request1 = await subscription_service.create_free_request(
+    success1, _, request1 = await subscription_service.create_free_request(
         user_id=user_id
     )
+    assert success1 is True
     assert request1 is not None
     await test_session.commit()
 
-    # Second request (should return existing)
-    request2 = await subscription_service.create_free_request(
+    # Second request (should fail with duplicate message)
+    success2, message2, request2 = await subscription_service.create_free_request(
         user_id=user_id
     )
 
-    assert request2 is not None
+    assert success2 is False
+    assert "ya tienes una solicitud" in message2.lower() or "pendiente" in message2.lower()
+    assert request2 is not None  # Returns existing request
     assert request2.id == request1.id  # Same request
 
 
@@ -149,7 +155,9 @@ async def test_process_free_queue_not_ready(test_session, mock_bot):
     wait_time_minutes = 30  # 30 minute wait time
 
     # Create request (just now)
-    await subscription_service.create_free_request(user_id)
+    success, _, request = await subscription_service.create_free_request(user_id)
+    assert success is True
+    assert request is not None
     await test_session.commit()
 
     # Process queue immediately (should not process)
@@ -176,7 +184,9 @@ async def test_get_free_request(test_session, mock_bot):
     assert request is None
 
     # Create request
-    created_request = await subscription_service.create_free_request(user_id)
+    success, _, created_request = await subscription_service.create_free_request(user_id)
+    assert success is True
+    assert created_request is not None
     await test_session.commit()
 
     # Get request
@@ -199,8 +209,11 @@ async def test_cleanup_old_free_requests(test_session, mock_bot):
 
     # Create and process old requests
     for uid in user_ids:
-        request = await subscription_service.create_free_request(uid)
+        success, _, request = await subscription_service.create_free_request(uid)
+        assert success is True
+        assert request is not None
         request.processed = True
+        request.pending_request = False  # Remove from unique constraint
         request.processed_at = datetime.utcnow() - timedelta(days=31)  # 31 days old
         request.request_date = datetime.utcnow() - timedelta(days=32)
 
@@ -231,7 +244,9 @@ async def test_free_request_minutes_since(test_session, mock_bot):
     await test_session.commit()
 
     # Create request with specific time
-    request = await subscription_service.create_free_request(user_id)
+    success, _, request = await subscription_service.create_free_request(user_id)
+    assert success is True
+    assert request is not None
     request.request_date = datetime.utcnow() - timedelta(minutes=10)
     await test_session.commit()
 
@@ -255,7 +270,9 @@ async def test_free_request_is_ready(test_session, mock_bot):
     await test_session.commit()
 
     # Create request 10 minutes ago
-    request = await subscription_service.create_free_request(user_id)
+    success, _, request = await subscription_service.create_free_request(user_id)
+    assert success is True
+    assert request is not None
     request.request_date = datetime.utcnow() - timedelta(minutes=10)
     await test_session.commit()
 

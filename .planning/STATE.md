@@ -10,8 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Current Position
 
 **Milestone:** v2.1 Deployment Readiness ✅ COMPLETE
-**Phase:** 26 - Initial Data Migration ✅ COMPLETE
-**Status:** v2.1 milestone archived, ready for v2.2 planning
+**Phase:** 27 - Security Audit Fixes 🔄 IN PROGRESS
+**Status:** All critical issues fixed: C-001, C-002, C-003, C-004, C-007, C-008 ✅
+
+**Current Plan:** 27-05 - Rate Limiting and Timezone-Aware Datetimes (7/7 tasks complete)
+**Next:** Phase 27 complete - All security audit issues fixed
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -26,6 +29,7 @@ Phase 23: [██████████] 100% - Rewards System ✅ COMPLETE
 Phase 24: [██████████] 100% - Admin Configuration ✅ COMPLETE
 Phase 25: [██████████] 100% - Broadcasting Improvements ✅ COMPLETE
 Phase 26: [██████████] 100% - Initial Data Migration ✅ COMPLETE
+Phase 27: [██████████] 100% - Security Audit Fixes ✅ COMPLETE
 
 Overall v2.0:  [██████████] 100% (43/43 requirements) ✅
 Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
@@ -34,9 +38,9 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 ## Performance Metrics
 
 **Historical Velocity:**
-- Total plans completed: 68
+- Total plans completed: 70
 - Average duration: ~10.6 min
-- Total execution time: ~15.5 hours
+- Total execution time: ~16 hours
 
 **By Milestone:**
 
@@ -62,6 +66,8 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 - Requirements: 40/43 (all ECON + all REACT + all STREAK + all SHOP + all REWARD complete)
 - Tests: 377 passing (165 new economy/reaction/streak tests)
 | Phase 24-admin-configuration P09 | 2 | 2 tasks | 1 files |
+| Phase 27 P04 | 15 | 4 tasks | 2 files |
+| Phase 27 P03 | 207 | 4 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -84,6 +90,16 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 | Safe formula evaluation | Regex validation + restricted eval for level formulas | **Implemented** |
 | Admin credit/debit | EARN_ADMIN/SPEND_ADMIN with audit metadata | **Implemented** |
 | Economy config in BotConfig | level_formula, besitos_per_reaction, etc. | **Implemented** |
+| Atomic UPDATE with rowcount check | Prevent race condition C-001 (token reuse) - SQLite-compatible | **Implemented (27-01)** |
+| INSERT with IntegrityError handling | Prevent race condition C-002 (spam requests) - SQLite-compatible | **Implemented (27-01)** |
+| Partial unique constraint with pending_request | Allow multiple processed but one pending request per user | **Implemented (27-01)** |
+| Telegram-first pattern for role changes | Do Telegram API calls before DB updates to ensure consistency | **Implemented (27-04)** |
+| Explicit session.commit() before API calls | Release DB locks before slow Telegram operations | **Implemented (27-04)** |
+| Three-phase transaction pattern | SELECT → API → UPDATE/commit for long operations | **Implemented (27-04)** |
+| Rate limiting for bulk operations | 100ms delay between Telegram API calls to prevent rate limits | **Implemented (27-05)** |
+| Timezone-aware datetimes | utc_now() helper using datetime.now(timezone.utc) | **Implemented (27-05)** |
+| Pagination for bulk queries | LIMIT 100 for all bulk operations | **Implemented (27-05)** |
+| APScheduler misfire handling | misfire_grace_time and coalesce for job resilience | **Implemented (27-05)** |
 
 ### Critical Implementation Notes
 
@@ -96,6 +112,8 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 - Reaction deduplication: one per user per content (regardless of emoji)
 - Rate limiting: 30-second cooldown between reactions
 - Daily limits: configurable per-user caps
+- Token redemption: atomic UPDATE with rowcount check prevents double-spend
+- Free request creation: INSERT with unique constraint prevents spam
 
 **Streak Calculation:**
 - UTC-based day boundaries
@@ -141,6 +159,17 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 | 26-03 | ✅ COMPLETE | Shop products seeder - Default products with content sets for gamification shop |
 
 **Phase 26 Status:** ✅ COMPLETE - 3/3 plans delivered
+
+### Phase 27 Progress
+
+| Plan | Status | Description |
+|------|--------|-------------|
+| 27-01 | ✅ COMPLETE | Race Condition Fixes - Fixed C-001 (token reuse) and C-002 (spam requests) with atomic operations |
+| 27-02 | ✅ COMPLETE | Race Condition Fixes C-003/C-004 - Fixed kick tracking and approve_ready race conditions with atomic UPDATE |
+| 27-04 | ✅ COMPLETE | Atomicity and Transaction Safety - Fixed C-007 (role changes) and C-008 (long transactions) |
+| 27-05 | ✅ COMPLETE | Rate Limiting and Timezone-Aware Datetimes - Fixed W-001, W-002, W-003, W-004, W-006 |
+
+**Phase 27 Status:** ✅ COMPLETE - 4/4 plans delivered
 
 ### Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
 
@@ -188,9 +217,9 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-02-10 — Completed Phase 20 Plan 03: Reaction Callback Handlers
-**Stopped at:** Plan 20-03 complete, reaction handlers registered and tested
-**Next:** Phase 20 Plan 04: Channel Integration (posting content with reaction keyboards)
+**Last session:** 2026-03-17T07:42:21Z
+**Stopped at:** Completed 27-05-PLAN.md - Rate Limiting and Timezone-Aware Datetimes
+**Next:** Phase 27 complete - All security audit issues fixed
 
 ### Wave 4 Summary
 - WalletService integrated into ServiceContainer with lazy loading
@@ -632,3 +661,41 @@ None
 *State updated: 2026-02-21 - Phase 26-03 complete*
 *Milestone v2.0 (Gamification) COMPLETE*
 *Milestone v2.1 (Deployment Readiness) COMPLETE*
+---
+
+## Session Continuity
+
+**Last session:** 2026-03-17 — Completed Phase 27 Plan 01: Race Condition Fixes
+**Stopped at:** Plan 27-01 complete - Fixed C-001 and C-002 with atomic operations
+**Next:** Phase 27 Plan 02 - Async Transaction Safety
+
+### Phase 27-01 COMPLETION SUMMARY
+
+**Delivered:** 4 tasks
+**Duration:** ~25 minutes
+**Key Achievements:**
+- Fixed C-001: Race condition in redeem_vip_token using atomic UPDATE with rowcount check
+- Fixed C-002: Race condition in create_free_request using INSERT with IntegrityError handling
+- Added pending_request boolean column and partial unique constraint to FreeChannelRequest
+- Updated all callers to handle new tuple return signature
+- All changes SQLite-compatible (no SELECT FOR UPDATE)
+
+**Files Modified:**
+- `bot/database/models.py` - Added pending_request column and unique constraint
+- `bot/services/subscription.py` - Atomic operations for token redemption and free requests
+- `tests/test_system/test_free_flow.py` - Updated for new return signature
+- `tests/test_integration.py` - Updated for new return signature
+- `tests/test_e2e_flows.py` - Updated for new return signature
+
+**Commits:**
+- 2dbba05: feat(27-01): add unique constraint for pending free requests
+- ebfd230: fix(27-01): fix race condition C-001 in redeem_vip_token
+- cbfdd4d: fix(27-01): fix race condition C-002 in create_free_request
+- dc4250b: fix(27-01): update callers and tests for new create_free_request signature
+
+---
+
+*State updated: 2026-03-17 - Phase 27-01 complete*
+*Milestone v2.0 (Gamification) COMPLETE*
+*Milestone v2.1 (Deployment Readiness) COMPLETE*
+*Phase 27 (Security Audit Fixes) IN PROGRESS*

@@ -304,6 +304,17 @@ class ChannelService:
                 - str: mensaje descriptivo
                 - Optional[Message]: mensaje enviado (si éxito)
         """
+        # Validate channel_id format
+        if not channel_id or not isinstance(channel_id, str):
+            return (False, "ID de canal inválido", None)
+
+        if not channel_id.startswith("-100"):
+            return (False, "❌ ID de canal inválido (debe empezar con -100)", None)
+
+        # Validate text length (Telegram limit: 4096 chars)
+        if text and len(text) > 4096:
+            return (False, "Texto excede límite de 4096 caracteres", None)
+
         try:
             sent_message = None
 

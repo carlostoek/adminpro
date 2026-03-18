@@ -21,7 +21,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models import VIPSubscriber, User
-from bot.services.subscription import SubscriptionService
+from bot.services.subscription import SubscriptionService, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +84,12 @@ class VIPEntryService:
         return stage
 
 
-    async def advance_stage(self, user_id: int, from_stage: int) -> bool:
+    async def advance_stage(self, user_id: int, from_stage: int) -> Tuple[bool, str]:
         """
-        Avanza a la siguiente etapa del flujo VIP.
+        Avanza a la siguiente etapa del flujo VIP con protección contra race conditions.
+
+        Usa UPDATE atómico con cláusula WHERE condicional para prevenir
+        condiciones de carrera donde múltiples requests intentan avanzar la etapa.
 
         Valida:
         - Suscripción no expirada
@@ -95,52 +98,56 @@ class VIPEntryService:
 
         Args:
             user_id: ID del usuario
-            from_stage: Etapa actual (para validación)
+            from_stage: Etapa actual esperada (para validación)
 
         Returns:
-            True si etapa avanzó correctamente, False si error
+            Tuple de (success, message):
+            - success: True si la etapa fue avanzada exitosamente
+            - message: Mensaje de éxito o error detallado
         """
-        # Get subscriber
-        result = await self.session.execute(
-            select(VIPSubscriber).where(VIPSubscriber.user_id == user_id)
-        )
-        subscriber = result.scalar_one_or_none()
+        # Validate stage progression logic first
+        if from_stage not in (1, 2):
+            return (False, f"No se puede avanzar desde la etapa {from_stage}")
 
-        if not subscriber:
-            logger.error(f"❌ VIPSubscriber not found for user {user_id}")
-            return False
-
-        # Validate subscription not expired
-        if subscriber.is_expired():
-            logger.warning(
-                f"⚠️ Cannot advance stage: User {user_id} subscription expired"
-            )
-            return False
-
-        # Validate from_stage matches current stage
-        current_stage = subscriber.vip_entry_stage if subscriber.vip_entry_stage else 0
-
-        if from_stage != current_stage:
-            logger.warning(
-                f"⚠️ Stage mismatch: expected {current_stage}, got {from_stage} "
-                f"for user {user_id}"
-            )
-            return False
-
-        # Validate sequential progression (no skips)
-        if from_stage not in (1, 2):  # Only advance from stage 1 or 2
-            logger.warning(f"⚠️ Cannot advance from stage {from_stage}")
-            return False
-
-        # Advance to next stage
         next_stage = from_stage + 1
-        subscriber.vip_entry_stage = next_stage
 
-        logger.info(
-            f"✅ User {user_id} VIP entry advanced: stage {from_stage} → {next_stage}"
+        # Atomic UPDATE: only update if conditions match
+        # This prevents race conditions where another request already advanced the stage
+        result = await self.session.execute(
+            update(VIPSubscriber)
+            .where(
+                VIPSubscriber.user_id == user_id,
+                VIPSubscriber.vip_entry_stage == from_stage,  # Must match expected stage
+                VIPSubscriber.expiry_date > utc_now(),  # Subscription not expired
+                VIPSubscriber.status == "active"  # Subscription active
+            )
+            .values(vip_entry_stage=next_stage)
         )
 
-        return True
+        if result.rowcount == 0:
+            # UPDATE failed - check why for better error message
+            subscriber_result = await self.session.execute(
+                select(VIPSubscriber).where(VIPSubscriber.user_id == user_id)
+            )
+            subscriber = subscriber_result.scalar_one_or_none()
+
+            if not subscriber:
+                return (False, "Suscripción VIP no encontrada")
+
+            if subscriber.is_expired():
+                return (False, "Tu suscripción VIP ha expirado")
+
+            current = subscriber.vip_entry_stage or 0
+            if current != from_stage:
+                if current > from_stage:
+                    return (False, f"Ya has avanzado a la etapa {current}")
+                else:
+                    return (False, f"Etapa incorrecta. Actual: {current}, Esperada: {from_stage}")
+
+            return (False, "No se pudo avanzar la etapa")
+
+        logger.info(f"User {user_id} VIP entry advanced: stage {from_stage} -> {next_stage}")
+        return (True, f"Etapa {next_stage} desbloqueada")
 
     # ===== TOKEN GENERATION =====
 
@@ -195,28 +202,88 @@ class VIPEntryService:
         raise RuntimeError("Could not generate unique entry token")
 
 
+    async def validate_and_consume_entry_token(self, token: str) -> Tuple[bool, str, Optional[int]]:
+        """
+        Valida y consume atómicamente un token de entrada.
+
+        Esto previene condiciones de carrera donde el mismo token es usado múltiples veces.
+
+        Args:
+            token: Token de entrada a validar y consumir
+
+        Returns:
+            Tuple de (success, message, user_id):
+            - success: True si el token es válido y fue consumido
+            - message: Mensaje de éxito o error
+            - user_id: ID del usuario si exitoso, None si falló
+        """
+        # Step 1: Get user_id BEFORE consuming token (avoids race condition in lookup)
+        # This is read-only, no locks needed
+        subscriber_result = await self.session.execute(
+            select(VIPSubscriber.user_id, VIPSubscriber.vip_entry_stage, VIPSubscriber.expiry_date)
+            .where(VIPSubscriber.vip_entry_token == token)
+        )
+        subscriber_data = subscriber_result.one_or_none()
+
+        if not subscriber_data:
+            return (False, "Token de entrada inválido", None)
+
+        user_id, current_stage, expiry_date = subscriber_data
+
+        # Validate pre-conditions before attempting UPDATE
+        if expiry_date and expiry_date < utc_now():
+            return (False, "Tu suscripción VIP ha expirado", None)
+
+        if current_stage != 3:
+            if current_stage is None:
+                return (False, "El acceso ya fue completado anteriormente", None)
+            return (False, f"Completa la etapa {current_stage} primero", None)
+
+        # Step 2: Atomic UPDATE to consume token
+        # This ensures only one request can successfully consume the token
+        result = await self.session.execute(
+            update(VIPSubscriber)
+            .where(
+                VIPSubscriber.vip_entry_token == token,
+                VIPSubscriber.vip_entry_stage == 3  # Double-check stage hasn't changed
+            )
+            .values(
+                vip_entry_stage=None,  # Flow complete
+                vip_entry_token=None   # Token consumed
+            )
+        )
+
+        if result.rowcount == 0:
+            # Another request consumed the token between our read and UPDATE
+            return (False, "El token ya fue utilizado. Inténtalo de nuevo.", None)
+
+        # Success - we already have user_id from Step 1, no race condition here
+        logger.info(f"Entry token consumed for user {user_id}")
+        return (True, "Acceso VIP confirmado", user_id)
+
+
     async def is_entry_token_valid(self, token: str) -> bool:
         """
-        Verifica si un token de entrada es válido.
+        Verifica si un token de entrada es válido (chequeo no destructivo para UI).
+
+        Nota: Esto NO consume el token. Use validate_and_consume_entry_token
+        para validación de acceso real.
 
         Args:
             token: Token a verificar
 
         Returns:
-            True si token existe y corresponde a usuario en etapa 3
+            True si token existe, corresponde a usuario en etapa 3, y no ha expirado
         """
         result = await self.session.execute(
             select(VIPSubscriber).where(
                 VIPSubscriber.vip_entry_token == token,
-                VIPSubscriber.vip_entry_stage == 3
+                VIPSubscriber.vip_entry_stage == 3,
+                VIPSubscriber.expiry_date > utc_now()
             )
         )
         subscriber = result.scalar_one_or_none()
-
-        if subscriber and not subscriber.is_expired():
-            return True
-
-        return False
+        return subscriber is not None
 
     # ===== INVITE LINK CREATION =====
 
@@ -263,7 +330,7 @@ class VIPEntryService:
             )
 
             # Update invite_link_sent_at timestamp
-            subscriber.invite_link_sent_at = datetime.utcnow()
+            subscriber.invite_link_sent_at = utc_now()
 
             logger.info(f"✅ 24h invite link created for user {user_id}")
             return invite_link
