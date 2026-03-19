@@ -20,6 +20,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Seed initial gamification data."""
+    bind = op.get_bind()
+    dialect = bind.dialect.name
 
     # Update BotConfig with economy defaults
     op.execute("""
@@ -57,18 +59,26 @@ def upgrade() -> None:
     """)
 
     # Seed default rewards (idempotent)
-    # Ensure name is unique for conflict resolution (skip if already exists)
-    op.execute("""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM pg_constraint
-                WHERE conname = 'uq_rewards_name' AND conrelid = 'rewards'::regclass
-            ) THEN
-                ALTER TABLE rewards ADD CONSTRAINT uq_rewards_name UNIQUE (name);
-            END IF;
-        END $$;
-    """)
+    # Ensure name is unique for conflict resolution
+    # Use dialect-aware check instead of PL/pgSQL DO block (SQLite incompatible)
+    if dialect == 'postgresql':
+        # Check if constraint already exists before adding
+        result = bind.execute(sa.text("""
+            SELECT COUNT(*) FROM pg_constraint
+            WHERE conname = 'uq_rewards_name' AND conrelid = 'rewards'::regclass
+        """))
+        constraint_exists = result.scalar() > 0
+        if not constraint_exists:
+            op.create_unique_constraint('uq_rewards_name', 'rewards', ['name'])
+    else:
+        # SQLite: use batch_alter_table to add unique constraint
+        from sqlalchemy import inspect as sa_inspect
+        inspector = sa_inspect(bind)
+        existing = inspector.get_unique_constraints('rewards')
+        names = [c['name'] for c in existing]
+        if 'uq_rewards_name' not in names:
+            with op.batch_alter_table('rewards') as batch_op:
+                batch_op.create_unique_constraint('uq_rewards_name', ['name'])
 
     op.execute("""
         INSERT INTO rewards
@@ -83,19 +93,26 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Reset BotConfig economy fields (preserve user data)."""
+    bind = op.get_bind()
+    dialect = bind.dialect.name
 
-    # Drop the unique constraint added in upgrade (skip if already dropped)
-    op.execute("""
-        DO $$
-        BEGIN
-            IF EXISTS (
-                SELECT 1 FROM pg_constraint
-                WHERE conname = 'uq_rewards_name' AND conrelid = 'rewards'::regclass
-            ) THEN
-                ALTER TABLE rewards DROP CONSTRAINT uq_rewards_name;
-            END IF;
-        END $$;
-    """)
+    # Drop the unique constraint (dialect-aware)
+    if dialect == 'postgresql':
+        result = bind.execute(sa.text("""
+            SELECT COUNT(*) FROM pg_constraint
+            WHERE conname = 'uq_rewards_name' AND conrelid = 'rewards'::regclass
+        """))
+        constraint_exists = result.scalar() > 0
+        if constraint_exists:
+            op.drop_constraint('uq_rewards_name', 'rewards', type_='unique')
+    else:
+        from sqlalchemy import inspect as sa_inspect
+        inspector = sa_inspect(bind)
+        existing = inspector.get_unique_constraints('rewards')
+        names = [c['name'] for c in existing]
+        if 'uq_rewards_name' in names:
+            with op.batch_alter_table('rewards') as batch_op:
+                batch_op.drop_constraint('uq_rewards_name', type_='unique')
 
     # Reset BotConfig economy fields to NULL
     # Do NOT delete rewards or user profiles (production safety)
