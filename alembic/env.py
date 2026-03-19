@@ -17,9 +17,16 @@ from bot.database.base import Base
 from bot.database.models import (
     BotConfig, User, SubscriptionPlan, InvitationToken,
     VIPSubscriber, FreeChannelRequest, UserInterest,
-    UserRoleChangeLog, ContentPackage
+    UserRoleChangeLog, ContentPackage,
+    UserGamificationProfile, Transaction, UserReaction,
+    UserStreak, ContentSet, ShopProduct, UserContentAccess,
+    Reward, RewardCondition, UserReward,
 )
-from bot.database.enums import UserRole, ContentCategory, RoleChangeReason, PackageType
+from bot.database.enums import (
+    UserRole, ContentCategory, RoleChangeReason, PackageType,
+    TransactionType, StreakType, ContentType, ContentTier,
+    RewardType, RewardConditionType, RewardStatus,
+)
 
 # Import config for DATABASE_URL
 from config import Config

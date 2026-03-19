@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Current Position
 
 **Milestone:** v2.1 Deployment Readiness ✅ COMPLETE
-**Phase:** 27 - Security Audit Fixes 🔄 IN PROGRESS
-**Status:** All critical issues fixed: C-001, C-002, C-003, C-004, C-007, C-008 ✅
+**Phase:** 28 - Corrección Total de Migraciones ✅ COMPLETE
+**Status:** Plan 28-04 complete - PostgreSQL transactiontype enum synced with all 8 current TransactionType values
 
-**Current Plan:** 27-05 - Rate Limiting and Timezone-Aware Datetimes (7/7 tasks complete)
-**Next:** Phase 27 complete - All security audit issues fixed
+**Current Plan:** 28-04 complete (1/1 tasks)
+**Next:** Phase 28 fully complete - all 4 migration correction plans delivered
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -67,7 +67,10 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 - Tests: 377 passing (165 new economy/reaction/streak tests)
 | Phase 24-admin-configuration P09 | 2 | 2 tasks | 1 files |
 | Phase 27 P04 | 15 | 4 tasks | 2 files |
+| Phase 28 P01 | 2 | 2 tasks | 2 files |
 | Phase 27 P03 | 207 | 4 tasks | 2 files |
+| Phase 28-correcci-n-total-de-migraciones P01 | 2 | 2 tasks | 2 files |
+| Phase 28 P02 | 2 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -100,6 +103,16 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 | Timezone-aware datetimes | utc_now() helper using datetime.now(timezone.utc) | **Implemented (27-05)** |
 | Pagination for bulk queries | LIMIT 100 for all bulk operations | **Implemented (27-05)** |
 | APScheduler misfire handling | misfire_grace_time and coalesce for job resilience | **Implemented (27-05)** |
+| env.py model imports must cover all 20 models | target_metadata only sees imported classes; 11 models were invisible to autogenerate | **Fixed (28-01)** |
+| No index on last_kick_notification_sent_at | Column used only in app logic for notification spam prevention, not in queries | **Implemented (28-01)** |
+| Delete shop_products rows with NULL content_set_id | No real data at deployment time; orphaned rows cannot be used by ShopService anyway | **Implemented (28-02)** |
+| Use String(20) for tier column in migration (not sa.Enum) | Dialect-safe; SQLAlchemy resolves ContentTier enum values to strings at ORM layer | **Implemented (28-02)** |
+| Keep ix_user_gamification_profiles_user_id, drop idx_gamification_user_id | Canonical op.f() name eliminates autogenerate noise; both were unique indexes on same column | **Implemented (28-02)** |
+| Replace PL/pgSQL DO blocks with Python dialect branches in migrations | DO $$ syntax crashes on SQLite; dialect-aware Python with bind.dialect.name works on both | **Implemented (28-03)** |
+| Separate index creation from column creation in migrations | Index section must run unconditionally so constraints are enforced on all deployments (not just new ones) | **Implemented (28-03)** |
+| Use postgresql_where/sqlite_where for partial indexes, not application-level enforcement | uq_user_pending_request partial unique index enforces C-002 race condition protection at DB level on PostgreSQL | **Implemented (28-03)** |
+| Explicit COMMIT before ALTER TYPE ADD VALUE loop on PostgreSQL | ALTER TYPE ADD VALUE cannot run inside a transaction block; op.execute(sa.text("COMMIT")) exits Alembic's implicit transaction before the ADD VALUE loop | **Implemented (28-04)** |
+| IF NOT EXISTS per ADD VALUE for idempotent enum migrations | Each ADD VALUE uses IF NOT EXISTS so migration is safe to run multiple times even on databases with partial enum values | **Implemented (28-04)** |
 
 ### Critical Implementation Notes
 
@@ -171,9 +184,22 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 
 **Phase 27 Status:** ✅ COMPLETE - 4/4 plans delivered
 
+### Phase 28 Progress
+
+| Plan | Status | Description |
+|------|--------|-------------|
+| 28-01 | ✅ COMPLETE | Fix env.py model coverage (9→20 models) and VIPSubscriber model alignment (add last_kick_notification_sent_at) |
+| 28-02 | ✅ COMPLETE | Fix shop_products schema (price/currency → besitos_price/vip_discount_percentage/vip_besitos_price/tier) and resolve Gap 4 index collision on user_gamification_profiles |
+| 28-03 | ✅ COMPLETE | Fix dialect compatibility: replace PL/pgSQL DO blocks in seed migration; add partial unique index uq_user_pending_request outside column guard |
+| 28-04 | ✅ COMPLETE | Sync PostgreSQL transactiontype enum with all 8 current TransactionType values using COMMIT-before-ADD-VALUE pattern |
+
+**Phase 28 Status:** ✅ COMPLETE - 4/4 plans delivered
+
 ### Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
 
 ### Roadmap Evolution
+
+- Phase 28 added: Corrección total de migraciones
 
 - Phase 26 added: Initial Data Migration - Seed data for first deployment
   - Default economy configuration (besitos values, daily limits)
@@ -217,9 +243,9 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-17T07:42:21Z
-**Stopped at:** Completed 27-05-PLAN.md - Rate Limiting and Timezone-Aware Datetimes
-**Next:** Phase 27 complete - All security audit issues fixed
+**Last session:** 2026-03-19T05:29:33Z
+**Stopped at:** Completed 28-04-PLAN.md - PostgreSQL transactiontype enum synced with all 8 TransactionType values
+**Next:** Phase 28 fully complete - all 4 migration correction plans delivered
 
 ### Wave 4 Summary
 - WalletService integrated into ServiceContainer with lazy loading

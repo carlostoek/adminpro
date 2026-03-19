@@ -317,6 +317,13 @@ class VIPSubscriber(Base):
         comment="When user was kicked from channel (NULL = not kicked)"
     )
 
+    # Tracking de última notificación de kick (Phase 27 - Security Audit)
+    last_kick_notification_sent_at = Column(
+        DateTime,
+        nullable=True,
+        comment="When last expiration notification was sent (prevents spam)"
+    )
+
     # Token usado
     token_id = Column(Integer, ForeignKey("invitation_tokens.id"), nullable=False)
     token = relationship("InvitationToken", back_populates="subscribers")
