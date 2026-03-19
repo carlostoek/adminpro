@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Milestone:** v2.1 Deployment Readiness ✅ COMPLETE
 **Phase:** 28 - Corrección Total de Migraciones ✅ COMPLETE
-**Status:** Plan 28-03 complete - dialect-aware seed migration and partial unique index enforced on all deployments
+**Status:** Plan 28-04 complete - PostgreSQL transactiontype enum synced with all 8 current TransactionType values
 
-**Current Plan:** 28-03 complete (2/2 tasks)
-**Next:** Phase 28 complete - all 3 migration correction plans delivered
+**Current Plan:** 28-04 complete (1/1 tasks)
+**Next:** Phase 28 fully complete - all 4 migration correction plans delivered
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -111,6 +111,8 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 | Replace PL/pgSQL DO blocks with Python dialect branches in migrations | DO $$ syntax crashes on SQLite; dialect-aware Python with bind.dialect.name works on both | **Implemented (28-03)** |
 | Separate index creation from column creation in migrations | Index section must run unconditionally so constraints are enforced on all deployments (not just new ones) | **Implemented (28-03)** |
 | Use postgresql_where/sqlite_where for partial indexes, not application-level enforcement | uq_user_pending_request partial unique index enforces C-002 race condition protection at DB level on PostgreSQL | **Implemented (28-03)** |
+| Explicit COMMIT before ALTER TYPE ADD VALUE loop on PostgreSQL | ALTER TYPE ADD VALUE cannot run inside a transaction block; op.execute(sa.text("COMMIT")) exits Alembic's implicit transaction before the ADD VALUE loop | **Implemented (28-04)** |
+| IF NOT EXISTS per ADD VALUE for idempotent enum migrations | Each ADD VALUE uses IF NOT EXISTS so migration is safe to run multiple times even on databases with partial enum values | **Implemented (28-04)** |
 
 ### Critical Implementation Notes
 
@@ -189,8 +191,9 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 | 28-01 | ✅ COMPLETE | Fix env.py model coverage (9→20 models) and VIPSubscriber model alignment (add last_kick_notification_sent_at) |
 | 28-02 | ✅ COMPLETE | Fix shop_products schema (price/currency → besitos_price/vip_discount_percentage/vip_besitos_price/tier) and resolve Gap 4 index collision on user_gamification_profiles |
 | 28-03 | ✅ COMPLETE | Fix dialect compatibility: replace PL/pgSQL DO blocks in seed migration; add partial unique index uq_user_pending_request outside column guard |
+| 28-04 | ✅ COMPLETE | Sync PostgreSQL transactiontype enum with all 8 current TransactionType values using COMMIT-before-ADD-VALUE pattern |
 
-**Phase 28 Status:** ✅ COMPLETE - 3/3 plans delivered
+**Phase 28 Status:** ✅ COMPLETE - 4/4 plans delivered
 
 ### Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
 
@@ -240,9 +243,9 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T05:24:11Z
-**Stopped at:** Completed 28-03-PLAN.md - dialect-aware seed migration and partial unique index outside column guard
-**Next:** Phase 28 complete - all 3 migration correction plans delivered
+**Last session:** 2026-03-19T05:29:33Z
+**Stopped at:** Completed 28-04-PLAN.md - PostgreSQL transactiontype enum synced with all 8 TransactionType values
+**Next:** Phase 28 fully complete - all 4 migration correction plans delivered
 
 ### Wave 4 Summary
 - WalletService integrated into ServiceContainer with lazy loading
