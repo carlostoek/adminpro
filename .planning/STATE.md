@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Milestone:** v2.1 Deployment Readiness ✅ COMPLETE
 **Phase:** 28 - Corrección Total de Migraciones ✅ COMPLETE
-**Status:** Plan 28-02 complete - shop_products schema fixed and Gap 4 index normalised
+**Status:** Plan 28-03 complete - dialect-aware seed migration and partial unique index enforced on all deployments
 
-**Current Plan:** 28-02 complete (1/1 tasks)
-**Next:** Phase 28 complete - all migration corrections delivered
+**Current Plan:** 28-03 complete (2/2 tasks)
+**Next:** Phase 28 complete - all 3 migration correction plans delivered
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -108,6 +108,9 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 | Delete shop_products rows with NULL content_set_id | No real data at deployment time; orphaned rows cannot be used by ShopService anyway | **Implemented (28-02)** |
 | Use String(20) for tier column in migration (not sa.Enum) | Dialect-safe; SQLAlchemy resolves ContentTier enum values to strings at ORM layer | **Implemented (28-02)** |
 | Keep ix_user_gamification_profiles_user_id, drop idx_gamification_user_id | Canonical op.f() name eliminates autogenerate noise; both were unique indexes on same column | **Implemented (28-02)** |
+| Replace PL/pgSQL DO blocks with Python dialect branches in migrations | DO $$ syntax crashes on SQLite; dialect-aware Python with bind.dialect.name works on both | **Implemented (28-03)** |
+| Separate index creation from column creation in migrations | Index section must run unconditionally so constraints are enforced on all deployments (not just new ones) | **Implemented (28-03)** |
+| Use postgresql_where/sqlite_where for partial indexes, not application-level enforcement | uq_user_pending_request partial unique index enforces C-002 race condition protection at DB level on PostgreSQL | **Implemented (28-03)** |
 
 ### Critical Implementation Notes
 
@@ -185,8 +188,9 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 |------|--------|-------------|
 | 28-01 | ✅ COMPLETE | Fix env.py model coverage (9→20 models) and VIPSubscriber model alignment (add last_kick_notification_sent_at) |
 | 28-02 | ✅ COMPLETE | Fix shop_products schema (price/currency → besitos_price/vip_discount_percentage/vip_besitos_price/tier) and resolve Gap 4 index collision on user_gamification_profiles |
+| 28-03 | ✅ COMPLETE | Fix dialect compatibility: replace PL/pgSQL DO blocks in seed migration; add partial unique index uq_user_pending_request outside column guard |
 
-**Phase 28 Status:** ✅ COMPLETE - 2/2 plans delivered
+**Phase 28 Status:** ✅ COMPLETE - 3/3 plans delivered
 
 ### Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
 
@@ -236,9 +240,9 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T05:20:28.676Z
-**Stopped at:** Completed 28-02-PLAN.md - fix_shop_products_schema migration and Gap 4 index normalisation
-**Next:** Phase 27 complete - All security audit issues fixed
+**Last session:** 2026-03-19T05:24:11Z
+**Stopped at:** Completed 28-03-PLAN.md - dialect-aware seed migration and partial unique index outside column guard
+**Next:** Phase 28 complete - all 3 migration correction plans delivered
 
 ### Wave 4 Summary
 - WalletService integrated into ServiceContainer with lazy loading
