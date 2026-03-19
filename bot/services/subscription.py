@@ -1270,14 +1270,15 @@ class SubscriptionService:
                             f"✅ Aprobación enviada a user {_mask_user_id(user_id)} con enlace al canal"
                         )
                     except Exception as notify_error:
-                        error_type = type(notify_error).__name__
-                        if "Forbidden" in error_type or "blocked" in str(notify_error).lower():
+                        notify_error_str = str(notify_error)
+                        if "bot was blocked by the user" in notify_error_str:
                             logger.warning(
-                                f"⚠️ Usuario {_mask_user_id(user_id)} bloqueó el bot"
+                                f"⚠️ Usuario {_mask_user_id(user_id)} bloqueó el bot, "
+                                f"no se pudo enviar confirmación de acceso Free"
                             )
                         else:
-                            logger.error(
-                                f"❌ Error enviando confirmación a {_mask_user_id(user_id)}: {notify_error}"
+                            logger.warning(
+                                f"⚠️ No se pudo notificar a user {_mask_user_id(user_id)}: {notify_error}"
                             )
 
                 success_count += 1
@@ -1483,11 +1484,11 @@ class SubscriptionService:
                                 f"✅ Aprobación enviada a user {_mask_user_id(request.user_id)} con enlace al canal"
                             )
                         except Exception as notify_error:
-                            # Distinguir entre usuario que bloqueó el bot vs otros errores
-                            error_type = type(notify_error).__name__
-                            if "Forbidden" in error_type or "blocked" in str(notify_error).lower():
+                            notify_error_str = str(notify_error)
+                            if "bot was blocked by the user" in notify_error_str:
                                 logger.warning(
-                                    f"⚠️ Usuario {_mask_user_id(request.user_id)} bloqueó el bot, no se envió confirmación"
+                                    f"⚠️ Usuario {_mask_user_id(request.user_id)} bloqueó el bot, "
+                                    f"no se envió confirmación de acceso Free"
                                 )
                             else:
                                 logger.warning(
