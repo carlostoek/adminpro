@@ -125,8 +125,10 @@ async def test_free_flow_complete(mock_bot, test_session, test_free_user):
 
     # Paso 1: Usuario solicita acceso
     print("  1. Creando solicitud Free...")
-    request = await container.subscription.create_free_request(user_id)
+    success, msg, request = await container.subscription.create_free_request(user_id)
 
+    assert success is True
+    assert request is not None
     assert request.user_id == user_id
     assert request.processed == False
     print(f"     OK: Solicitud creada (ID: {request.id})")
@@ -326,14 +328,17 @@ async def test_duplicate_free_request_prevention(mock_bot, test_session, test_us
 
     # Paso 1: Crear primera solicitud
     print("  1. Creando primera solicitud...")
-    request1 = await container.subscription.create_free_request(user_id)
+    success1, msg1, request1 = await container.subscription.create_free_request(user_id)
+    assert success1 is True
     assert request1 is not None
     print(f"     OK: Primera solicitud creada")
 
     # Paso 2: Intentar crear segunda (debe fallar)
     print("  2. Intentando crear segunda solicitud...")
-    request2 = await container.subscription.create_free_request(user_id)
-    # Dependiendo de la implementacion, puede retornar existente o None
+    success2, msg2, request2 = await container.subscription.create_free_request(user_id)
+    # Debe retornar error con la solicitud existente
+    assert success2 is False
+    assert "pendiente" in msg2.lower() or "ya tienes" in msg2.lower()
     assert request2 is not None
     assert request2.id == request1.id
     print(f"     OK: Se retorna solicitud existente (no duplicada)")

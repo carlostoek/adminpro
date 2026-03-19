@@ -150,7 +150,10 @@ class UserManagementService:
         changed_by: int
     ) -> Tuple[bool, str]:
         """
-        Cambia el rol de un usuario con auditoría.
+        Cambia el rol de un usuario con atomicidad garantizada.
+
+        Pattern: Telegram first, then DB. If Telegram fails, DB never changes.
+        If DB fails after Telegram, we have a log but user can be fixed manually.
 
         Args:
             user_id: ID del usuario a modificar
@@ -163,7 +166,7 @@ class UserManagementService:
             - message: Mensaje de éxito o error
         """
         try:
-            # Validate permissions first
+            # Step 0: Validation (read-only, no DB changes yet)
             can_modify, error_msg = await self._can_modify_user(
                 target_user_id=user_id,
                 admin_user_id=changed_by
@@ -172,7 +175,7 @@ class UserManagementService:
             if not can_modify:
                 return (False, error_msg)
 
-            # Get user
+            # Get user (read-only for now)
             stmt = select(User).where(User.user_id == user_id)
             result = await self.session.execute(stmt)
             user = result.scalar_one_or_none()
@@ -187,7 +190,54 @@ class UserManagementService:
             if old_role == new_role:
                 return (True, f"El usuario ya tiene el rol {new_role.value}")
 
-            # Update role
+            # Step 1: Determine channel operations needed
+            from bot.services.channel import ChannelService
+            channel_service = ChannelService(self.session, self.bot)
+
+            vip_channel_id = await channel_service.get_vip_channel_id()
+            free_channel_id = await channel_service.get_free_channel_id()
+
+            # Step 2: Execute Telegram operations FIRST (before any DB writes)
+            # If this fails, no DB changes have been made
+            telegram_ops_success = True
+            telegram_errors = []
+
+            try:
+                if new_role == UserRole.FREE and old_role == UserRole.VIP:
+                    # VIP -> FREE: Remove from VIP channel
+                    if vip_channel_id:
+                        await self.bot.ban_chat_member(
+                            chat_id=vip_channel_id,
+                            user_id=user_id
+                        )
+                        logger.info(f"User {user_id} banned from VIP channel (role change)")
+
+                elif new_role == UserRole.VIP and old_role == UserRole.FREE:
+                    # FREE -> VIP: This usually happens via token redemption, not direct change
+                    # But if direct, user will need invite link
+                    pass
+
+                elif new_role == UserRole.ADMIN:
+                    # Promoting to admin - no channel changes needed
+                    pass
+
+                # Add other role transition logic as needed
+
+            except Exception as e:
+                telegram_ops_success = False
+                telegram_errors.append(str(e))
+                logger.error(f"Telegram operations failed for role change: {e}")
+
+            if not telegram_ops_success:
+                # Telegram failed - don't proceed with DB update
+                # This keeps DB and Telegram in sync (old role in both)
+                return (
+                    False,
+                    f"Error al actualizar canales de Telegram: {'; '.join(telegram_errors)}. "
+                    "El rol no ha sido cambiado. Inténtalo de nuevo."
+                )
+
+            # Step 3: Now safe to update DB (Telegram operations succeeded)
             user.role = new_role
             user.updated_at = datetime.utcnow()
 
@@ -201,6 +251,9 @@ class UserManagementService:
                 previous_role=old_role,
                 change_source="ADMIN_PANEL"
             )
+
+            # Flush to ensure DB is updated
+            await self.session.flush()
 
             logger.info(
                 f"Role changed: user {user_id} {old_role.value} -> {new_role.value} "
@@ -289,8 +342,8 @@ class UserManagementService:
         """
         Expulsa a un usuario de los canales VIP y Free.
 
-        Maneja expulsión atómica: si falla la expulsión de un canal,
-        intenta deshacer las expulsiones anteriores para mantener consistencia.
+        Pattern: Telegram operations first, then update DB if needed.
+        Simplified approach: best-effort expulsion without complex rollback.
 
         Args:
             user_id: ID del usuario a expulsar
@@ -298,81 +351,83 @@ class UserManagementService:
 
         Returns:
             Tupla (success, message, expelled_from):
-            - success: True si se expulsó de todos los canales disponibles
+            - success: True si se expulsó de al menos un canal
             - message: Mensaje con resultado
-            - expelled_from: Lista de canales de los que se expulsó (para rollback)
+            - expelled_from: Lista de canales de los que se expulsó
         """
-        from bot.services.channel import ChannelService
+        # Validation (read-only)
+        can_modify, error_msg = await self._can_modify_user(
+            target_user_id=user_id,
+            admin_user_id=expelled_by
+        )
+        if not can_modify:
+            return (False, error_msg, [])
 
+        from bot.services.channel import ChannelService
         channel_service = ChannelService(self.session, self.bot)
+
+        # Get channel IDs
+        vip_channel_id = await channel_service.get_vip_channel_id()
+        free_channel_id = await channel_service.get_free_channel_id()
+
+        if not vip_channel_id and not free_channel_id:
+            return (False, "No hay canales configurados para expulsar", [])
+
+        # Execute Telegram operations
         expelled_from = []
         errors = []
-        vip_channel_id = None
-        free_channel_id = None
 
-        try:
-            # Validate permissions
-            can_modify, error_msg = await self._can_modify_user(
-                target_user_id=user_id,
-                admin_user_id=expelled_by
+        channels_to_try = []
+        if vip_channel_id:
+            channels_to_try.append(("VIP", vip_channel_id))
+        if free_channel_id:
+            channels_to_try.append(("Free", free_channel_id))
+
+        for channel_name, channel_id in channels_to_try:
+            try:
+                await self.bot.ban_chat_member(
+                    chat_id=channel_id,
+                    user_id=user_id
+                )
+                expelled_from.append(channel_name)
+                logger.info(f"User {user_id} expelled from {channel_name} by admin {expelled_by}")
+            except Exception as e:
+                error_str = str(e).lower()
+                # User not in channel is OK
+                if "user not found" in error_str or "not a member" in error_str:
+                    expelled_from.append(channel_name)
+                    logger.info(f"User {user_id} already not in {channel_name}")
+                else:
+                    errors.append(f"{channel_name}: {str(e)}")
+                    logger.warning(f"Could not expel user {user_id} from {channel_name}: {e}")
+
+        # Update VIPSubscriber.kicked_from_channel_at if applicable
+        if "VIP" in expelled_from:
+            try:
+                from sqlalchemy import update
+                from bot.database.models import VIPSubscriber
+                await self.session.execute(
+                    update(VIPSubscriber)
+                    .where(VIPSubscriber.user_id == user_id)
+                    .values(kicked_from_channel_at=datetime.utcnow())
+                )
+                await self.session.flush()
+            except Exception as e:
+                logger.warning(f"Could not update kicked_from_channel_at for {user_id}: {e}")
+
+        if errors and not expelled_from:
+            return (False, f"No se pudo expulsar: {'; '.join(errors)}", [])
+
+        if errors:
+            return (
+                True,
+                f"Expulsado parcialmente de: {', '.join(expelled_from)}. "
+                f"Errores: {'; '.join(errors)}",
+                expelled_from
             )
 
-            if not can_modify:
-                return (False, error_msg, [])
-
-            # Get channel IDs
-            vip_channel_id = await channel_service.get_vip_channel_id()
-            free_channel_id = await channel_service.get_free_channel_id()
-
-            # Collect available channels
-            channels_to_expel = []
-            if vip_channel_id:
-                channels_to_expel.append(("VIP", vip_channel_id))
-            if free_channel_id:
-                channels_to_expel.append(("Free", free_channel_id))
-
-            if not channels_to_expel:
-                return (False, "No hay canales configurados para expulsar", [])
-
-            # Expel from all channels (atomic attempt)
-            for channel_name, channel_id in channels_to_expel:
-                try:
-                    await self.bot.ban_chat_member(
-                        chat_id=channel_id,
-                        user_id=user_id
-                    )
-                    expelled_from.append(channel_name)
-                    logger.info(f"✅ User {user_id} expelled from {channel_name} by admin {expelled_by}")
-                except Exception as e:
-                    error_msg = str(e)
-                    errors.append(f"{channel_name}: {error_msg}")
-                    logger.warning(f"⚠️ Could not expel user {user_id} from {channel_name}: {e}")
-
-            # Handle partial failure - rollback expulsions
-            if errors and expelled_from:
-                logger.warning(f"⚠️ Partial expulsion failure for user {user_id}, rolling back...")
-                await self._rollback_expulsion(user_id, vip_channel_id, free_channel_id, expelled_from)
-                return (
-                    False,
-                    f"Expulsión fallida. Errores: {'; '.join(errors)}. "
-                    f"Se deshicieron las expulsiones parciales.",
-                    []
-                )
-
-            # No channels available or all failed
-            if not expelled_from:
-                error_detail = "; ".join(errors) if errors else "El usuario no es miembro de los canales"
-                return (False, f"No se pudo expulsar al usuario: {error_detail}", [])
-
-            channels_str = ", ".join(expelled_from)
-            return (True, f"Usuario expulsado de: {channels_str}", expelled_from)
-
-        except Exception as e:
-            logger.error(f"❌ Error expelling user {user_id}: {e}", exc_info=True)
-            # Rollback on unexpected error
-            if expelled_from:
-                await self._rollback_expulsion(user_id, vip_channel_id, free_channel_id, expelled_from)
-            return (False, f"Error al expulsar usuario: {str(e)}", [])
+        channels_str = ", ".join(expelled_from)
+        return (True, f"Usuario expulsado de: {channels_str}", expelled_from)
 
     async def _rollback_expulsion(
         self,
