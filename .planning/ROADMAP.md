@@ -279,8 +279,9 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24 → 25
 | 25. Broadcasting Improvements | v2.1 | 1/1 | Complete | 2026-02-21 |
 | 26. Initial Data Migration | v2.1 | 3/3 | Complete | 2026-02-21 |
 | 27. Security Audit Fixes | v2.2+ | 5/5 | Complete | 2026-03-17 |
+| 28. Corrección total de migraciones | v2.2+ | 0/5 | In Progress | — |
 
-**Overall Progress:** 105 plans complete (5 pending)
+**Overall Progress:** 105 plans complete (5 pending in phase 28)
 
 <details>
 <summary>✅ v2.1 Deployment Readiness (Phases 25-26) — SHIPPED 2026-02-21</summary>
@@ -332,6 +333,33 @@ Plans:
 
 </details>
 
+### Phase 28: Corrección total de migraciones
+
+**Goal:** All Alembic migrations correctly reflect the current SQLAlchemy models, work on both SQLite and PostgreSQL, and `alembic revision --autogenerate` detects zero schema drift
+**Depends on:** Phase 27
+**Plans:** 5 plans
+
+**Gaps addressed:**
+- env.py only imported 9 of 20 model classes (autogenerate blind to 11 models)
+- VIPSubscriber missing last_kick_notification_sent_at column (in DB but not model)
+- shop_products created with price/currency columns — model uses besitos_price/tier
+- Seed migration uses PL/pgSQL DO blocks that crash on SQLite
+- free_channel_requests partial unique index missing correct dialect WHERE clause
+- transactiontype PostgreSQL enum missing 4 values used by application
+
+**Wave Structure:**
+- Wave 1: env.py imports + VIPSubscriber model fix (non-breaking, no migrations)
+- Wave 2: fix_shop_products migration + seed/index dialect fixes (parallel)
+- Wave 3: fix_transactiontype_enum migration
+- Wave 4: Human verification checkpoint
+
+Plans:
+- [ ] 28-01-PLAN.md — Fix env.py imports (all 20 models) + add last_kick_notification_sent_at to VIPSubscriber
+- [ ] 28-02-PLAN.md — Create fix_shop_products_schema migration (besitos columns, remove price/currency)
+- [ ] 28-03-PLAN.md — Fix seed migration PL/pgSQL + partial index dialect compatibility
+- [ ] 28-04-PLAN.md — Create fix_transactiontype_enum migration (all 8 values on PostgreSQL)
+- [ ] 28-05-PLAN.md — Verification checkpoint (autogenerate zero drift, alembic upgrade head on SQLite)
+
 ---
 
-*Last updated: 2026-03-12 after Phase 27 planning*
+*Last updated: 2026-03-18 after Phase 28 planning*
