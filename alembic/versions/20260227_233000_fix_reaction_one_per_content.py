@@ -23,14 +23,18 @@ def upgrade() -> None:
     Change unique constraint from (user_id, content_id, emoji) to (user_id, content_id).
 
     This ensures a user can only react ONCE to each content (with any emoji).
-    
+
     Steps:
     1. First remove duplicate reactions, keeping only the oldest one per user/content
     2. Drop the old unique index (with emoji)
     3. Create new unique index without emoji
     """
-    conn = op.get_bind()
-    
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if 'user_reactions' not in inspector.get_table_names():
+        # Table doesn't exist yet (DAG ordering — runs before 20260223_000002 on fresh install)
+        return
+
     # Step 1: Remove duplicates - keep only the first reaction per user/content
     # This handles the case where users reacted with multiple emojis
     op.execute("""
@@ -66,6 +70,11 @@ def downgrade() -> None:
 
     This allows users to react with multiple different emojis to the same content.
     """
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if 'user_reactions' not in inspector.get_table_names():
+        return
+
     # Drop the new unique index (without emoji)
     op.drop_index('idx_user_content', table_name='user_reactions')
     

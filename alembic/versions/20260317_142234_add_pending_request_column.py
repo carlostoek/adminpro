@@ -81,7 +81,7 @@ def upgrade() -> None:
                 'free_channel_requests',
                 ['user_id'],
                 unique=True,
-                postgresql_where='pending_request = true'
+                postgresql_where=sa.text('pending_request = true')
             )
         else:
             # SQLite: partial index with sqlite_where
@@ -90,7 +90,7 @@ def upgrade() -> None:
                 'free_channel_requests',
                 ['user_id'],
                 unique=True,
-                sqlite_where='pending_request = 1'
+                sqlite_where=sa.text('pending_request = 1')
             )
 
     if 'idx_pending_request' not in existing_indexes:
