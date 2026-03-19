@@ -25,16 +25,28 @@ def upgrade() -> None:
     This allows users to react with multiple different emojis to the same content,
     while preventing duplicate reactions with the same emoji.
     """
-    # Drop the old unique index (without emoji)
-    op.drop_index('idx_user_content', table_name='user_reactions')
+    # Check if the table exists first (for fresh deployments without user_reactions yet)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
 
-    # Create the new unique index with emoji included
-    op.create_index(
-        'idx_user_content_emoji',
-        'user_reactions',
-        ['user_id', 'content_id', 'emoji'],
-        unique=True
-    )
+    if 'user_reactions' not in inspector.get_table_names():
+        # Table doesn't exist yet, nothing to do
+        return
+
+    indexes = [idx['name'] for idx in inspector.get_indexes('user_reactions')]
+
+    # Drop the old unique index (without emoji) only if it exists
+    if 'idx_user_content' in indexes:
+        op.drop_index('idx_user_content', table_name='user_reactions')
+
+    # Create the new unique index with emoji included only if it doesn't exist
+    if 'idx_user_content_emoji' not in indexes:
+        op.create_index(
+            'idx_user_content_emoji',
+            'user_reactions',
+            ['user_id', 'content_id', 'emoji'],
+            unique=True
+        )
 
 
 def downgrade() -> None:
@@ -44,13 +56,24 @@ def downgrade() -> None:
     Note: If there are existing reactions with multiple emojis per user/content,
     this will fail until duplicates are removed.
     """
-    # Drop the new unique index (with emoji)
-    op.drop_index('idx_user_content_emoji', table_name='user_reactions')
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
 
-    # Recreate the old unique index without emoji
-    op.create_index(
-        'idx_user_content',
-        'user_reactions',
-        ['user_id', 'content_id'],
-        unique=True
-    )
+    if 'user_reactions' not in inspector.get_table_names():
+        # Table doesn't exist yet, nothing to do
+        return
+
+    indexes = [idx['name'] for idx in inspector.get_indexes('user_reactions')]
+
+    # Drop the new unique index (with emoji) only if it exists
+    if 'idx_user_content_emoji' in indexes:
+        op.drop_index('idx_user_content_emoji', table_name='user_reactions')
+
+    # Recreate the old unique index without emoji only if it doesn't exist
+    if 'idx_user_content' not in indexes:
+        op.create_index(
+            'idx_user_content',
+            'user_reactions',
+            ['user_id', 'content_id'],
+            unique=True
+        )

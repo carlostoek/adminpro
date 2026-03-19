@@ -34,10 +34,11 @@ if (!['Write', 'Edit'].includes(tool)) process.exit(0);
 
 const filePath = params.file_path || '';
 
-// Patrones de archivos de esquema SQLAlchemy
+// Patrones de archivos de esquema SQLAlchemy y migraciones
 const MODEL_PATTERNS = [
   /bot[/\\]database[/\\]models\.py$/,
   /bot[/\\]database[/\\]base\.py$/,
+  /alembic[/\\]versions[/\\].*\.py$/,  // Migraciones Alembic
 ];
 
 const isModel = MODEL_PATTERNS.some(p => p.test(filePath));
