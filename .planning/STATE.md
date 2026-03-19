@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Current Position
 
 **Milestone:** v2.1 Deployment Readiness ✅ COMPLETE
-**Phase:** 27 - Security Audit Fixes 🔄 IN PROGRESS
-**Status:** All critical issues fixed: C-001, C-002, C-003, C-004, C-007, C-008 ✅
+**Phase:** 28 - Corrección Total de Migraciones 🔄 IN PROGRESS
+**Status:** Plan 28-01 complete - env.py coverage and VIPSubscriber model alignment fixed
 
-**Current Plan:** 27-05 - Rate Limiting and Timezone-Aware Datetimes (7/7 tasks complete)
-**Next:** Phase 27 complete - All security audit issues fixed
+**Current Plan:** 28-01 complete (2/2 tasks)
+**Next:** Phase 28 Plan 02 - Migration correctness checks
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -67,7 +67,9 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 - Tests: 377 passing (165 new economy/reaction/streak tests)
 | Phase 24-admin-configuration P09 | 2 | 2 tasks | 1 files |
 | Phase 27 P04 | 15 | 4 tasks | 2 files |
+| Phase 28 P01 | 2 | 2 tasks | 2 files |
 | Phase 27 P03 | 207 | 4 tasks | 2 files |
+| Phase 28-correcci-n-total-de-migraciones P01 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -100,6 +102,8 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 | Timezone-aware datetimes | utc_now() helper using datetime.now(timezone.utc) | **Implemented (27-05)** |
 | Pagination for bulk queries | LIMIT 100 for all bulk operations | **Implemented (27-05)** |
 | APScheduler misfire handling | misfire_grace_time and coalesce for job resilience | **Implemented (27-05)** |
+| env.py model imports must cover all 20 models | target_metadata only sees imported classes; 11 models were invisible to autogenerate | **Fixed (28-01)** |
+| No index on last_kick_notification_sent_at | Column used only in app logic for notification spam prevention, not in queries | **Implemented (28-01)** |
 
 ### Critical Implementation Notes
 
@@ -171,9 +175,19 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 
 **Phase 27 Status:** ✅ COMPLETE - 4/4 plans delivered
 
+### Phase 28 Progress
+
+| Plan | Status | Description |
+|------|--------|-------------|
+| 28-01 | ✅ COMPLETE | Fix env.py model coverage (9→20 models) and VIPSubscriber model alignment (add last_kick_notification_sent_at) |
+
+**Phase 28 Status:** 🔄 IN PROGRESS - 1/? plans delivered
+
 ### Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
 
 ### Roadmap Evolution
+
+- Phase 28 added: Corrección total de migraciones
 
 - Phase 26 added: Initial Data Migration - Seed data for first deployment
   - Default economy configuration (besitos values, daily limits)
@@ -217,8 +231,8 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-17T07:42:21Z
-**Stopped at:** Completed 27-05-PLAN.md - Rate Limiting and Timezone-Aware Datetimes
+**Last session:** 2026-03-19T05:14:01.895Z
+**Stopped at:** Completed 28-01-PLAN.md - env.py full model coverage and VIPSubscriber column alignment
 **Next:** Phase 27 complete - All security audit issues fixed
 
 ### Wave 4 Summary
