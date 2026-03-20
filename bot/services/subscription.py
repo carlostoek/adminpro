@@ -1270,15 +1270,35 @@ class SubscriptionService:
                             f"✅ Aprobación enviada a user {_mask_user_id(user_id)} con enlace al canal"
                         )
                     except Exception as notify_error:
-                        notify_error_str = str(notify_error)
-                        if "bot was blocked by the user" in notify_error_str:
+                        error_type = _classify_notification_error(notify_error)
+                        masked_uid = _mask_user_id(user_id)
+
+                        if error_type == "blocked":
                             logger.warning(
-                                f"⚠️ Usuario {_mask_user_id(user_id)} bloqueó el bot, "
+                                f"⚠️ Usuario {masked_uid} bloqueó el bot, "
                                 f"no se pudo enviar confirmación de acceso Free"
+                            )
+                        elif error_type == "deactivated":
+                            logger.warning(
+                                f"⚠️ Usuario {masked_uid} tiene cuenta desactivada/eliminada"
+                            )
+                        elif error_type == "chat_not_found":
+                            logger.warning(
+                                f"⚠️ Usuario {masked_uid} nunca inició conversación con el bot"
+                            )
+                        elif error_type == "cant_initiate":
+                            logger.warning(
+                                f"⚠️ No se puede iniciar conversación con user {masked_uid} "
+                                f"(debe escribirle primero al bot)"
+                            )
+                        elif error_type == "kicked":
+                            logger.warning(
+                                f"⚠️ El bot fue expulsado del chat privado con user {masked_uid}"
                             )
                         else:
                             logger.warning(
-                                f"⚠️ No se pudo notificar a user {_mask_user_id(user_id)}: {notify_error}"
+                                f"⚠️ No se pudo notificar a user {masked_uid}: "
+                                f"[{error_type}] {notify_error}"
                             )
 
                 success_count += 1
@@ -1484,15 +1504,35 @@ class SubscriptionService:
                                 f"✅ Aprobación enviada a user {_mask_user_id(request.user_id)} con enlace al canal"
                             )
                         except Exception as notify_error:
-                            notify_error_str = str(notify_error)
-                            if "bot was blocked by the user" in notify_error_str:
+                            error_type = _classify_notification_error(notify_error)
+                            masked_uid = _mask_user_id(request.user_id)
+
+                            if error_type == "blocked":
                                 logger.warning(
-                                    f"⚠️ Usuario {_mask_user_id(request.user_id)} bloqueó el bot, "
+                                    f"⚠️ Usuario {masked_uid} bloqueó el bot, "
                                     f"no se envió confirmación de acceso Free"
+                                )
+                            elif error_type == "deactivated":
+                                logger.warning(
+                                    f"⚠️ Usuario {masked_uid} tiene cuenta desactivada/eliminada"
+                                )
+                            elif error_type == "chat_not_found":
+                                logger.warning(
+                                    f"⚠️ Usuario {masked_uid} nunca inició conversación con el bot"
+                                )
+                            elif error_type == "cant_initiate":
+                                logger.warning(
+                                    f"⚠️ No se puede iniciar conversación con user {masked_uid} "
+                                    f"(debe escribirle primero al bot)"
+                                )
+                            elif error_type == "kicked":
+                                logger.warning(
+                                    f"⚠️ El bot fue expulsado del chat privado con user {masked_uid}"
                                 )
                             else:
                                 logger.warning(
-                                    f"⚠️ No se pudo enviar confirmación a user {_mask_user_id(request.user_id)}: {notify_error}"
+                                    f"⚠️ No se pudo enviar confirmación a user {masked_uid}: "
+                                    f"[{error_type}] {notify_error}"
                                 )
 
                     success_count += 1
