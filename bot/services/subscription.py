@@ -77,6 +77,75 @@ def _mask_user_id(user_id: int) -> str:
     return f"{user_str[:2]}****{user_str[-2:]}"
 
 
+def _classify_notification_error(error: Exception) -> str:
+    """Clasifica errores de notificación de Telegram para logging detallado.
+
+    Args:
+        error: Excepción capturada al intentar enviar mensaje
+
+    Returns:
+        Código de error clasificado: blocked, deactivated, chat_not_found,
+        cant_initiate, kicked, user_banned, unknown
+    """
+    error_str = str(error).lower()
+    error_type = type(error).__name__.lower()
+
+    # Bot bloqueado por el usuario (caso más común)
+    if "bot was blocked by the user" in error_str:
+        return "blocked"
+
+    # Usuario desactivó o eliminó su cuenta
+    if any(phrase in error_str for phrase in [
+        "user is deactivated",
+        "user is deleted",
+        "account was deleted",
+        "deactivated user"
+    ]):
+        return "deactivated"
+
+    # Chat no encontrado (usuario nunca inició conversación)
+    if any(phrase in error_str for phrase in [
+        "chat not found",
+        "chat_id not found"
+    ]):
+        return "chat_not_found"
+
+    # Bot no puede iniciar conversación (usuario debe escribir primero)
+    if any(phrase in error_str for phrase in [
+        "bot can't initiate conversation",
+        "cannot initiate conversation",
+        "user_has_restricted_messages",
+        "user restricted messages"
+    ]):
+        return "cant_initiate"
+
+    # Bot fue expulsado del chat privado
+    if any(phrase in error_str for phrase in [
+        "bot was kicked",
+        "bot was removed",
+        "kicked from chat"
+    ]):
+        return "kicked"
+
+    # Usuario fue baneado/restringido por Telegram
+    if any(phrase in error_str for phrase in [
+        "user is banned",
+        "user_banned",
+        "user is restricted"
+    ]):
+        return "user_banned"
+
+    # Flood wait / rate limit (no es un error de usuario, pero útil detectar)
+    if "retry after" in error_str or "flood" in error_str:
+        return "rate_limit"
+
+    # Si es TelegramForbiddenError pero no reconocimos el caso específico
+    if "forbidden" in error_type or "forbidden" in error_str:
+        return "forbidden_other"
+
+    return "unknown"
+
+
 class SubscriptionService:
     """
     Service para gestionar suscripciones VIP y Free.
