@@ -1352,13 +1352,22 @@ class SubscriptionService:
                                 f"⚠️ Usuario {masked_uid} tiene cuenta desactivada/eliminada"
                             )
                         elif error_type == "chat_not_found":
-                            logger.warning(
-                                f"⚠️ Usuario {masked_uid} nunca inició conversación con el bot"
+                            # Expected: user never started the bot. Approval succeeded; DM not sent.
+                            # The Telegram Bot API 5.5 DM window (from ChatJoinRequest) expires
+                            # before the background task runs. User can still enter the channel.
+                            logger.info(
+                                f"ℹ️ Usuario {masked_uid} aprobado al canal Free. "
+                                f"Notificación por DM no enviada: usuario nunca inició conversación con el bot "
+                                f"(ventana ChatJoinRequest expirada - comportamiento esperado)"
                             )
                         elif error_type == "cant_initiate":
-                            logger.warning(
-                                f"⚠️ No se puede iniciar conversación con user {masked_uid} "
-                                f"(debe escribirle primero al bot)"
+                            # Expected: user never started the bot. Approval succeeded; DM not sent.
+                            # The Telegram Bot API 5.5 DM window (from ChatJoinRequest) expires
+                            # before the background task runs. User can still enter the channel.
+                            logger.info(
+                                f"ℹ️ Usuario {masked_uid} aprobado al canal Free. "
+                                f"Notificación por DM no enviada: ventana ChatJoinRequest expirada "
+                                f"(usuario no ha iniciado conversación con el bot - comportamiento esperado)"
                             )
                         elif error_type == "kicked":
                             logger.warning(
@@ -1586,13 +1595,22 @@ class SubscriptionService:
                                     f"⚠️ Usuario {masked_uid} tiene cuenta desactivada/eliminada"
                                 )
                             elif error_type == "chat_not_found":
-                                logger.warning(
-                                    f"⚠️ Usuario {masked_uid} nunca inició conversación con el bot"
+                                # Expected: user never started the bot. Approval succeeded; DM not sent.
+                                # The Telegram Bot API 5.5 DM window (from ChatJoinRequest) expires
+                                # before the background task runs. User can still enter the channel.
+                                logger.info(
+                                    f"ℹ️ Usuario {masked_uid} aprobado al canal Free. "
+                                    f"Notificación por DM no enviada: usuario nunca inició conversación con el bot "
+                                    f"(ventana ChatJoinRequest expirada - comportamiento esperado)"
                                 )
                             elif error_type == "cant_initiate":
-                                logger.warning(
-                                    f"⚠️ No se puede iniciar conversación con user {masked_uid} "
-                                    f"(debe escribirle primero al bot)"
+                                # Expected: user never started the bot. Approval succeeded; DM not sent.
+                                # The Telegram Bot API 5.5 DM window (from ChatJoinRequest) expires
+                                # before the background task runs. User can still enter the channel.
+                                logger.info(
+                                    f"ℹ️ Usuario {masked_uid} aprobado al canal Free. "
+                                    f"Notificación por DM no enviada: ventana ChatJoinRequest expirada "
+                                    f"(usuario no ha iniciado conversación con el bot - comportamiento esperado)"
                                 )
                             elif error_type == "kicked":
                                 logger.warning(
