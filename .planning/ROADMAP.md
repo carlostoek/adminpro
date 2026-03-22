@@ -280,8 +280,9 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24 → 25
 | 26. Initial Data Migration | v2.1 | 3/3 | Complete | 2026-02-21 |
 | 27. Security Audit Fixes | v2.2+ | 5/5 | Complete | 2026-03-17 |
 | 28. Corrección total de migraciones | v2.2+ | 0/5 | In Progress | — |
+| 29. Telegram Alert Handler | v2.2+ | 0/1 | Planned | — |
 
-**Overall Progress:** 105 plans complete (5 pending in phase 28)
+**Overall Progress:** 105 plans complete (5 pending in phase 28, 1 planned in phase 29)
 
 <details>
 <summary>✅ v2.1 Deployment Readiness (Phases 25-26) — SHIPPED 2026-02-21</summary>
@@ -360,6 +361,15 @@ Plans:
 - [ ] 28-04-PLAN.md — Create fix_transactiontype_enum migration (all 8 values on PostgreSQL)
 - [ ] 28-05-PLAN.md — Verification checkpoint (autogenerate zero drift, alembic upgrade head on SQLite)
 
+### Phase 29: Telegram Alert Handler — Advanced Logging
+
+**Goal:** Add optional secondary logging handler that forwards ERROR/CRITICAL events from high-priority namespaces to an admin Telegram chat, with anti-spam deduplication and zero impact when ALERT_CHAT_ID is absent
+**Depends on:** Phase 28
+**Plans:** 1 plan
+
+Plans:
+- [ ] 29-01-PLAN.md — TelegramAlertHandler package + config.py/main.py integration + .env.example docs
+
 ---
 
-*Last updated: 2026-03-18 after Phase 28 planning*
+*Last updated: 2026-03-22 after Phase 29 planning*
