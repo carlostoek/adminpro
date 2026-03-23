@@ -254,6 +254,17 @@ async def on_shutdown(bot: Bot, dispatcher: Dispatcher) -> None:
     # Detener background tasks (sin bloquear)
     stop_background_tasks()
 
+    # Stop Telegram alert handler queue listener (drains in-flight alerts)
+    import logging as _logging
+    _root_logger = _logging.getLogger()
+    _telegram_listener = getattr(_root_logger, "_telegram_listener", None)
+    if _telegram_listener is not None:
+        try:
+            _telegram_listener.stop()
+            logger.info("✅ Telegram alert handler stopped")
+        except Exception as e:
+            logger.warning("⚠️ Error stopping Telegram alert listener: %s", e)
+
     # Detener health check API usando función explícita
     logger.info("🛑 Deteniendo health check API...")
     try:
