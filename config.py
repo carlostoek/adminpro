@@ -322,6 +322,28 @@ class Config:
 
         logger.info(f"📝 Logging configurado: nivel {cls.LOG_LEVEL}")
 
+        # ===== TELEGRAM ALERT HANDLER (optional) =====
+        # Active only when ALERT_CHAT_ID is configured in environment.
+        # Lazy import prevents any import-time side effects when ALERT_CHAT_ID is absent.
+        alert_chat_id = os.getenv("ALERT_CHAT_ID")
+        if alert_chat_id and cls.BOT_TOKEN:
+            try:
+                from bot.logging.telegram_handler import setup_telegram_alert_handler
+                dedup_seconds = int(os.getenv("ALERT_DEDUP_SECONDS", "60"))
+                setup_telegram_alert_handler(
+                    bot_token=cls.BOT_TOKEN,
+                    chat_id=alert_chat_id,
+                    dedup_window_seconds=dedup_seconds,
+                )
+                logger.info(
+                    "Telegram alert handler configured for chat %s (dedup=%ds)",
+                    alert_chat_id,
+                    dedup_seconds,
+                )
+            except Exception as e:
+                # Alert handler failure must NEVER crash the bot
+                logger.warning("Failed to configure Telegram alert handler: %s", e)
+
     @classmethod
     def is_admin(cls, user_id: int) -> bool:
         """
