@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Milestone:** v2.2 Feature Development ✅ COMPLETE
 **Phase:** 30 - Admin User Simulation ✅ COMPLETE
-**Status:** All 4 plans complete - Simulation system fully implemented and verified
+**Status:** All 5 plans complete - Simulation system fully implemented, verified, and integration gaps closed
 
-**Current Plan:** 30-04 complete (4/4 tasks) - All simulation features delivered
+**Current Plan:** 30-05 complete (2/2 tasks) - Gap closure for simulation integration delivered
 **Next:** Milestone v2.3 planning or next feature phase
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
@@ -30,7 +30,8 @@ Phase 24: [██████████] 100% - Admin Configuration ✅ COMPLE
 Phase 25: [██████████] 100% - Broadcasting Improvements ✅ COMPLETE
 Phase 26: [██████████] 100% - Initial Data Migration ✅ COMPLETE
 Phase 27: [██████████] 100% - Security Audit Fixes ✅ COMPLETE
-Phase 29: [██████████] 100% - Logging Avanzado ✅ COMPLETE
+Phase 28: [█████░░░░░] 57% - Corrección total de migraciones 🔄 (4/7 plans)
+Phase 29: [██████████] 100% - Telegram Alert Handler ✅ COMPLETE
 Phase 30: [██████████] 100% - Admin User Simulation ✅ COMPLETE
 
 Overall v2.0:  [██████████] 100% (43/43 requirements) ✅
@@ -74,6 +75,7 @@ Overall v2.2:  [██████████] 100% (Phase 30 complete) ✅
 | Phase 27 P03 | 207 | 4 tasks | 2 files |
 | Phase 28-correcci-n-total-de-migraciones P01 | 2 | 2 tasks | 2 files |
 | Phase 28 P02 | 2 | 1 tasks | 1 files |
+| Phase 30-05 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -120,6 +122,8 @@ Overall v2.2:  [██████████] 100% (Phase 30 complete) ✅
 | Filter on handler (not QueueHandler) per Python docs | SmartAlertFilter on TelegramAlertHandler, not QueueHandler, per official logging best practices | **Implemented (29-01)** |
 | CRITICAL bypasses deduplication entirely | Operator must see every critical event immediately, no suppression | **Implemented (29-01)** |
 | Double-registration guard via attribute check | `_telegram_listener` attribute prevents duplicate handlers on config reload | **Implemented (29-01)** |
+| SimulationMiddleware order: Database → Simulation → RoleDetection | SimulationMiddleware needs container from DatabaseMiddleware, RoleDetection needs user_context from SimulationMiddleware | **Implemented (30-05)** |
+| Handler role detection checks user_context before Config.is_admin() | Enables admin simulation by treating simulating admins as non-admins | **Implemented (30-05)** |
 
 ### Critical Implementation Notes
 
