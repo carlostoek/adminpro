@@ -279,10 +279,11 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24 → 25
 | 25. Broadcasting Improvements | v2.1 | 1/1 | Complete | 2026-02-21 |
 | 26. Initial Data Migration | v2.1 | 3/3 | Complete | 2026-02-21 |
 | 27. Security Audit Fixes | v2.2+ | 5/5 | Complete | 2026-03-17 |
-| 28. Corrección total de migraciones | v2.2+ | 0/5 | In Progress | — |
-| 29. Telegram Alert Handler | v2.2+ | 0/1 | Planned | — |
+| 28. Corrección total de migraciones | v2.2+ | 4/7 | In Progress | — |
+| 29. Telegram Alert Handler | v2.2+ | 1/1 | Complete | 2026-03-23 |
+| 30. Admin User Simulation | v2.2+ | 4/4 | Complete | 2026-03-23 |
 
-**Overall Progress:** 105 plans complete (5 pending in phase 28, 1 planned in phase 29)
+**Overall Progress:** 110 plans complete (3 pending in phase 28)
 
 <details>
 <summary>✅ v2.1 Deployment Readiness (Phases 25-26) — SHIPPED 2026-02-21</summary>
@@ -338,7 +339,7 @@ Plans:
 
 **Goal:** All Alembic migrations correctly reflect the current SQLAlchemy models, work on both SQLite and PostgreSQL, and `alembic revision --autogenerate` detects zero schema drift
 **Depends on:** Phase 27
-**Plans:** 5 plans
+**Plans:** 7 plans
 
 **Gaps addressed:**
 - env.py only imported 9 of 20 model classes (autogenerate blind to 11 models)
@@ -355,26 +356,45 @@ Plans:
 - Wave 4: Human verification checkpoint
 
 Plans:
-- [ ] 28-01-PLAN.md — Fix env.py imports (all 20 models) + add last_kick_notification_sent_at to VIPSubscriber
-- [ ] 28-02-PLAN.md — Create fix_shop_products_schema migration (besitos columns, remove price/currency)
-- [ ] 28-03-PLAN.md — Fix seed migration PL/pgSQL + partial index dialect compatibility
-- [ ] 28-04-PLAN.md — Create fix_transactiontype_enum migration (all 8 values on PostgreSQL)
+- [x] 28-01-PLAN.md — Fix env.py imports (all 20 models) + add last_kick_notification_sent_at to VIPSubscriber
+- [x] 28-02-PLAN.md — Create fix_shop_products_schema migration (besitos columns, remove price/currency)
+- [x] 28-03-PLAN.md — Fix seed migration PL/pgSQL + partial index dialect compatibility
+- [x] 28-04-PLAN.md — Create fix_transactiontype_enum migration (all 8 values on PostgreSQL)
 - [ ] 28-05-PLAN.md — Verification checkpoint (autogenerate zero drift, alembic upgrade head on SQLite)
+- [ ] 28-06-PLAN.md — Additional migration fixes (if needed)
+- [ ] 28-07-PLAN.md — Final verification and cleanup
 
-### Phase 29: Telegram Alert Handler — Advanced Logging
+### Phase 29: Telegram Alert Handler — Advanced Logging ✅
 
 **Goal:** Add optional secondary logging handler that forwards ERROR/CRITICAL events from high-priority namespaces to an admin Telegram chat, with anti-spam deduplication and zero impact when ALERT_CHAT_ID is absent
 **Depends on:** Phase 28
 **Plans:** 1 plan
+**Status:** Complete — 2026-03-23
+
+**Key features:**
+- TelegramAlertHandler with QueueHandler/QueueListener pattern (non-blocking)
+- SmartAlertFilter with deduplication (5-min window) and namespace filtering
+- AlertFormatter with HTML formatting and truncation protection
+- Auto-integration via config.py and main.py
+- Zero impact when ALERT_CHAT_ID not configured
 
 Plans:
-- [ ] 29-01-PLAN.md — TelegramAlertHandler package + config.py/main.py integration + .env.example docs
+- [x] 29-01-PLAN.md — TelegramAlertHandler package + config.py/main.py integration + .env.example docs
 
-### Phase 30: Admin User Simulation @docs/30_Admin_User_Simulation.md @docs/30_Vigilar.md
+### Phase 30: Admin User Simulation @docs/30_Admin_User_Simulation.md @docs/30_Vigilar.md ✅
 
 **Goal:** Implement an Admin User Simulation System for role-based behavior testing inside the Telegram bot. Allow admin users to simulate different user roles (FREE, VIP) without modifying real user data or triggering permanent side effects.
 **Depends on:** Phase 29
 **Plans:** 4 plans
+**Status:** Complete — 2026-03-23 (Verified 6/6 must-haves)
+
+**Key features:**
+- SimulationService with SimulationStore (TTL 30-min, per-admin isolation)
+- ResolvedUserContext as single source of truth for role checks
+- SimulationMiddleware injects user_context into handler data
+- /simulate command with VIP/FREE/REAL mode selector keyboard
+- Visual banner shows simulation status in admin responses
+- Safety guards block wallet/shop/reward state-changing operations
 
 **Wave Structure:**
 - Wave 1: Core simulation infrastructure (store, context, service)
@@ -382,19 +402,19 @@ Plans:
 - Wave 3: Safety restrictions (block state-changing operations)
 
 **Success Criteria:**
-1. Admin can activate simulation mode for FREE or VIP role via /simulate command
-2. Simulation context is the single source of truth for all role checks via resolve_user_context()
-3. Context propagates to handlers, services, and middlewares
-4. Visual banner shows simulation status in all admin responses when active
-5. State-changing operations (payments, balance updates, rewards) are blocked during simulation
-6. Simulation is isolated per admin (no cross-user leakage)
+1. ✅ Admin can activate simulation mode for FREE or VIP role via /simulate command
+2. ✅ Simulation context is the single source of truth for all role checks via resolve_user_context()
+3. ✅ Context propagates to handlers, services, and middlewares
+4. ✅ Visual banner shows simulation status in all admin responses when active
+5. ✅ State-changing operations (payments, balance updates, rewards) are blocked during simulation
+6. ✅ Simulation is isolated per admin (no cross-user leakage)
 
 Plans:
-- [ ] 30-01-PLAN.md — Core simulation infrastructure (SimulationService, SimulationStore, ResolvedUserContext, SimulationMode enum)
-- [ ] 30-02-PLAN.md — Middleware integration (SimulationMiddleware, RoleDetectionMiddleware update)
-- [ ] 30-03-PLAN.md — Admin UI controls (/simulate command, mode selector keyboard, status display)
-- [ ] 30-04-PLAN.md — Safety restrictions (block wallet/shop/reward operations, simulation banner)
+- [x] 30-01-PLAN.md — Core simulation infrastructure (SimulationService, SimulationStore, ResolvedUserContext, SimulationMode enum)
+- [x] 30-02-PLAN.md — Middleware integration (SimulationMiddleware, RoleDetectionMiddleware update)
+- [x] 30-03-PLAN.md — Admin UI controls (/simulate command, mode selector keyboard, status display)
+- [x] 30-04-PLAN.md — Safety restrictions (block wallet/shop/reward operations, simulation banner)
 
 ---
 
-*Last updated: 2026-03-23 after Phase 30 planning*
+*Last updated: 2026-03-23 after Phase 29-30 documentation closure*
