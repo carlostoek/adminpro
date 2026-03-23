@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 
 ## Current Position
 
-**Milestone:** v2.1 Deployment Readiness ✅ COMPLETE
-**Phase:** 29 - Logging Avanzado ✅ IN PROGRESS
-**Status:** Plan 29-01 complete - TelegramAlertHandler with smart filtering implemented
+**Milestone:** v2.2 Feature Development 🔄 IN PROGRESS
+**Phase:** 30 - Admin User Simulation 🔄 IN PROGRESS
+**Status:** Plan 30-01 complete - Core simulation infrastructure with resolve_user_context()
 
-**Current Plan:** 29-01 complete (2/2 tasks)
-**Next:** Phase 29 fully complete - Telegram alert logging delivered
+**Current Plan:** 30-01 complete (3/3 tasks)
+**Next:** Phase 30 Plan 02 - Simulation UI handlers and middleware integration
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -30,9 +30,12 @@ Phase 24: [██████████] 100% - Admin Configuration ✅ COMPLE
 Phase 25: [██████████] 100% - Broadcasting Improvements ✅ COMPLETE
 Phase 26: [██████████] 100% - Initial Data Migration ✅ COMPLETE
 Phase 27: [██████████] 100% - Security Audit Fixes ✅ COMPLETE
+Phase 29: [██████████] 100% - Logging Avanzado ✅ COMPLETE
+Phase 30: [███░░░░░░░] 30% - Admin User Simulation 🔄 IN PROGRESS
 
 Overall v2.0:  [██████████] 100% (43/43 requirements) ✅
-Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
+Overall v2.1:  [██████████] 100% (Phases 25-29 complete) ✅
+Overall v2.2:  [░░░░░░░░░░] 0% (Phase 30 started) 🔄
 ```
 
 ## Performance Metrics
@@ -205,12 +208,21 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 |------|--------|-------------|
 | 29-01 | ✅ COMPLETE | Telegram Alert Handler - ERROR/CRITICAL log forwarding with smart filtering and deduplication |
 
-**Phase 29 Status:** 🔄 IN PROGRESS - 1/1 plans delivered
+**Phase 29 Status:** ✅ COMPLETE - 1/1 plans delivered
+
+### Phase 30 Progress
+
+| Plan | Status | Description |
+|------|--------|-------------|
+| 30-01 | ✅ COMPLETE | Core Simulation Infrastructure - SimulationMode enum, SimulationService with resolve_user_context(), SimulationStore with TTL |
+
+**Phase 30 Status:** 🔄 IN PROGRESS - 1/N plans delivered
 
 ### Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
 
 ### Roadmap Evolution
 
+- Phase 30 added: Admin User Simulation - Role-based behavior testing for admins without modifying real user data
 - Phase 29 added: Logging avanzado. (Pídeme el equerimient).
 - Phase 28 added: Corrección total de migraciones
 
@@ -734,7 +746,37 @@ None
 
 ---
 
-*State updated: 2026-03-17 - Phase 27-01 complete*
-*Milestone v2.0 (Gamification) COMPLETE*
-*Milestone v2.1 (Deployment Readiness) COMPLETE*
-*Phase 27 (Security Audit Fixes) IN PROGRESS*
+## Session Continuity
+
+**Last session:** 2026-03-23T16:37:00Z
+**Stopped at:** Completed 30-01-PLAN.md - Core simulation infrastructure
+**Next:** Phase 30 Plan 02 - Simulation UI handlers and middleware integration
+
+### Phase 30-01 COMPLETION SUMMARY
+
+**Delivered:** 3 tasks
+**Duration:** ~7 minutes
+**Key Achievements:**
+- Added SimulationMode enum (REAL, VIP, FREE) to bot/database/enums.py
+- Created bot/services/simulation.py with 3 core classes:
+  - ResolvedUserContext: Dataclass with effective_role() and effective_balance() methods
+  - SimulationStore: Singleton with TTL-based expiration (30 min), isolated per admin
+  - SimulationService: resolve_user_context() as single source of truth for role checks
+- Integrated simulation service into ServiceContainer with lazy loading
+- Safety: Only admins can simulate (Config.is_admin check)
+
+**Files Created:**
+- `bot/services/simulation.py` - Simulation service (545 lines)
+
+**Files Modified:**
+- `bot/database/enums.py` - Added SimulationMode enum
+- `bot/services/container.py` - Added simulation property
+
+**Commits:**
+- 607506e: feat(30-01): add SimulationMode enum to database/enums.py
+- 66bdb20: feat(30-01): create simulation service with core classes
+- 724309b: feat(30-01): add simulation service to ServiceContainer
+
+---
+
+*State updated: 2026-03-23 - Phase 30-01 complete*
