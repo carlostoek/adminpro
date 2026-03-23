@@ -60,6 +60,49 @@ def get_simulation_banner(context) -> str:
     )
 
 
+async def get_simulation_banner_for_user(user_id: int, container) -> str:
+    """
+    Genera banner visual cuando el usuario está en modo simulación.
+
+    Args:
+        user_id: ID del usuario a verificar
+        container: ServiceContainer con acceso a simulation service
+
+    Returns:
+        str: Banner HTML formateado o string vacío si no está simulando
+
+    Example:
+        from bot.handlers.admin.simulation import get_simulation_banner_for_user
+
+        banner = await get_simulation_banner_for_user(user_id, container)
+        await message.answer(f"{banner}🎩 Mensaje normal aquí...")
+    """
+    context = await container.simulation.resolve_user_context(user_id)
+    return get_simulation_banner(context)
+
+
+async def format_with_banner(text: str, user_id: int, container) -> str:
+    """
+    Prepend simulation banner to text if user is simulating.
+
+    Args:
+        text: Texto original del mensaje
+        user_id: ID del usuario a verificar
+        container: ServiceContainer con acceso a simulation service
+
+    Returns:
+        str: Texto con banner prepended si está simulando, o texto original
+
+    Example:
+        formatted_text = await format_with_banner("🎩 Mensaje de admin", user_id, container)
+        await message.answer(formatted_text)
+    """
+    banner = await get_simulation_banner_for_user(user_id, container)
+    if banner:
+        return f"{banner}{text}"
+    return text
+
+
 @router.message(Command("simulate"))
 async def simulation_command(message: Message, session: AsyncSession):
     """
