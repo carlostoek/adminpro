@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models import ContentSet, ShopProduct, UserContentAccess
 from bot.database.enums import ContentTier, TransactionType
+from bot.services.simulation import SimulationStore
 
 logger = logging.getLogger(__name__)
 
@@ -266,7 +267,7 @@ class ShopService:
         Returns:
             Tuple of (success, status_code, result_dict)
             status_code: "success", "validation_failed", "payment_failed",
-                        "already_owned", "vip_only"
+                        "already_owned", "vip_only", "SIMULATION_BLOCKED"
             result_dict on success:
             - product: ShopProduct
             - content_set: ContentSet
@@ -275,6 +276,11 @@ class ShopService:
             - access_record: UserContentAccess
             - is_repurchase: bool
         """
+        # Safety: Block purchases during simulation
+        if SimulationStore.is_simulating(user_id):
+            logger.warning(f"Blocked shop purchase for user {user_id} during simulation")
+            return False, "SIMULATION_BLOCKED", "🎩 No se pueden realizar compras durante la simulación."
+
         # Validate purchase
         can_purchase, reason, details = await self.validate_purchase(
             user_id, product_id, user_role
