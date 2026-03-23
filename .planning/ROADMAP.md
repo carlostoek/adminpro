@@ -370,6 +370,31 @@ Plans:
 Plans:
 - [ ] 29-01-PLAN.md — TelegramAlertHandler package + config.py/main.py integration + .env.example docs
 
+### Phase 30: Admin User Simulation @docs/30_Admin_User_Simulation.md @docs/30_Vigilar.md
+
+**Goal:** Implement an Admin User Simulation System for role-based behavior testing inside the Telegram bot. Allow admin users to simulate different user roles (FREE, VIP) without modifying real user data or triggering permanent side effects.
+**Depends on:** Phase 29
+**Plans:** 4 plans
+
+**Wave Structure:**
+- Wave 1: Core simulation infrastructure (store, context, service)
+- Wave 2: Middleware integration + Admin UI controls
+- Wave 3: Safety restrictions (block state-changing operations)
+
+**Success Criteria:**
+1. Admin can activate simulation mode for FREE or VIP role via /simulate command
+2. Simulation context is the single source of truth for all role checks via resolve_user_context()
+3. Context propagates to handlers, services, and middlewares
+4. Visual banner shows simulation status in all admin responses when active
+5. State-changing operations (payments, balance updates, rewards) are blocked during simulation
+6. Simulation is isolated per admin (no cross-user leakage)
+
+Plans:
+- [ ] 30-01-PLAN.md — Core simulation infrastructure (SimulationService, SimulationStore, ResolvedUserContext, SimulationMode enum)
+- [ ] 30-02-PLAN.md — Middleware integration (SimulationMiddleware, RoleDetectionMiddleware update)
+- [ ] 30-03-PLAN.md — Admin UI controls (/simulate command, mode selector keyboard, status display)
+- [ ] 30-04-PLAN.md — Safety restrictions (block wallet/shop/reward operations, simulation banner)
+
 ---
 
-*Last updated: 2026-03-22 after Phase 29 planning*
+*Last updated: 2026-03-23 after Phase 30 planning*
