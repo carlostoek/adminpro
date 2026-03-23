@@ -281,9 +281,9 @@ Phases execute in numeric order: 19 → 20 → 21 → 22 → 23 → 24 → 25
 | 27. Security Audit Fixes | v2.2+ | 5/5 | Complete | 2026-03-17 |
 | 28. Corrección total de migraciones | v2.2+ | 4/7 | In Progress | — |
 | 29. Telegram Alert Handler | v2.2+ | 1/1 | Complete | 2026-03-23 |
-| 30. Admin User Simulation | v2.2+ | 4/4 | Complete | 2026-03-23 |
+| 30. Admin User Simulation | v2.2+ | 4/5 | Gap Closure | — |
 
-**Overall Progress:** 110 plans complete (3 pending in phase 28)
+**Overall Progress:** 110 plans complete (3 pending in phase 28, 1 gap closure in phase 30)
 
 <details>
 <summary>✅ v2.1 Deployment Readiness (Phases 25-26) — SHIPPED 2026-02-21</summary>
@@ -381,12 +381,12 @@ Plans:
 Plans:
 - [x] 29-01-PLAN.md — TelegramAlertHandler package + config.py/main.py integration + .env.example docs
 
-### Phase 30: Admin User Simulation @docs/30_Admin_User_Simulation.md @docs/30_Vigilar.md ✅
+### Phase 30: Admin User Simulation @docs/30_Admin_User_Simulation.md @docs/30_Vigilar.md
 
 **Goal:** Implement an Admin User Simulation System for role-based behavior testing inside the Telegram bot. Allow admin users to simulate different user roles (FREE, VIP) without modifying real user data or triggering permanent side effects.
 **Depends on:** Phase 29
-**Plans:** 4 plans
-**Status:** Complete — 2026-03-23 (Verified 6/6 must-haves)
+**Plans:** 5 plans (4 original + 1 gap closure)
+**Status:** Gap Closure — UAT identified integration issues
 
 **Key features:**
 - SimulationService with SimulationStore (TTL 30-min, per-admin isolation)
@@ -400,16 +400,20 @@ Plans:
 - Wave 1: Core simulation infrastructure (store, context, service)
 - Wave 2: Middleware integration + Admin UI controls
 - Wave 3: Safety restrictions (block state-changing operations)
+- Wave 4: Gap closure - middleware registration and handler fixes
 
 **Success Criteria:**
 1. ✅ Admin can activate simulation mode for FREE or VIP role via /simulate command
 2. ✅ Simulation context is the single source of truth for all role checks via resolve_user_context()
-3. ✅ Context propagates to handlers, services, and middlewares
+3. 🔄 Context propagates to handlers, services, and middlewares (gap closure in progress)
 4. ✅ Visual banner shows simulation status in all admin responses when active
 5. ✅ State-changing operations (payments, balance updates, rewards) are blocked during simulation
 6. ✅ Simulation is isolated per admin (no cross-user leakage)
 
-Plans:
+**Gap Closure Plan:**
+- [ ] 30-05-PLAN.md — Fix middleware registration and /start handler simulation context (closes UAT gaps for Tests 2 and 10)
+
+**Original Plans:**
 - [x] 30-01-PLAN.md — Core simulation infrastructure (SimulationService, SimulationStore, ResolvedUserContext, SimulationMode enum)
 - [x] 30-02-PLAN.md — Middleware integration (SimulationMiddleware, RoleDetectionMiddleware update)
 - [x] 30-03-PLAN.md — Admin UI controls (/simulate command, mode selector keyboard, status display)
@@ -417,4 +421,4 @@ Plans:
 
 ---
 
-*Last updated: 2026-03-23 after Phase 29-30 documentation closure*
+*Last updated: 2026-03-23 after Phase 30 gap closure planning*
