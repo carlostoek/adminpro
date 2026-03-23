@@ -28,7 +28,7 @@ user_router = Router(name="user")
 
 
 @user_router.message(Command("start"))
-async def cmd_start(message: Message, session: AsyncSession):
+async def cmd_start(message: Message, session: AsyncSession, **data):
     """
     Handler del comando /start para usuarios.
 
@@ -45,6 +45,7 @@ async def cmd_start(message: Message, session: AsyncSession):
     Args:
         message: Mensaje del usuario
         session: Sesión de BD (inyectada por middleware)
+        **data: Datos adicionales del middleware (incluye user_context, container)
     """
     user_id = message.from_user.id
     user_name = message.from_user.first_name or "Usuario"
@@ -63,8 +64,14 @@ async def cmd_start(message: Message, session: AsyncSession):
     # antes de procesar el token (evita perdida de usuario en errores de token)
     await session.commit()
 
-    # Verificar si es admin PRIMERO
-    is_admin = Config.is_admin(user_id)
+    # Verificar si es admin PRIMERO (respetando simulación si está activa)
+    user_context = data.get("user_context")
+    if user_context and user_context.is_simulating:
+        # During simulation, admin is simulating a user role, not acting as admin
+        is_admin = False
+        logger.debug(f"🎭 User {user_id} is simulating role: {user_context.effective_role().value}")
+    else:
+        is_admin = Config.is_admin(user_id)
 
     if is_admin:
         # Redirect admin to /admin using message provider
