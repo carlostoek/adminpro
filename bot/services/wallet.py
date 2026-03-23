@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.database.models import UserGamificationProfile, Transaction
 from bot.database.enums import TransactionType
+from bot.services.simulation import SimulationStore
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,16 @@ class WalletService:
         """
         self.session = session
         self.logger = logging.getLogger(__name__)
+
+    def _check_simulation_block(self, user_id: int, action: str) -> Tuple[bool, str]:
+        """Check if user is in simulation mode and block state-changing actions.
+
+        Returns:
+            Tuple of (is_blocked, error_message)
+        """
+        if SimulationStore.is_simulating(user_id):
+            return True, f"🎩 Acción bloqueada: No se pueden {action} durante la simulación."
+        return False, ""
 
     async def _get_or_create_profile(self, user_id: int) -> UserGamificationProfile:
         """
@@ -187,6 +198,12 @@ class WalletService:
                 reason="Reaction to content #456"
             )
         """
+        # Safety: Block during simulation
+        is_blocked, error_msg = self._check_simulation_block(user_id, "ganar besitos")
+        if is_blocked:
+            logger.warning(f"Blocked earn_besitos for user {user_id} during simulation")
+            return False, error_msg, None
+
         # Validation
         if amount <= 0:
             return False, "invalid_amount", None
@@ -282,6 +299,12 @@ class WalletService:
                 reason="Purchase item #789"
             )
         """
+        # Safety: Block during simulation
+        is_blocked, error_msg = self._check_simulation_block(user_id, "gastar besitos")
+        if is_blocked:
+            logger.warning(f"Blocked spend_besitos for user {user_id} during simulation")
+            return False, error_msg, None
+
         # Validation
         if amount <= 0:
             return False, "invalid_amount", None
@@ -352,6 +375,12 @@ class WalletService:
         Returns:
             (success, message, transaction)
         """
+        # Safety: Block during simulation (even for admins)
+        is_blocked, error_msg = self._check_simulation_block(admin_id, "acreditar besitos")
+        if is_blocked:
+            logger.warning(f"Blocked admin_credit for admin {admin_id} during simulation")
+            return False, error_msg, None
+
         # Validate amount > 0
         if amount <= 0:
             return False, "invalid_amount", None
@@ -392,6 +421,12 @@ class WalletService:
         Returns:
             (success, message, transaction)
         """
+        # Safety: Block during simulation (even for admins)
+        is_blocked, error_msg = self._check_simulation_block(admin_id, "debitar besitos")
+        if is_blocked:
+            logger.warning(f"Blocked admin_debit for admin {admin_id} during simulation")
+            return False, error_msg, None
+
         # Validate amount > 0
         if amount <= 0:
             return False, "invalid_amount", None
