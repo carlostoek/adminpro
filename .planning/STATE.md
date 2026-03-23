@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Milestone:** v2.2 Feature Development 🔄 IN PROGRESS
 **Phase:** 30 - Admin User Simulation 🔄 IN PROGRESS
-**Status:** Plan 30-01 complete - Core simulation infrastructure with resolve_user_context()
+**Status:** Plan 30-03 complete - Admin UI controls for simulation (/simulate command, mode selector keyboard)
 
-**Current Plan:** 30-02 complete (3/3 tasks)
-**Next:** Phase 30 Plan 03 - Simulation UI handlers (start/stop/status)
+**Current Plan:** 30-03 complete (3/3 tasks)
+**Next:** Phase 30 Plan 04 - Simulation middleware integration (inject user_context into data)
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -22,7 +22,7 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 
 ```
 Phase 19: [██████████] 100% - Economy Foundation ✅
-Phase 20: [██████████] 100% - Reaction System ✅
+Phase 20: [██████████] 100% - Reaction System ✅ COMPLETE
 Phase 21: [██████████] 100% - Daily Rewards & Streaks ✅ COMPLETE
 Phase 22: [██████████] 100% - Shop System ✅ COMPLETE
 Phase 23: [██████████] 100% - Rewards System ✅ COMPLETE
@@ -31,7 +31,7 @@ Phase 25: [██████████] 100% - Broadcasting Improvements ✅ 
 Phase 26: [██████████] 100% - Initial Data Migration ✅ COMPLETE
 Phase 27: [██████████] 100% - Security Audit Fixes ✅ COMPLETE
 Phase 29: [██████████] 100% - Logging Avanzado ✅ COMPLETE
-Phase 30: [████░░░░░░] 40% - Admin User Simulation 🔄 IN PROGRESS
+Phase 30: [█████░░░░░] 50% - Admin User Simulation 🔄 IN PROGRESS
 
 Overall v2.0:  [██████████] 100% (43/43 requirements) ✅
 Overall v2.1:  [██████████] 100% (Phases 25-29 complete) ✅
@@ -216,8 +216,9 @@ Overall v2.2:  [░░░░░░░░░░] 0% (Phase 30 started) 🔄
 |------|--------|-------------|
 | 30-01 | ✅ COMPLETE | Core Simulation Infrastructure - SimulationMode enum, SimulationService with resolve_user_context(), SimulationStore with TTL |
 | 30-02 | ✅ COMPLETE | Simulation Middleware Integration - SimulationMiddleware, RoleDetectionMiddleware integration |
+| 30-03 | ✅ COMPLETE | Admin Simulation UI Controls - /simulate command, mode selector keyboard, visual banner |
 
-**Phase 30 Status:** 🔄 IN PROGRESS - 2/N plans delivered
+**Phase 30 Status:** 🔄 IN PROGRESS - 3/N plans delivered
 
 ### Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
 
@@ -749,37 +750,37 @@ None
 
 ## Session Continuity
 
-**Last session:** 2026-03-23T16:52:00Z
-**Stopped at:** Completed 30-02-PLAN.md - SimulationMiddleware integration with RoleDetectionMiddleware
-**Next:** Phase 30 Plan 03 - Simulation UI handlers (start/stop/status)
+**Last session:** 2026-03-23T16:49:00Z
+**Stopped at:** Completed 30-03-PLAN.md - Admin Simulation UI Controls
+**Next:** Phase 30 Plan 04 - Integration testing and documentation
 
-### Phase 30-02 COMPLETION SUMMARY
+### Phase 30-03 COMPLETION SUMMARY
 
 **Delivered:** 3 tasks
-**Duration:** ~3 minutes
+**Duration:** ~8 minutes
 **Key Achievements:**
-- Created SimulationMiddleware that injects user_context into handler data
-- SimulationMiddleware runs after DatabaseMiddleware (needs container)
-- RoleDetectionMiddleware checks user_context before computing role
-- If simulation is active, uses effective_role() from context
-- Non-simulated users continue with normal role detection
-- Middleware order: Database → Simulation → RoleDetection
+- Created bot/handlers/admin/simulation.py with /simulate command
+- Added get_simulation_banner() for visual indicator when simulating
+- Mode selector keyboard with VIP/FREE/REAL options and checkmark indicator
+- Callback handlers for mode switching and refresh
+- All messages use Lucien's voice (🎩)
+- Admin-only access with Config.is_admin checks
 
 **Files Created:**
-- `bot/middlewares/simulation.py` - SimulationMiddleware class (86 lines)
+- `bot/handlers/admin/simulation.py` - Simulation handlers (340 lines)
 
 **Files Modified:**
-- `bot/middlewares/__init__.py` - Added SimulationMiddleware export
-- `bot/middlewares/role_detection.py` - Added user_context check
+- `bot/utils/keyboards.py` - Added get_simulation_mode_keyboard()
+- `bot/handlers/admin/__init__.py` - Registered simulation_router
 
 **Commits:**
-- 2dba4fe: feat(30-02): create SimulationMiddleware for context injection
-- 761b573: feat(30-02): export SimulationMiddleware from middlewares module
-- e84d4a4: feat(30-02): modify RoleDetectionMiddleware to respect simulation context
+- 388e299: feat(30-03): create simulation control handlers
+- 51f0ddd: feat(30-03): add simulation mode selector keyboard
+- 0206f2c: feat(30-03): register simulation router in admin handlers
 
 ---
 
-*State updated: 2026-03-23 - Phase 30-02 complete*
+*State updated: 2026-03-23 - Phase 30-03 complete*
 
 ### Phase 30-01 COMPLETION SUMMARY
 
