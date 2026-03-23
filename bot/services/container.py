@@ -64,6 +64,7 @@ class ServiceContainer:
         self._streak_service = None
         self._shop_service = None
         self._reward_service = None
+        self._simulation_service = None
 
         logger.debug("🏭 ServiceContainer inicializado (modo lazy)")
 
@@ -568,6 +569,38 @@ class ServiceContainer:
 
         return self._reward_service
 
+    # ===== SIMULATION SERVICE =====
+
+    @property
+    def simulation(self):
+        """
+        Service de simulación de roles para admins.
+
+        Se carga lazy (solo en primer acceso).
+
+        Returns:
+            SimulationService: Instancia del service
+
+        Usage:
+            # Resolve user context (single source of truth)
+            context = await container.simulation.resolve_user_context(user_id=123)
+            role = context.effective_role()
+
+            # Start simulation
+            success, msg, ctx = await container.simulation.start_simulation(
+                admin_id=123, mode=SimulationMode.VIP
+            )
+
+            # Stop simulation
+            success, msg = await container.simulation.stop_simulation(admin_id=123)
+        """
+        if self._simulation_service is None:
+            from bot.services.simulation import SimulationService
+            logger.debug("🔄 Lazy loading: SimulationService")
+            self._simulation_service = SimulationService(self._session, self._bot)
+
+        return self._simulation_service
+
     # ===== UTILIDADES =====
 
     def get_loaded_services(self) -> list[str]:
@@ -619,6 +652,8 @@ class ServiceContainer:
             loaded.append("shop")
         if self._reward_service is not None:
             loaded.append("reward")
+        if self._simulation_service is not None:
+            loaded.append("simulation")
 
         return loaded
 
