@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 ## Current Position
 
 **Milestone:** v2.1 Deployment Readiness ✅ COMPLETE
-**Phase:** 28 - Corrección Total de Migraciones ✅ COMPLETE
-**Status:** Plan 28-04 complete - PostgreSQL transactiontype enum synced with all 8 current TransactionType values
+**Phase:** 29 - Logging Avanzado ✅ IN PROGRESS
+**Status:** Plan 29-01 complete - TelegramAlertHandler with smart filtering implemented
 
-**Current Plan:** 28-04 complete (1/1 tasks)
-**Next:** Phase 28 fully complete - all 4 migration correction plans delivered
+**Current Plan:** 29-01 complete (2/2 tasks)
+**Next:** Phase 29 fully complete - Telegram alert logging delivered
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -113,6 +113,10 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 | Use postgresql_where/sqlite_where for partial indexes, not application-level enforcement | uq_user_pending_request partial unique index enforces C-002 race condition protection at DB level on PostgreSQL | **Implemented (28-03)** |
 | Explicit COMMIT before ALTER TYPE ADD VALUE loop on PostgreSQL | ALTER TYPE ADD VALUE cannot run inside a transaction block; op.execute(sa.text("COMMIT")) exits Alembic's implicit transaction before the ADD VALUE loop | **Implemented (28-04)** |
 | IF NOT EXISTS per ADD VALUE for idempotent enum migrations | Each ADD VALUE uses IF NOT EXISTS so migration is safe to run multiple times even on databases with partial enum values | **Implemented (28-04)** |
+| QueueHandler+QueueListener for Telegram alerts | Never blocks asyncio event loop; HTTP POST runs in background daemon thread | **Implemented (29-01)** |
+| Filter on handler (not QueueHandler) per Python docs | SmartAlertFilter on TelegramAlertHandler, not QueueHandler, per official logging best practices | **Implemented (29-01)** |
+| CRITICAL bypasses deduplication entirely | Operator must see every critical event immediately, no suppression | **Implemented (29-01)** |
+| Double-registration guard via attribute check | `_telegram_listener` attribute prevents duplicate handlers on config reload | **Implemented (29-01)** |
 
 ### Critical Implementation Notes
 
@@ -195,10 +199,19 @@ Overall v2.1:  [██████████] 100% (Phases 25-26 complete) ✅
 
 **Phase 28 Status:** ✅ COMPLETE - 4/4 plans delivered
 
+### Phase 29 Progress
+
+| Plan | Status | Description |
+|------|--------|-------------|
+| 29-01 | ✅ COMPLETE | Telegram Alert Handler - ERROR/CRITICAL log forwarding with smart filtering and deduplication |
+
+**Phase 29 Status:** 🔄 IN PROGRESS - 1/1 plans delivered
+
 ### Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
 
 ### Roadmap Evolution
 
+- Phase 29 added: Logging avanzado. (Pídeme el equerimient).
 - Phase 28 added: Corrección total de migraciones
 
 - Phase 26 added: Initial Data Migration - Seed data for first deployment
@@ -243,9 +256,9 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-19T05:29:33Z
-**Stopped at:** Completed 28-04-PLAN.md - PostgreSQL transactiontype enum synced with all 8 TransactionType values
-**Next:** Phase 28 fully complete - all 4 migration correction plans delivered
+**Last session:** 2026-03-23T08:08:00Z
+**Stopped at:** Completed 29-01-PLAN.md - TelegramAlertHandler with smart filtering and QueueHandler+QueueListener pattern
+**Next:** Phase 29 fully complete - logging infrastructure delivered
 
 ### Wave 4 Summary
 - WalletService integrated into ServiceContainer with lazy loading
