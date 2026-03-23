@@ -28,6 +28,7 @@ from bot.database.enums import (
     RewardType, RewardConditionType, RewardStatus,
     TransactionType, StreakType, UserRole
 )
+from bot.services.simulation import SimulationStore
 
 logger = logging.getLogger(__name__)
 
@@ -651,6 +652,11 @@ class RewardService:
         Returns:
             Tuple de (success: bool, message: str, details: dict)
         """
+        # Safety: Block reward claims during simulation
+        if SimulationStore.is_simulating(user_id):
+            logger.warning(f"Blocked reward claim for user {user_id} during simulation")
+            return False, "🎩 No se pueden reclamar recompensas durante la simulación.", {}
+
         # Get reward
         reward = await self.session.get(Reward, reward_id)
         if reward is None:
