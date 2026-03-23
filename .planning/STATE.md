@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Milestone:** v2.2 Feature Development 🔄 IN PROGRESS
 **Phase:** 30 - Admin User Simulation 🔄 IN PROGRESS
-**Status:** Plan 30-03 complete - Admin UI controls for simulation (/simulate command, mode selector keyboard)
+**Status:** Plan 30-04 complete - Safety restrictions in wallet, shop, reward services + banner utilities
 
-**Current Plan:** 30-03 complete (3/3 tasks)
-**Next:** Phase 30 Plan 04 - Simulation middleware integration (inject user_context into data)
+**Current Plan:** 30-04 complete (4/4 tasks) - Simulation safety restrictions in wallet, shop, reward services
+**Next:** Phase 30 Plan 05 - Integration testing and documentation
 
 **Milestone v1.2 COMPLETE** — All 5 phases (14-18) finished and archived
 
@@ -31,7 +31,7 @@ Phase 25: [██████████] 100% - Broadcasting Improvements ✅ 
 Phase 26: [██████████] 100% - Initial Data Migration ✅ COMPLETE
 Phase 27: [██████████] 100% - Security Audit Fixes ✅ COMPLETE
 Phase 29: [██████████] 100% - Logging Avanzado ✅ COMPLETE
-Phase 30: [█████░░░░░] 50% - Admin User Simulation 🔄 IN PROGRESS
+Phase 30: [██████░░░░] 60% - Admin User Simulation 🔄 IN PROGRESS
 
 Overall v2.0:  [██████████] 100% (43/43 requirements) ✅
 Overall v2.1:  [██████████] 100% (Phases 25-29 complete) ✅
@@ -217,8 +217,9 @@ Overall v2.2:  [░░░░░░░░░░] 0% (Phase 30 started) 🔄
 | 30-01 | ✅ COMPLETE | Core Simulation Infrastructure - SimulationMode enum, SimulationService with resolve_user_context(), SimulationStore with TTL |
 | 30-02 | ✅ COMPLETE | Simulation Middleware Integration - SimulationMiddleware, RoleDetectionMiddleware integration |
 | 30-03 | ✅ COMPLETE | Admin Simulation UI Controls - /simulate command, mode selector keyboard, visual banner |
+| 30-04 | ✅ COMPLETE | Simulation Safety Restrictions - Wallet/shop/reward service guards, banner utilities |
 
-**Phase 30 Status:** 🔄 IN PROGRESS - 3/N plans delivered
+**Phase 30 Status:** 🔄 IN PROGRESS - 4/N plans delivered
 
 ### Phase 24 Status:** ✅ COMPLETE - 9/9 plans delivered, UAT verified
 
@@ -270,9 +271,37 @@ None.
 
 ## Session Continuity
 
-**Last session:** 2026-03-23T08:08:00Z
-**Stopped at:** Completed 29-01-PLAN.md - TelegramAlertHandler with smart filtering and QueueHandler+QueueListener pattern
-**Next:** Phase 29 fully complete - logging infrastructure delivered
+**Last session:** 2026-03-23T11:17:00Z
+**Stopped at:** Completed 30-04-PLAN.md - Simulation safety restrictions
+**Next:** Phase 30 Plan 05 - Integration testing and documentation
+
+### Phase 30-04 COMPLETION SUMMARY
+
+**Delivered:** 4 tasks
+**Duration:** ~25 minutes
+**Key Achievements:**
+- WalletService: Added _check_simulation_block() helper, blocked earn_besitos/spend_besitos/admin_credit/admin_debit
+- ShopService: Blocked purchase_product() during simulation with SIMULATION_BLOCKED code
+- RewardService: Blocked claim_reward() during simulation with Lucien's voice error
+- Simulation banner utilities: get_simulation_banner_for_user() and format_with_banner() for other handlers
+- All error messages use Lucien's voice (🎩)
+- All blocked actions logged with WARNING level
+
+**Files Modified:**
+- `bot/services/wallet.py` - Simulation checks in state-changing methods
+- `bot/services/shop.py` - Simulation check in purchase_product()
+- `bot/services/reward.py` - Simulation check in claim_reward()
+- `bot/handlers/admin/simulation.py` - Banner utilities exported for other handlers
+
+**Commits:**
+- 9ddf5fa: feat(30-04): add simulation safety checks to WalletService
+- 698ac92: feat(30-04): add simulation safety checks to ShopService
+- 3ceb160: feat(30-04): add simulation safety checks to RewardService
+- c631908: feat(30-04): add simulation banner utilities to admin simulation handler
+
+---
+
+*State updated: 2026-03-23 - Phase 30-04 complete*
 
 ### Wave 4 Summary
 - WalletService integrated into ServiceContainer with lazy loading
