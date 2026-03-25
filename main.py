@@ -339,10 +339,26 @@ async def main() -> None:
     # 3. UserRegistrationMiddleware: registra usuario si no existe (requiere session)
     # 4. RoleDetectionMiddleware: detecta rol del usuario (requiere user_context si existe)
     from bot.middlewares import DatabaseMiddleware, SimulationMiddleware, RoleDetectionMiddleware, UserRegistrationMiddleware
+    # IMPORTANT: In aiogram 3, dp.update.middleware and dp.message.middleware are
+    # SEPARATE middleware managers. Middleware on dp.update only runs for the raw
+    # Update handler, NOT for specific event handlers. The real middlewares need to
+    # be on the routers themselves so _resolve_middlewares() finds them in the chain.
+    # Register middlewares on dp (Dispatcher) so they're available to all routers.
+    # In aiogram 3, registering on dp.message.middleware adds to dp's message observer
+    # which IS in the chain. We register on both update and message for full coverage.
     dp.update.middleware(DatabaseMiddleware())
     dp.update.middleware(SimulationMiddleware())
     dp.update.middleware(UserRegistrationMiddleware())
     dp.update.middleware(RoleDetectionMiddleware())
+    dp.message.middleware(DatabaseMiddleware())
+    dp.message.middleware(SimulationMiddleware())
+    dp.message.middleware(UserRegistrationMiddleware())
+    dp.message.middleware(RoleDetectionMiddleware())
+    dp.callback_query.middleware(DatabaseMiddleware())
+    dp.callback_query.middleware(SimulationMiddleware())
+    dp.callback_query.middleware(UserRegistrationMiddleware())
+    dp.callback_query.middleware(RoleDetectionMiddleware())
+    logger.info("🔧 Middlewares registrados en dp (update/message/callback)")
     # AdminAuthMiddleware se aplica solo al router admin (ver bot/handlers/admin/main.py)
 
     # Registrar handlers DESPUÉS de los middlewares
