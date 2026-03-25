@@ -103,12 +103,14 @@ async def cmd_start(message: Message, session: AsyncSession, **data):
             session=session,
             container=container,
             user=user,
-            token_string=token_string
+            token_string=token_string,
+            user_context=user_context
         )
     else:
         # No hay parámetro → Mensaje de bienvenida normal
-        # Pass user_context so _send_welcome_message respects simulation
-        await _send_welcome_message(message, user, container, user_id, session, user_context)
+        # Pass user_context and user_role from RoleDetectionMiddleware
+        user_role = data.get('user_role')
+        await _send_welcome_message(message, user, container, user_id, session, user_context, user_role)
 
 
 async def _activate_token_from_deeplink(
@@ -116,7 +118,8 @@ async def _activate_token_from_deeplink(
     session: AsyncSession,
     container: ServiceContainer,
     user,  # User model
-    token_string: str
+    token_string: str,
+    user_context=None  # ResolvedUserContext from SimulationMiddleware
 ):
     """
     Activa un token VIP desde un deep link.
@@ -214,7 +217,7 @@ async def _activate_token_from_deeplink(
         else:
             # Usuario extendió suscripción activa - mostrar menú VIP directamente
             logger.info(f"✅ Usuario {user.user_id} extendió suscripción VIP - mostrando menú")
-            await _send_welcome_message(message, user, container, user.user_id, session)
+            await _send_welcome_message(message, user, container, user.user_id, session, user_context)
 
     except Exception as e:
         logger.error(f"❌ Error activando token desde deep link: {e}", exc_info=True)
@@ -233,7 +236,8 @@ async def _send_welcome_message(
     container: ServiceContainer,
     user_id: int,
     session: AsyncSession,
-    user_context=None  # ResolvedUserContext from SimulationMiddleware
+    user_context=None,  # ResolvedUserContext from SimulationMiddleware
+    user_role=None  # Pre-detected role from RoleDetectionMiddleware
 ):
     """
     Envía mensaje de bienvenida normal y muestra el menú correspondiente.
@@ -245,6 +249,7 @@ async def _send_welcome_message(
         user_id: ID del usuario
         session: Sesión de BD
         user_context: Contexto resuelto con simulación (inyectado por SimulationMiddleware)
+        user_role: Pre-detected role from RoleDetectionMiddleware (avoids redundant DB query)
     """
     user_name = message.from_user.first_name or "Usuario"
 
@@ -292,11 +297,16 @@ async def _send_welcome_message(
                 )
                 return
 
-    # Detect role: use simulated role if active, otherwise query database
+    # Detect role: use simulated role if active, otherwise use pre-detected role
     if user_context and user_context.is_simulating:
         detected_role = user_context.effective_role()
         logger.info(f"🎭 Using simulated role for menu: {detected_role.value}")
+    elif user_role:
+        # Use role already detected by RoleDetectionMiddleware
+        detected_role = user_role
+        logger.info(f"👤 Using pre-detected role for menu: {detected_role.value}")
     else:
+        # Fallback: query database if no pre-detected role available
         role_service = container.role_detection
         detected_role = await role_service.get_user_role(user_id)
 

@@ -78,7 +78,7 @@ class SimulationMiddleware(BaseMiddleware):
             if context.is_simulating:
                 logger.info(
                     f"🎭 Simulation active for user {user.id}: "
-                    f"mode={context.simulated_mode.value}, "
+                    f"role={context.simulated_role.value}, "
                     f"effective_role={context.effective_role().value}"
                 )
             else:

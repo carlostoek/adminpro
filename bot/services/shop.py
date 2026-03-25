@@ -277,7 +277,7 @@ class ShopService:
             - is_repurchase: bool
         """
         # Safety: Block purchases during simulation
-        if SimulationStore.is_simulating(user_id):
+        if SimulationStore().is_simulating(user_id):
             logger.warning(f"Blocked shop purchase for user {user_id} during simulation")
             return False, "SIMULATION_BLOCKED", "🎩 No se pueden realizar compras durante la simulación."
 

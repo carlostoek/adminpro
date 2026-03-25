@@ -97,7 +97,6 @@ class SimulationMode(str, Enum):
     @property
     def simulated_role(self) -> "UserRole":
         """Retorna el rol simulado correspondiente."""
-        from bot.database.enums import UserRole
         role_map = {
             SimulationMode.REAL: None,
             SimulationMode.VIP: UserRole.VIP,

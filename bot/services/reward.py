@@ -653,7 +653,7 @@ class RewardService:
             Tuple de (success: bool, message: str, details: dict)
         """
         # Safety: Block reward claims during simulation
-        if SimulationStore.is_simulating(user_id):
+        if SimulationStore().is_simulating(user_id):
             logger.warning(f"Blocked reward claim for user {user_id} during simulation")
             return False, "🎩 No se pueden reclamar recompensas durante la simulación.", {}
 

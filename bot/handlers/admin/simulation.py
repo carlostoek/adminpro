@@ -60,6 +60,41 @@ def get_simulation_banner(context) -> str:
     )
 
 
+def get_simulation_status_text(context, status: dict) -> str:
+    """
+    Genera el texto del mensaje de estado de simulación.
+
+    Args:
+        context: ResolvedUserContext con estado de simulación
+        status: Dict con 'mode' y 'effective_role' del usuario
+
+    Returns:
+        str: Texto HTML del mensaje de estado
+    """
+    if context.is_simulating:
+        banner = get_simulation_banner(context)
+        return (
+            f"{banner}"
+            f"🎩 <b>Lucien:</b>\n\n"
+            f"<i>Ah… está usted viendo el reino a través de ojos diferentes.</i>\n\n"
+            f"Actualmente experimentando el bot como: "
+            f"<b>{status['effective_role'].upper()}</b>\n\n"
+            f"Seleccione un modo para continuar su observación:"
+        )
+    else:
+        return (
+            f"🎩 <b>Lucien:</b>\n\n"
+            f"<i>Bienvenido al sistema de simulación, señor.</i>\n\n"
+            f"Aquí puede experimentar el bot como lo verían sus usuarios, "
+            f"sin modificar sus privilegios reales de administrador.\n\n"
+            f"<b>Modos disponibles:</b>\n"
+            f"• ⭐ VIP - Ver menús y funciones VIP\n"
+            f"• 🆓 Free - Ver menús y funciones Free\n"
+            f"• 👤 Real - Operar como admin normal\n\n"
+            f"Seleccione un modo para comenzar:"
+        )
+
+
 async def get_simulation_banner_for_user(user_id: int, container) -> str:
     """
     Genera banner visual cuando el usuario está en modo simulación.
@@ -134,31 +169,8 @@ async def simulation_command(message: Message, session: AsyncSession):
     context = await container.simulation.resolve_user_context(user_id)
     status = await container.simulation.get_simulation_status(user_id)
 
-    # Construir mensaje con voz de Lucien
-    if context.is_simulating:
-        # Está simulando - mostrar banner + mensaje de confirmación
-        banner = get_simulation_banner(context)
-        text = (
-            f"{banner}"
-            f"🎩 <b>Lucien:</b>\n\n"
-            f"<i>Ah… está usted viendo el reino a través de ojos diferentes.</i>\n\n"
-            f"Actualmente experimentando el bot como: "
-            f"<b>{status['effective_role'].upper()}</b>\n\n"
-            f"Seleccione un modo para continuar su observación:"
-        )
-    else:
-        # No está simulando - mensaje de bienvenida
-        text = (
-            f"🎩 <b>Lucien:</b>\n\n"
-            f"<i>Bienvenido al sistema de simulación, señor.</i>\n\n"
-            f"Aquí puede experimentar el bot como lo verían sus usuarios, "
-            f"sin modificar sus privilegios reales de administrador.\n\n"
-            f"<b>Modos disponibles:</b>\n"
-            f"• ⭐ VIP - Ver menús y funciones VIP\n"
-            f"• 🆓 Free - Ver menús y funciones Free\n"
-            f"• 👤 Real - Operar como admin normal\n\n"
-            f"Seleccione un modo para comenzar:"
-        )
+    # Construir mensaje con voz de Lucien usando helper
+    text = get_simulation_status_text(context, status)
 
     # Obtener teclado de selección de modo
     current_mode = SimulationMode(status['mode']) if status else SimulationMode.REAL
@@ -188,29 +200,8 @@ async def simulation_refresh_callback(callback: CallbackQuery, session: AsyncSes
     context = await container.simulation.resolve_user_context(user_id)
     status = await container.simulation.get_simulation_status(user_id)
 
-    # Construir mensaje actualizado
-    if context.is_simulating:
-        banner = get_simulation_banner(context)
-        text = (
-            f"{banner}"
-            f"🎩 <b>Lucien:</b>\n\n"
-            f"<i>Ah… está usted viendo el reino a través de ojos diferentes.</i>\n\n"
-            f"Actualmente experimentando el bot como: "
-            f"<b>{status['effective_role'].upper()}</b>\n\n"
-            f"Seleccione un modo para continuar su observación:"
-        )
-    else:
-        text = (
-            f"🎩 <b>Lucien:</b>\n\n"
-            f"<i>Bienvenido al sistema de simulación, señor.</i>\n\n"
-            f"Aquí puede experimentar el bot como lo verían sus usuarios, "
-            f"sin modificar sus privilegios reales de administrador.\n\n"
-            f"<b>Modos disponibles:</b>\n"
-            f"• ⭐ VIP - Ver menús y funciones VIP\n"
-            f"• 🆓 Free - Ver menús y funciones Free\n"
-            f"• 👤 Real - Operar como admin normal\n\n"
-            f"Seleccione un modo para comenzar:"
-        )
+    # Construir mensaje actualizado usando helper
+    text = get_simulation_status_text(context, status)
 
     current_mode = SimulationMode(status['mode']) if status else SimulationMode.REAL
     keyboard = get_simulation_mode_keyboard(current_mode)

@@ -66,7 +66,7 @@ class WalletService:
         Returns:
             Tuple of (is_blocked, error_message)
         """
-        if SimulationStore.is_simulating(user_id):
+        if SimulationStore().is_simulating(user_id):
             return True, f"🎩 Acción bloqueada: No se pueden {action} durante la simulación."
         return False, ""
 
