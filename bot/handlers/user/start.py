@@ -69,7 +69,7 @@ async def cmd_start(message: Message, session: AsyncSession, **data):
     if user_context and user_context.is_simulating:
         # During simulation, admin is simulating a user role, not acting as admin
         is_admin = False
-        logger.debug(f"🎭 User {user_id} is simulating role: {user_context.effective_role().value}")
+        logger.info(f"🎭 User {user_id} simulating role: {user_context.effective_role().value} (ignoring admin menu)")
     else:
         is_admin = Config.is_admin(user_id)
 
@@ -295,7 +295,7 @@ async def _send_welcome_message(
     # Detect role: use simulated role if active, otherwise query database
     if user_context and user_context.is_simulating:
         detected_role = user_context.effective_role()
-        logger.debug(f"🎭 Using simulated role: {detected_role.value}")
+        logger.info(f"🎭 Using simulated role for menu: {detected_role.value}")
     else:
         role_service = container.role_detection
         detected_role = await role_service.get_user_role(user_id)

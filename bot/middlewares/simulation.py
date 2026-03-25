@@ -73,11 +73,16 @@ class SimulationMiddleware(BaseMiddleware):
         try:
             context = await container.simulation.resolve_user_context(user.id)
             data["user_context"] = context
-            logger.debug(
-                f"🎭 Context injected for user {user.id}: "
-                f"simulating={context.is_simulating}, "
-                f"effective_role={context.effective_role().value}"
-            )
+            if context.is_simulating:
+                logger.info(
+                    f"🎭 Simulation active for user {user.id}: "
+                    f"mode={context.simulated_mode.value}, "
+                    f"effective_role={context.effective_role().value}"
+                )
+            else:
+                logger.debug(
+                    f"🎭 No simulation active for user {user.id}"
+                )
         except Exception as e:
             logger.error(f"❌ Failed to resolve user context: {e}")
             # Continuar sin inyección para no romper el handler
