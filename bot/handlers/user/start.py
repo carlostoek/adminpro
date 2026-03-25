@@ -107,7 +107,8 @@ async def cmd_start(message: Message, session: AsyncSession, **data):
         )
     else:
         # No hay parámetro → Mensaje de bienvenida normal
-        await _send_welcome_message(message, user, container, user_id, session)
+        # Pass user_context so _send_welcome_message respects simulation
+        await _send_welcome_message(message, user, container, user_id, session, user_context)
 
 
 async def _activate_token_from_deeplink(
@@ -231,7 +232,8 @@ async def _send_welcome_message(
     user,  # User model
     container: ServiceContainer,
     user_id: int,
-    session: AsyncSession
+    session: AsyncSession,
+    user_context=None  # ResolvedUserContext from SimulationMiddleware
 ):
     """
     Envía mensaje de bienvenida normal y muestra el menú correspondiente.
@@ -241,54 +243,63 @@ async def _send_welcome_message(
         user: Usuario del sistema
         container: Service container
         user_id: ID del usuario
+        session: Sesión de BD
+        user_context: Contexto resuelto con simulación (inyectado por SimulationMiddleware)
     """
     user_name = message.from_user.first_name or "Usuario"
 
     # Phase 13: Check if user has incomplete VIP entry flow
-    subscriber = await container.subscription.get_vip_subscriber(user_id)
+    # Skip this check during simulation to avoid real state changes
+    if not (user_context and user_context.is_simulating):
+        subscriber = await container.subscription.get_vip_subscriber(user_id)
 
-    if subscriber and subscriber.vip_entry_stage:
-        # Check if user already has VIP role - if so, clear the stage and show menu
-        if user.role == UserRole.VIP:
-            logger.info(
-                f"🔄 User {user_id} has VIP role but vip_entry_stage={subscriber.vip_entry_stage}. "
-                f"Clearing stage and showing menu."
-            )
-            subscriber.vip_entry_stage = None
-            await session.commit()
-        elif subscriber.vip_entry_stage == 3:
-            # HOTFIX: Stage 3 means user already completed the ritual
-            # They have the invite link and role should be VIP
-            # If role is not VIP, fix it and clear stage
-            logger.info(
-                f"🔄 User {user_id} has vip_entry_stage=3 but role is {user.role.value}. "
-                f"Completing ritual and showing menu."
-            )
-            # Change role to VIP
-            old_role = user.role
-            user.role = UserRole.VIP
-            subscriber.vip_entry_stage = None
-            await session.commit()
-            logger.info(f"✅ User {user_id} role corrected: {old_role.value} → VIP")
-        else:
-            # User has incomplete entry flow (Stage 1 or 2) - resume from current stage
-            from bot.handlers.user.vip_entry import show_vip_entry_stage
+        if subscriber and subscriber.vip_entry_stage:
+            # Check if user already has VIP role - if so, clear the stage and show menu
+            if user.role == UserRole.VIP:
+                logger.info(
+                    f"🔄 User {user_id} has VIP role but vip_entry_stage={subscriber.vip_entry_stage}. "
+                    f"Clearing stage and showing menu."
+                )
+                subscriber.vip_entry_stage = None
+                await session.commit()
+            elif subscriber.vip_entry_stage == 3:
+                # HOTFIX: Stage 3 means user already completed the ritual
+                # They have the invite link and role should be VIP
+                # If role is not VIP, fix it and clear stage
+                logger.info(
+                    f"🔄 User {user_id} has vip_entry_stage=3 but role is {user.role.value}. "
+                    f"Completing ritual and showing menu."
+                )
+                # Change role to VIP
+                old_role = user.role
+                user.role = UserRole.VIP
+                subscriber.vip_entry_stage = None
+                await session.commit()
+                logger.info(f"✅ User {user_id} role corrected: {old_role.value} → VIP")
+            else:
+                # User has incomplete entry flow (Stage 1 or 2) - resume from current stage
+                from bot.handlers.user.vip_entry import show_vip_entry_stage
 
-            logger.info(
-                f"🔄 User {user_id} resuming VIP entry flow at stage "
-                f"{subscriber.vip_entry_stage}"
-            )
+                logger.info(
+                    f"🔄 User {user_id} resuming VIP entry flow at stage "
+                    f"{subscriber.vip_entry_stage}"
+                )
 
-            await show_vip_entry_stage(
-                message=message,
-                container=container,
-                stage=subscriber.vip_entry_stage
-            )
-            return
+                await show_vip_entry_stage(
+                    message=message,
+                    container=container,
+                    stage=subscriber.vip_entry_stage
+                )
+                return
 
-    # Original logic: Detect role and show menu
-    role_service = container.role_detection
-    detected_role = await role_service.get_user_role(user_id)
+    # Detect role: use simulated role if active, otherwise query database
+    if user_context and user_context.is_simulating:
+        detected_role = user_context.effective_role()
+        logger.debug(f"🎭 Using simulated role: {detected_role.value}")
+    else:
+        role_service = container.role_detection
+        detected_role = await role_service.get_user_role(user_id)
+
     is_vip = detected_role == UserRole.VIP
 
     # Preparar data dictionary para menu handlers (simula middleware injection)
