@@ -36,3 +36,7 @@ docs/security/*.md
 .DS_Store
 Thumbs.db
 log_temp.md
+
+# GSD Planning (local workflow artifacts - do not track)
+.claude/
+.planning/
