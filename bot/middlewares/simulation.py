@@ -64,6 +64,8 @@ class SimulationMiddleware(BaseMiddleware):
         # Obtener container del data dictionary (inyectado por DatabaseMiddleware)
         container = data.get("container")
 
+        logger.info(f"🎭 SimulationMiddleware executing for user {user.id}, has_container={container is not None}")
+
         if not container:
             # No hay container disponible (DatabaseMiddleware no ejecutado)
             logger.warning("⚠️ No container in data, skipping context resolution")
