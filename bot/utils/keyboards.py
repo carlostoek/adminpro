@@ -6,6 +6,7 @@ Funciones:
 - create_menu_navigation: Crea filas de navegación estándar (Volver/Salir)
 - create_content_with_navigation: Combina contenido con navegación
 - get_reaction_keyboard: Genera teclado de reacciones para contenido
+- get_simulation_mode_keyboard: Genera teclado selector de modo de simulación
 
 Centraliza la creación de keyboards para consistencia visual y navegación.
 """
@@ -373,3 +374,47 @@ def create_content_with_navigation(
     )
     all_buttons = content_buttons + nav_rows
     return create_inline_keyboard(all_buttons)
+
+
+def get_simulation_mode_keyboard(
+    current_mode: Optional["SimulationMode"] = None
+) -> InlineKeyboardMarkup:
+    """
+    Genera teclado selector de modo de simulación.
+
+    Muestra tres modos: VIP, FREE, REAL con indicador visual
+    del modo actual (checkmark) y botón de refrescar.
+
+    Args:
+        current_mode: Modo de simulación actual (SimulationMode.REAL, VIP, o FREE)
+
+    Returns:
+        InlineKeyboardMarkup con selector de modo
+
+    Example:
+        keyboard = get_simulation_mode_keyboard(SimulationMode.VIP)
+        # Muestra: [⚪ VIP] [⚪ FREE] [✅ REAL]
+        #          [🔄 Actualizar]
+    """
+    from bot.database.enums import SimulationMode
+
+    if current_mode is None:
+        current_mode = SimulationMode.REAL
+
+    # Botones de modo con indicador visual
+    vip_prefix = "✅" if current_mode == SimulationMode.VIP else "⚪"
+    free_prefix = "✅" if current_mode == SimulationMode.FREE else "⚪"
+    real_prefix = "✅" if current_mode == SimulationMode.REAL else "⚪"
+
+    mode_row = [
+        {"text": f"{vip_prefix} VIP", "callback_data": "simulation:set:vip"},
+        {"text": f"{free_prefix} FREE", "callback_data": "simulation:set:free"},
+        {"text": f"{real_prefix} REAL", "callback_data": "simulation:set:real"},
+    ]
+
+    # Botón de refrescar
+    refresh_row = [
+        {"text": "🔄 Actualizar", "callback_data": "simulation:refresh"}
+    ]
+
+    return create_inline_keyboard([mode_row, refresh_row])

@@ -28,7 +28,7 @@ user_router = Router(name="user")
 
 
 @user_router.message(Command("start"))
-async def cmd_start(message: Message, session: AsyncSession):
+async def cmd_start(message: Message, session: AsyncSession, **data):
     """
     Handler del comando /start para usuarios.
 
@@ -45,6 +45,7 @@ async def cmd_start(message: Message, session: AsyncSession):
     Args:
         message: Mensaje del usuario
         session: Sesión de BD (inyectada por middleware)
+        **data: Datos adicionales del middleware (incluye user_context, container)
     """
     user_id = message.from_user.id
     user_name = message.from_user.first_name or "Usuario"
@@ -63,8 +64,14 @@ async def cmd_start(message: Message, session: AsyncSession):
     # antes de procesar el token (evita perdida de usuario en errores de token)
     await session.commit()
 
-    # Verificar si es admin PRIMERO
-    is_admin = Config.is_admin(user_id)
+    # Verificar si es admin PRIMERO (respetando simulación si está activa)
+    user_context = data.get("user_context")
+    if user_context and user_context.is_simulating:
+        # During simulation, admin is simulating a user role, not acting as admin
+        is_admin = False
+        logger.info(f"🎭 User {user_id} simulating role: {user_context.effective_role().value} (ignoring admin menu)")
+    else:
+        is_admin = Config.is_admin(user_id)
 
     if is_admin:
         # Redirect admin to /admin using message provider
@@ -96,11 +103,14 @@ async def cmd_start(message: Message, session: AsyncSession):
             session=session,
             container=container,
             user=user,
-            token_string=token_string
+            token_string=token_string,
+            user_context=user_context
         )
     else:
         # No hay parámetro → Mensaje de bienvenida normal
-        await _send_welcome_message(message, user, container, user_id, session)
+        # Pass user_context and user_role from RoleDetectionMiddleware
+        user_role = data.get('user_role')
+        await _send_welcome_message(message, user, container, user_id, session, user_context, user_role)
 
 
 async def _activate_token_from_deeplink(
@@ -108,7 +118,8 @@ async def _activate_token_from_deeplink(
     session: AsyncSession,
     container: ServiceContainer,
     user,  # User model
-    token_string: str
+    token_string: str,
+    user_context=None  # ResolvedUserContext from SimulationMiddleware
 ):
     """
     Activa un token VIP desde un deep link.
@@ -206,7 +217,7 @@ async def _activate_token_from_deeplink(
         else:
             # Usuario extendió suscripción activa - mostrar menú VIP directamente
             logger.info(f"✅ Usuario {user.user_id} extendió suscripción VIP - mostrando menú")
-            await _send_welcome_message(message, user, container, user.user_id, session)
+            await _send_welcome_message(message, user, container, user.user_id, session, user_context)
 
     except Exception as e:
         logger.error(f"❌ Error activando token desde deep link: {e}", exc_info=True)
@@ -224,7 +235,9 @@ async def _send_welcome_message(
     user,  # User model
     container: ServiceContainer,
     user_id: int,
-    session: AsyncSession
+    session: AsyncSession,
+    user_context=None,  # ResolvedUserContext from SimulationMiddleware
+    user_role=None  # Pre-detected role from RoleDetectionMiddleware
 ):
     """
     Envía mensaje de bienvenida normal y muestra el menú correspondiente.
@@ -234,54 +247,69 @@ async def _send_welcome_message(
         user: Usuario del sistema
         container: Service container
         user_id: ID del usuario
+        session: Sesión de BD
+        user_context: Contexto resuelto con simulación (inyectado por SimulationMiddleware)
+        user_role: Pre-detected role from RoleDetectionMiddleware (avoids redundant DB query)
     """
     user_name = message.from_user.first_name or "Usuario"
 
     # Phase 13: Check if user has incomplete VIP entry flow
-    subscriber = await container.subscription.get_vip_subscriber(user_id)
+    # Skip this check during simulation to avoid real state changes
+    if not (user_context and user_context.is_simulating):
+        subscriber = await container.subscription.get_vip_subscriber(user_id)
 
-    if subscriber and subscriber.vip_entry_stage:
-        # Check if user already has VIP role - if so, clear the stage and show menu
-        if user.role == UserRole.VIP:
-            logger.info(
-                f"🔄 User {user_id} has VIP role but vip_entry_stage={subscriber.vip_entry_stage}. "
-                f"Clearing stage and showing menu."
-            )
-            subscriber.vip_entry_stage = None
-            await session.commit()
-        elif subscriber.vip_entry_stage == 3:
-            # HOTFIX: Stage 3 means user already completed the ritual
-            # They have the invite link and role should be VIP
-            # If role is not VIP, fix it and clear stage
-            logger.info(
-                f"🔄 User {user_id} has vip_entry_stage=3 but role is {user.role.value}. "
-                f"Completing ritual and showing menu."
-            )
-            # Change role to VIP
-            old_role = user.role
-            user.role = UserRole.VIP
-            subscriber.vip_entry_stage = None
-            await session.commit()
-            logger.info(f"✅ User {user_id} role corrected: {old_role.value} → VIP")
-        else:
-            # User has incomplete entry flow (Stage 1 or 2) - resume from current stage
-            from bot.handlers.user.vip_entry import show_vip_entry_stage
+        if subscriber and subscriber.vip_entry_stage:
+            # Check if user already has VIP role - if so, clear the stage and show menu
+            if user.role == UserRole.VIP:
+                logger.info(
+                    f"🔄 User {user_id} has VIP role but vip_entry_stage={subscriber.vip_entry_stage}. "
+                    f"Clearing stage and showing menu."
+                )
+                subscriber.vip_entry_stage = None
+                await session.commit()
+            elif subscriber.vip_entry_stage == 3:
+                # HOTFIX: Stage 3 means user already completed the ritual
+                # They have the invite link and role should be VIP
+                # If role is not VIP, fix it and clear stage
+                logger.info(
+                    f"🔄 User {user_id} has vip_entry_stage=3 but role is {user.role.value}. "
+                    f"Completing ritual and showing menu."
+                )
+                # Change role to VIP
+                old_role = user.role
+                user.role = UserRole.VIP
+                subscriber.vip_entry_stage = None
+                await session.commit()
+                logger.info(f"✅ User {user_id} role corrected: {old_role.value} → VIP")
+            else:
+                # User has incomplete entry flow (Stage 1 or 2) - resume from current stage
+                from bot.handlers.user.vip_entry import show_vip_entry_stage
 
-            logger.info(
-                f"🔄 User {user_id} resuming VIP entry flow at stage "
-                f"{subscriber.vip_entry_stage}"
-            )
+                logger.info(
+                    f"🔄 User {user_id} resuming VIP entry flow at stage "
+                    f"{subscriber.vip_entry_stage}"
+                )
 
-            await show_vip_entry_stage(
-                message=message,
-                container=container,
-                stage=subscriber.vip_entry_stage
-            )
-            return
+                await show_vip_entry_stage(
+                    message=message,
+                    container=container,
+                    stage=subscriber.vip_entry_stage
+                )
+                return
 
-    # Original logic: Detect role and show menu
-    role_service = container.role_detection
-    detected_role = await role_service.get_user_role(user_id)
+    # Detect role: use simulated role if active, otherwise use pre-detected role
+    if user_context and user_context.is_simulating:
+        detected_role = user_context.effective_role()
+        logger.info(f"🎭 Using simulated role for menu: {detected_role.value}")
+    elif user_role:
+        # Use role already detected by RoleDetectionMiddleware
+        detected_role = user_role
+        logger.info(f"👤 Using pre-detected role for menu: {detected_role.value}")
+    else:
+        # Fallback: query database if no pre-detected role available
+        role_service = container.role_detection
+        detected_role = await role_service.get_user_role(user_id)
+
     is_vip = detected_role == UserRole.VIP
 
     # Preparar data dictionary para menu handlers (simula middleware injection)

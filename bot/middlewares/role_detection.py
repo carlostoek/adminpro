@@ -73,6 +73,18 @@ class RoleDetectionMiddleware(BaseMiddleware):
             logger.debug("⚠️ No hay sesión disponible, ejecutando handler sin role injection")
             return await handler(event, data)
 
+        # Check if simulation context already resolved (by SimulationMiddleware)
+        user_context = data.get("user_context")
+        if user_context:
+            # Use simulated role if active, else fall back to role detection
+            effective_role = user_context.effective_role()
+            data["user_role"] = effective_role
+            data["user_id"] = user.id
+            logger.debug(
+                f"🎭 Using simulated role for user {user.id}: {effective_role.value}"
+            )
+            return await handler(event, data)
+
         # Detectar rol e inyectar en data
         # Obtener bot del data dictionary (inyectado por Aiogram)
         bot = data.get("bot")

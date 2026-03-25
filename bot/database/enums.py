@@ -51,6 +51,60 @@ class UserRole(str, Enum):
         return emojis[self]
 
 
+class SimulationMode(str, Enum):
+    """
+    Modos de simulación para admins probar comportamiento de usuarios.
+
+    Modos:
+        REAL: Operación normal, sin simulación
+        VIP: Simular usuario VIP
+        FREE: Simular usuario Free
+
+    Uso:
+        - Admins pueden activar simulación para ver el bot como otro rol
+        - Los datos reales del usuario no se modifican
+        - La simulación es temporal (TTL 30 minutos)
+    """
+
+    REAL = "real"
+    VIP = "vip"
+    FREE = "free"
+
+    def __str__(self) -> str:
+        """Retorna valor string del enum."""
+        return self.value
+
+    @property
+    def display_name(self) -> str:
+        """Retorna nombre legible del modo."""
+        names = {
+            SimulationMode.REAL: "Real",
+            SimulationMode.VIP: "Simulación VIP",
+            SimulationMode.FREE: "Simulación Free"
+        }
+        return names[self]
+
+    @property
+    def emoji(self) -> str:
+        """Retorna emoji del modo."""
+        emojis = {
+            SimulationMode.REAL: "👤",
+            SimulationMode.VIP: "⭐",
+            SimulationMode.FREE: "🆓"
+        }
+        return emojis[self]
+
+    @property
+    def simulated_role(self) -> "UserRole":
+        """Retorna el rol simulado correspondiente."""
+        role_map = {
+            SimulationMode.REAL: None,
+            SimulationMode.VIP: UserRole.VIP,
+            SimulationMode.FREE: UserRole.FREE
+        }
+        return role_map[self]
+
+
 class ContentCategory(str, Enum):
     """
     Categorías de contenido para paquetes.
