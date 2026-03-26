@@ -1,0 +1,171 @@
+{
+  "pr_number": 55,
+  "title": "Gsd/phase 29 logging avanzado p deme el equerimient",
+  "merged_at": "2026-03-23T15:14:30Z",
+  "review_comments": [
+    {
+      "url": "https://api.github.com/repos/carlostoek/adminpro/pulls/comments/2975614881",
+      "pull_request_review_id": 3992414012,
+      "id": 2975614881,
+      "node_id": "PRRC_kwDORCULdc6xXEeh",
+      "diff_hunk": "@@ -0,0 +1,238 @@\n+\"\"\"\n+Telegram Alert Handler implementation.\n+\n+Provides handler, filter, formatter and wiring function for sending\n+high-priority log alerts to a Telegram chat.\n+\n+Design principles:\n+- stdlib only (no new pip dependencies)\n+- QueueHandler + QueueListener pattern (never blocks asyncio event loop)\n+- Smart filtering (high/low priority namespaces, deduplication)\n+- Graceful degradation (handler errors never crash the bot)\n+\"\"\"\n+import json\n+import logging\n+import logging.handlers\n+import queue\n+import time\n+import traceback\n+import urllib.request\n+from typing import Dict, Tuple\n+\n+\n+# High-priority namespaces: these get WARNING+ alerts\n+HIGH_PRIORITY_PREFIXES: Tuple[str, ...] = (\n+    \"bot.services.subscription\",\n+    \"bot.services.wallet\",\n+    \"bot.services.pricing\",\n+    \"bot.services.reward\",\n+    \"bot.services.shop\",\n+    \"bot.services.vip_entry\",\n+    \"bot.services.role_change\",\n+    \"bot.handlers.user.vip_entry\",\n+    \"bot.handlers.admin\",\n+    \"config\",\n+)\n+\n+# Low-priority namespaces: these never trigger alerts (too noisy)\n+LOW_PRIORITY_PREFIXES: Tuple[str, ...] = (\n+    \"aiogram\",\n+    \"apscheduler\",\n+    \"bot.background.tasks\",\n+    \"bot.handlers.user.free_join_request\",\n+    \"sqlalchemy\",\n+    \"aiosqlite\",\n+    \"asyncio\",\n+)\n+\n+# Emoji mapping for log levels\n+_LEVEL_EMOJI: Dict[int, str] = {\n+    logging.WARNING: \"⚠️\",\n+    logging.ERROR: \"🔴\",\n+    logging.CRITICAL: \"🚨\",\n+}\n+\n+\n+class AlertFormatter(logging.Formatter):\n+    \"\"\"\n+    Formatter for Telegram alerts with HTML formatting.\n+\n+    Features:\n+    - Level emoji prefix\n+    - Shortened logger name (last 2 components)\n+    - Truncated traceback in <pre> block\n+    - Overall 4000 char limit (Telegram message limit)\n+    \"\"\"\n+\n+    def format(self, record: logging.LogRecord) -> str:\n+        emoji = _LEVEL_EMOJI.get(record.levelno, \"📋\")\n+        parts = record.name.split(\".\")\n+        short_name = \".\".join(parts[-2:]) if len(parts) > 2 else record.name\n+        msg = record.getMessage()",
+      "path": "bot/logging/telegram_handler.py",
+      "commit_id": "890af72897a57c91bca0df6275716e70f5179f48",
+      "original_commit_id": "890af72897a57c91bca0df6275716e70f5179f48",
+      "user": {
+        "login": "gemini-code-assist[bot]",
+        "id": 176961590,
+        "node_id": "BOT_kgDOCow4Ng",
+        "avatar_url": "https://avatars.githubusercontent.com/in/956858?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D",
+        "html_url": "https://github.com/apps/gemini-code-assist",
+        "followers_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/followers",
+        "following_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/following{/other_user}",
+        "gists_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/subscriptions",
+        "organizations_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/orgs",
+        "repos_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/repos",
+        "events_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/received_events",
+        "type": "Bot",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "body": "![security-high](https://www.gstatic.com/codereviewagent/security-high-priority.svg) ![high](https://www.gstatic.com/codereviewagent/high-priority.svg)\n\nEl mensaje de log (`msg`) se inserta directamente en la alerta con formato HTML (`parse_mode: 'HTML'`). Si el mensaje de log contiene datos controlados por el usuario (por ejemplo, un nombre de archivo o un parámetro de entrada inválido), esto puede llevar a una vulnerabilidad de inyección de HTML en las alertas de Telegram. Un atacante podría crear un enlace malicioso en el que un administrador podría hacer clic.\n\nPara mitigar esto, el contenido del mensaje debe ser escapado antes de ser incluido. Por favor, utiliza `html.escape()` para sanear el mensaje. No olvides importar el módulo `html` al principio del archivo.\n\n```suggestion\n        msg = html.escape(record.getMessage())\n```",
+      "created_at": "2026-03-23T14:59:34Z",
+      "updated_at": "2026-03-23T14:59:34Z",
+      "html_url": "https://github.com/carlostoek/adminpro/pull/55#discussion_r2975614881",
+      "pull_request_url": "https://api.github.com/repos/carlostoek/adminpro/pulls/55",
+      "_links": {
+        "self": {
+          "href": "https://api.github.com/repos/carlostoek/adminpro/pulls/comments/2975614881"
+        },
+        "html": {
+          "href": "https://github.com/carlostoek/adminpro/pull/55#discussion_r2975614881"
+        },
+        "pull_request": {
+          "href": "https://api.github.com/repos/carlostoek/adminpro/pulls/55"
+        }
+      },
+      "reactions": {
+        "url": "https://api.github.com/repos/carlostoek/adminpro/pulls/comments/2975614881/reactions",
+        "total_count": 0,
+        "+1": 0,
+        "-1": 0,
+        "laugh": 0,
+        "hooray": 0,
+        "confused": 0,
+        "heart": 0,
+        "rocket": 0,
+        "eyes": 0
+      },
+      "start_line": null,
+      "original_start_line": null,
+      "start_side": null,
+      "line": 71,
+      "original_line": 71,
+      "side": "RIGHT",
+      "author_association": "CONTRIBUTOR",
+      "original_position": 71,
+      "position": 71,
+      "subject_type": "line"
+    }
+  ],
+  "issue_comments": [
+    {
+      "url": "https://api.github.com/repos/carlostoek/adminpro/issues/comments/4111248998",
+      "html_url": "https://github.com/carlostoek/adminpro/pull/55#issuecomment-4111248998",
+      "issue_url": "https://api.github.com/repos/carlostoek/adminpro/issues/55",
+      "id": 4111248998,
+      "node_id": "IC_kwDORCULdc71DK5m",
+      "user": {
+        "login": "gemini-code-assist[bot]",
+        "id": 176961590,
+        "node_id": "BOT_kgDOCow4Ng",
+        "avatar_url": "https://avatars.githubusercontent.com/in/956858?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D",
+        "html_url": "https://github.com/apps/gemini-code-assist",
+        "followers_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/followers",
+        "following_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/following{/other_user}",
+        "gists_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/subscriptions",
+        "organizations_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/orgs",
+        "repos_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/repos",
+        "events_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/gemini-code-assist%5Bbot%5D/received_events",
+        "type": "Bot",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "created_at": "2026-03-23T14:54:22Z",
+      "updated_at": "2026-03-23T14:54:22Z",
+      "body": "## Summary of Changes\n\nHello, I'm Gemini Code Assist[^1]! I'm currently reviewing this pull request and will post my feedback shortly. In the meantime, here's a summary to help you and other reviewers quickly get up to speed!\n\nEste pull request introduce un sistema de alertas avanzado que permite la notificación inmediata de eventos ERROR y CRITICAL a través de Telegram. La implementación se centra en la robustez y la eficiencia, utilizando un filtrado inteligente para reducir el ruido, un mecanismo de deduplicación para prevenir el spam y un diseño no bloqueante para mantener la capacidad de respuesta de la aplicación. Esto mejora significativamente la visibilidad operativa y la capacidad de respuesta ante problemas en producción.\n\n### Highlights\n\n* **Implementación de Alertas de Telegram**: Se añadió un manejador de logs opcional para enviar eventos ERROR/CRITICAL a un chat de Telegram, proporcionando visibilidad inmediata sobre problemas en producción.\n* **Filtrado Inteligente y Deduplicación**: Se introdujo un filtro (SmartAlertFilter) que prioriza ciertos namespaces, ignora logs ruidosos y aplica deduplicación para evitar el envío excesivo de alertas idénticas.\n* **Operación Asíncrona y No Bloqueante**: Se utilizó el patrón QueueHandler y QueueListener para asegurar que el envío de alertas a Telegram no bloquee el bucle de eventos principal de asyncio, manteniendo la capacidad de respuesta de la aplicación.\n* **Integración Flexible y Cierre Grácil**: El sistema se integra en config.py con importación perezosa y se activa solo si ALERT_CHAT_ID está configurado. Además, se añadió lógica en main.py para detener el listener de alertas de Telegram durante el apagado, asegurando que los logs en cola se procesen.\n* **Documentación y Planificación Actualizadas**: Se actualizaron los archivos de planificación (.planning/) y el .env.example con detalles sobre la nueva funcionalidad, su configuración y el progreso de la Fase 29.\n\n🧠 **New Feature in Public Preview:** You can now enable **Memory** to help **Gemini Code Assist** learn from your team's feedback. This makes future code reviews more consistent and personalized to your project's style. **Click [here](https://codeassist.google/code-review/login) to enable Memory in your admin console.**\n\n<details>\n<summary><b>Using Gemini Code Assist</b></summary>\n<br>\n\nThe full guide for Gemini Code Assist can be found on our [documentation page](https://developers.google.com/gemini-code-assist/docs/review-github-code), here are some quick tips.\n\n<b>Invoking Gemini</b>\n\nYou can request assistance from Gemini at any point by creating a comment using either `/gemini <command>` or `@gemini-code-assist <command>`. Below is a summary of the supported commands on the current page.\n\nFeature | Command | Description\n--- | --- | ---\nCode Review | `/gemini review` | Performs a code review for the current pull request in its current state.\nPull Request Summary | `/gemini summary` | Provides a summary of the current pull request in its current state.\nComment | @gemini-code-assist | Responds in comments when explicitly tagged, both in pull request comments and review comments.\nHelp | `/gemini help` | Displays a list of available commands.\n\n<b>Customization</b>\n\nTo customize Gemini Code Assist for GitHub experience, repository maintainers can create a configuration file and/or provide a custom code review style guide (such as PEP-8 for Python) by creating and adding files to a `.gemini/` folder in the base of the repository. Detailed instructions can be found [here](https://developers.google.com/gemini-code-assist/docs/customize-gemini-behavior-github).\n\n<b>Limitations & Feedback</b>\n\nGemini Code Assist may make mistakes. Please leave feedback on any instances where its feedback is incorrect or counter productive. You can react with :thumbsup: and :thumbsdown: on @gemini-code-assist comments. If you're interested in giving your feedback about your experience with Gemini Code Assist for GitHub and other Google products, sign up [here](https://google.qualtrics.com/jfe/form/SV_2cyuGuTWsEw84yG).\n</details>\n\n\n[^1]: Review the [Privacy Notices](https://policies.google.com/privacy), [Generative AI Prohibited Use Policy](https://policies.google.com/terms/generative-ai/use-policy), [Terms of Service](https://policies.google.com/terms), and learn how to configure Gemini Code Assist in GitHub [here](https://developers.google.com/gemini-code-assist/docs/customize-gemini-behavior-github). Gemini can make mistakes, so double check it and [use code with caution](https://support.google.com/legal/answer/13505487).\n",
+      "author_association": "CONTRIBUTOR",
+      "reactions": {
+        "url": "https://api.github.com/repos/carlostoek/adminpro/issues/comments/4111248998/reactions",
+        "total_count": 0,
+        "+1": 0,
+        "-1": 0,
+        "laugh": 0,
+        "hooray": 0,
+        "confused": 0,
+        "heart": 0,
+        "rocket": 0,
+        "eyes": 0
+      },
+      "performed_via_github_app": {
+        "id": 956858,
+        "client_id": "Iv23ctcJt9oWoM6OPLsw",
+        "slug": "gemini-code-assist",
+        "node_id": "A_kwHOABR6NM4ADpm6",
+        "owner": {
+          "login": "google",
+          "id": 1342004,
+          "node_id": "MDEyOk9yZ2FuaXphdGlvbjEzNDIwMDQ=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/1342004?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/google",
+          "html_url": "https://github.com/google",
+          "followers_url": "https://api.github.com/users/google/followers",
+          "following_url": "https://api.github.com/users/google/following{/other_user}",
+          "gists_url": "https://api.github.com/users/google/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/google/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/google/subscriptions",
+          "organizations_url": "https://api.github.com/users/google/orgs",
+          "repos_url": "https://api.github.com/users/google/repos",
+          "events_url": "https://api.github.com/users/google/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/google/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "name": "Gemini Code Assist",
+        "description": "**Accelerate code reviews and improve code quality**\r\n\r\nBring the power of [Gemini](https://gemini.google.com/) directly to GitHub, providing AI-powered code reviews on your pull requests, with automatic pull request summaries, ready-to-commit code suggestions and the ability to invoke Gemini for assistance at any point on the PR.\r\n",
+        "external_url": "https://developers.google.com/gemini-code-assist/docs/review-github-code",
+        "html_url": "https://github.com/apps/gemini-code-assist",
+        "created_at": "2024-07-29T20:55:46Z",
+        "updated_at": "2026-03-13T17:12:48Z",
+        "permissions": {
+          "contents": "read",
+          "issues": "write",
+          "members": "read",
+          "metadata": "read",
+          "pull_requests": "write"
+        },
+        "events": [
+          "commit_comment",
+          "issue_comment",
+          "pull_request",
+          "pull_request_review",
+          "pull_request_review_comment",
+          "pull_request_review_thread",
+          "push"
+        ]
+      }
+    }
+  ]
+}
