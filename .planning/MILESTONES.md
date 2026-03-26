@@ -1,0 +1,164 @@
+# Project Milestones: LucienVoiceService
+
+## v1.2 Primer Despliegue (Shipped: 2026-01-30)
+
+**Delivered:** Production-ready deployment infrastructure with PostgreSQL migration support, comprehensive test coverage (212 tests), health monitoring endpoint, Railway deployment configuration, and performance profiling tools.
+
+**Phases completed:** 14-18 (21 plans total)
+
+**Key accomplishments:**
+
+- PostgreSQL and SQLite dual-dialect support with automatic dialect detection
+- Alembic migration system with auto-migration on startup in production
+- FastAPI health check endpoint (/health) with database connectivity verification
+- Railway deployment configuration (Railway.toml, Dockerfile, .dockerignore)
+- pytest-asyncio testing infrastructure with 7 fixtures and in-memory database
+- 212 system tests covering startup, configuration, menus, roles, VIP/Free flows
+- CLI test runner script with coverage reporting and historical tracking
+- Telegram /run_tests command for admin test execution
+- Performance profiling with pyinstrument integration (/profile command)
+- N+1 query detection with SQLAlchemy event monitoring
+- SQLite to PostgreSQL data migration script with row validation
+- Graceful shutdown fix (10s timeout, down from 150s)
+- 37/37 v1.2 requirements satisfied (100%)
+
+**Stats:**
+
+- ~177,811 lines of Python code
+- 5 phases, 21 plans, ~100+ tasks
+- 212 tests passing
+- 3 days from start to ship (2026-01-28 to 2026-01-30)
+
+**Git range:** `feat(14-01)` to `feat(18-04)`
+
+**What's next:** Run `/gsd:new-milestone` to define v1.3 goals (Redis caching layer, FSM state persistence, monitoring dashboard, production deployment)
+
+---
+
+## v1.1 Sistema de Menús (Shipped: 2026-01-28)
+
+**Delivered:** Role-based menu system (Admin/VIP/Free) with automatic role detection, content package management, interest notifications, user management, social media integration, VIP ritualized entry flow, and comprehensive documentation.
+
+**Phases completed:** 5-13 (48 plans total)
+
+**Key accomplishments:**
+
+- RoleDetectionService with automatic role calculation (Admin > VIP > Free priority)
+- Role-based menu routing with MenuRouter and separate routers per role
+- 3 new database models (ContentPackage, UserInterest, UserRoleChangeLog)
+- ContentService with full CRUD operations for content packages
+- InterestService with 5-minute deduplication window and admin notifications
+- UserManagementService with permission validation and audit logging
+- Free channel entry flow with social media keyboard (Instagram, TikTok, X)
+- VIP ritualized 3-stage entry flow (confirmation → alignment → access delivery)
+- Package detail view redesign with improved UX
+- Comprehensive documentation: MENU_SYSTEM.md (1,353 lines), INTEGRATION_GUIDE.md (1,393 lines), EXAMPLES.md (3,031 lines)
+- 1,070+ docstrings across services and handlers
+- 57/57 v1.1 requirements satisfied (100%)
+
+**Stats:**
+
+- 201 commits since v1.0
+- 24,328 lines of Python code (bot/ directory only)
+- 9 phases, 48 plans, ~200+ tasks
+- 26 documentation files (5,777 lines across 4 main .md files)
+- 49 days from v1.0 to v1.1 ship (2025-12-10 to 2026-01-28)
+
+**Git range:** `v1.0` to current HEAD
+
+**What's next:** Run `/gsd:new-milestone` to define v1.2 goals (Potential areas: Analytics dashboard, User onboarding improvements, Advanced content features)
+
+---
+
+## v1.0 LucienVoiceService (Shipped: 2026-01-24)
+
+**Delivered:** Centralized message service maintaining Lucien's sophisticated mayordomo voice across all bot interactions with stateless architecture, template composition, and session-aware variation selection.
+
+**Phases completed:** 1-4 (14 plans total)
+
+**Key accomplishments:**
+
+- BaseMessageProvider abstract class enforcing stateless interface with utility methods (_compose, _choose_variant)
+- LucienVoiceService integrated into ServiceContainer with lazy loading
+- 7 message providers (Common, AdminMain, AdminVIP, AdminFree, UserStart, UserFlow, SessionHistory)
+- ~330 lines of hardcoded strings eliminated from 5 handler files
+- Session-aware variation selection with ~80 bytes/user memory overhead
+- Voice linter pre-commit hook with 5.09ms average performance
+- Message preview CLI tool for testing all variations
+- Semantic test helpers for variation-safe testing
+- 140/140 phase tests passing (100%)
+- 28/28 v1 requirements satisfied (100%)
+
+**Stats:**
+
+- 50+ files created/modified
+- 3,500 lines of Python code
+- 4 phases, 14 plans, ~140 tasks
+- 2 days from start to ship (2026-01-23 to 2026-01-24)
+
+**Git range:** `feat(01-01)` to `feat(04-04)`
+
+**What's next:** Run `/gsd:new-milestone` to define v2 goals (Voice audit dashboard, A/B testing framework, Internationalization, Gamification messages)
+
+---
+
+## v2.0 Gamification (Shipped: 2026-02-17)
+
+**Delivered:** Complete virtual economy system with "besitos" currency, inline reaction buttons, daily rewards with streaks, content shop, configurable rewards with conditions, and comprehensive admin configuration panel.
+
+**Phases completed:** 19-24 (29 plans total)
+
+**Key accomplishments:**
+
+- WalletService with atomic besitos transactions and transaction audit trail
+- Inline reaction system with emoji buttons (❤️ 🔥 💋 😈), rate limiting, and daily caps
+- Daily rewards with streak tracking, bonus calculation, and UTC midnight background jobs
+- Shop system with product catalog, VIP discounts, and automatic content delivery
+- Configurable rewards with cascading condition creation (streak, level, points, besitos spent)
+- Admin configuration panel with economy settings, shop/reward management, stats dashboard
+- User gamification profile viewer for administrators
+- 197+ new tests covering all gamification features
+- 43/43 v2.0 requirements satisfied (100%)
+
+**Stats:**
+
+- 41,201 lines of Python code (bot/ directory)
+- 6 phases, 29 plans, ~180 tasks
+- 8 days from start to ship (2026-02-09 to 2026-02-17)
+
+**Git range:** `feat(19-01)` to `feat(24-05)`
+
+---
+
+
+## v2.1 Deployment Readiness (Shipped: 2026-02-21)
+
+**Delivered:** Broadcasting improvements with optional reactions and content protection, plus complete data migration infrastructure for seamless deployment with default gamification data.
+
+**Phases completed:** 25-26 (4 plans total)
+
+**Key accomplishments:**
+
+- Extended broadcast FSM with optional reaction buttons and content protection toggle
+- Admins can now configure per-message options during broadcast flow (reactions ON/OFF, protection ON/OFF)
+- Default values ensure backward compatibility (reactions ON, protection OFF)
+- Alembic data migration seeds default economy configuration (level formula, besitos values, daily limits)
+- User gamification profile backfill for all existing users
+- Python seeder module with BaseSeeder abstract class for complex relational data
+- Default rewards seeded: Primeros Pasos, Ahorrador Principiante, Racha de 7 Dias
+- Default shop products: Pack de Bienvenida (50 besitos) and Pack VIP Especial (200 besitos)
+- Idempotent migration design (safe to run multiple times)
+- Safety-first downgrade (preserves user data, only resets config)
+- 9/9 requirements satisfied (100%)
+
+**Stats:**
+
+- 4 plans, 4 phases, ~15 tasks
+- 7 commits from Phase 25-01 through Phase 26-03
+- 5 files created, 4 files modified
+- Completed in 1 day (2026-02-21)
+
+**Git range:** `feat(25-01)` to `feat(26-03)`
+
+---
+
